@@ -1,4 +1,4 @@
-# agent-foundry-ai-template
+# spec-compiler
 
 ├── .github
   ├── af-config
