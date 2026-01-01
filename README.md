@@ -7,6 +7,7 @@ A FastAPI service for compiling specifications with LLM integrations. This servi
 - **FastAPI Framework**: Modern async Python web framework with automatic OpenAPI documentation
 - **Structured Logging**: JSON-formatted logs compatible with Google Cloud Logging
 - **Request Tracing**: Automatic request ID propagation for distributed tracing
+- **Error Handling**: Uniform error responses with request correlation for debugging
 - **Health Endpoints**: Standard health check and version endpoints for orchestration
 - **CORS Support**: Configurable CORS middleware
 - **Configuration Management**: Environment-based settings with sensible defaults
@@ -332,6 +333,8 @@ This service uses **structured logging** with JSON output, designed for integrat
 
 - **JSON Format**: When `LOG_JSON=true` (default), all logs are output as JSON with structured fields including `timestamp`, `level`, `logger`, `message`, and contextual data.
 - **Request Tracing**: Every request receives a unique request ID (via `X-Request-Id` header) that's included in all logs for that request. This enables distributed tracing across services.
+- **Error Handling**: Unhandled exceptions are caught by middleware, logged with full stack traces, and returned as structured JSON responses with format: `{ "error": "internal_error", "request_id": <uuid>, "message": <safe_summary> }`. This ensures consistent error responses and prevents leaking sensitive error details to clients.
+- **Idempotency Support**: Optional `Idempotency-Key` header is logged and echoed in responses for client-side idempotency tracking (sanitized for safety).
 - **Log Levels**: Controlled via `LOG_LEVEL` environment variable. Use `DEBUG` for development, `INFO` for production.
 - **Google Cloud Logging**: When deployed to Cloud Run, structured JSON logs are automatically parsed and indexed by Google Cloud Logging, enabling powerful querying and alerting.
 
@@ -389,7 +392,8 @@ spec-compiler/
 │       │   └── llm.py             # LLM envelope models
 │       ├── middleware/
 │       │   ├── __init__.py
-│       │   └── request_id.py      # Request ID middleware
+│       │   ├── error_handler.py    # Error handling middleware
+│       │   └── request_id.py       # Request ID middleware
 │       └── app/
 │           ├── __init__.py
 │           ├── main.py            # FastAPI application
