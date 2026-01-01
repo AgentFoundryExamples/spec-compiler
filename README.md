@@ -134,21 +134,158 @@ spec-compiler/
 └── README.md                    # This file
 ```
 
-## Deployment
+## Docker Deployment
 
-This service is designed for deployment on Google Cloud Run but can run in any containerized environment.
+This service is fully containerized and designed for deployment on Google Cloud Run or any container orchestration platform.
 
-### Docker (example)
+### Building the Docker Image
 
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY src/ ./src/
-ENV PYTHONPATH=/app/src
-CMD ["uvicorn", "spec_compiler.app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+Build the image using the provided Makefile:
+
+```bash
+make build
 ```
+
+Or build directly with Docker:
+
+```bash
+docker build -t spec-compiler:latest .
+```
+
+The Dockerfile uses multi-stage builds for optimized layer caching and minimal image size. It:
+- Uses `python:3.11-slim` base image
+- Installs dependencies in a separate stage for better caching
+- Runs as non-root user (`appuser`)
+- Exposes port 8080 (configurable via `PORT` environment variable)
+- Includes health check endpoint
+
+### Running the Container Locally
+
+#### Production Mode
+
+Run with production settings:
+
+```bash
+make run
+```
+
+Or with Docker directly:
+
+```bash
+docker run -d \
+  --name spec-compiler \
+  -p 8080:8080 \
+  -e PORT=8080 \
+  -e APP_ENV=production \
+  spec-compiler:latest
+```
+
+#### Development Mode
+
+Run with development settings and environment variables from `.env`:
+
+```bash
+make run-dev
+```
+
+Or with custom port:
+
+```bash
+make run-dev PORT=3000
+```
+
+#### Interactive Mode (Debugging)
+
+Run interactively to see logs in real-time:
+
+```bash
+make run-interactive
+```
+
+### Docker Commands
+
+The Makefile provides convenient targets:
+
+- `make build` - Build the Docker image
+- `make run` - Run container in production mode
+- `make run-dev` - Run container in development mode with `.env` file
+- `make run-interactive` - Run container interactively (for debugging)
+- `make logs` - Show container logs
+- `make stop` - Stop and remove the container
+- `make clean` - Stop container and remove image
+- `make help` - Show all available commands
+
+### Environment Variables for Docker
+
+When running in a container, you can configure the service using environment variables:
+
+- `PORT` - Port to bind to (default: 8080, Cloud Run will set this automatically)
+- `APP_ENV` - Application environment (development, staging, production)
+- `LOG_JSON` - Enable JSON logging (default: true, recommended for Cloud Run)
+- `LOG_LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR)
+- `OPENAI_API_KEY` - OpenAI API key (optional)
+- `CLAUDE_API_KEY` - Anthropic API key (optional)
+- `GCP_PROJECT_ID` - Google Cloud Project ID (optional)
+- `CORS_ORIGINS` - Comma-separated CORS origins
+
+Example with environment variables:
+
+```bash
+docker run -d \
+  --name spec-compiler \
+  -p 8080:8080 \
+  -e PORT=8080 \
+  -e APP_ENV=production \
+  -e LOG_JSON=true \
+  -e LOG_LEVEL=INFO \
+  -e OPENAI_API_KEY=sk-your-key \
+  spec-compiler:latest
+```
+
+### Deploying to Google Cloud Run
+
+The Makefile includes helper commands for Cloud Run deployment:
+
+#### 1. Build and push to Google Container Registry:
+
+```bash
+make gcloud-build GCP_PROJECT_ID=your-project-id
+```
+
+#### 2. Deploy to Cloud Run:
+
+```bash
+make gcloud-deploy GCP_PROJECT_ID=your-project-id CLOUD_RUN_SERVICE=spec-compiler
+```
+
+Or deploy manually with `gcloud`:
+
+```bash
+# Build and push
+gcloud builds submit --tag gcr.io/your-project-id/spec-compiler
+
+# Deploy to Cloud Run
+gcloud run deploy spec-compiler \
+  --image gcr.io/your-project-id/spec-compiler:latest \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --port 8080 \
+  --memory 512Mi \
+  --cpu 1 \
+  --max-instances 10 \
+  --set-env-vars APP_ENV=production,LOG_JSON=true
+```
+
+### Container Features
+
+- **Non-root user**: Runs as `appuser` (UID 1000) for security
+- **Multi-stage build**: Optimized layers for faster builds and smaller images
+- **Health check**: Built-in Docker health check on `/health` endpoint
+- **Graceful shutdown**: Properly handles SIGTERM for clean shutdowns
+- **Structured logging**: JSON logs to stdout (compatible with Cloud Logging)
+- **Request tracing**: Automatic request ID generation and propagation
+- **Configurable port**: Respects `PORT` environment variable (Cloud Run compatible)
 
 Template README to persist license, contribution rules, and author throughout agent foundry projects. This sentence and the main title can be changed but permanents and below should be left alone.
 
