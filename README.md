@@ -22,7 +22,7 @@ A FastAPI service for compiling specifications with LLM integrations. This servi
 
 **Note**: These instructions work on macOS, Linux, and Windows. On Windows, use `python` instead of `python3`. The virtual environment activation command depends on your shell:
 - **Command Prompt**: `venv\Scripts\activate`
-- **PowerShell**: `venv\Scripts\Activate.ps1`
+- **PowerShell**: `.\venv\Scripts\Activate.ps1`
 - **Git Bash**: `source venv/Scripts/activate`
 
 ### Installation
