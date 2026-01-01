@@ -22,7 +22,6 @@ import logging
 import uuid
 from io import StringIO
 
-import pytest
 import structlog
 from fastapi.testclient import TestClient
 
@@ -40,9 +39,6 @@ def test_logger_configuration() -> None:
 
 def test_logging_with_request_id_context(test_client: TestClient) -> None:
     """Test that request ID is included in logging context."""
-    from spec_compiler.logging import get_logger
-
-    logger = get_logger("test")
     request_id = str(uuid.uuid4())
 
     # Make request with request ID
@@ -131,6 +127,6 @@ def test_log_level_configuration(monkeypatch) -> None:
 
     # Just verify the function exists and is callable
     assert callable(logging_module.configure_logging)
-    
+
     # Verify log level is a valid logging level
     assert logging.root.level in [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR]
