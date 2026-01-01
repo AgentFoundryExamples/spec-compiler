@@ -32,21 +32,6 @@ def add_severity_field(logger: Any, method_name: str, event_dict: EventDict) -> 
     return event_dict
 
 
-def add_timestamp(logger: Any, method_name: str, event_dict: EventDict) -> EventDict:
-    """Add ISO 8601 timestamp to log entries."""
-    return event_dict
-
-
-def add_trace_context(logger: Any, method_name: str, event_dict: EventDict) -> EventDict:
-    """
-    Add trace/correlation context to log entries.
-
-    Includes request_id if present in context.
-    """
-    # Trace context will be added by middleware when available
-    return event_dict
-
-
 def configure_logging() -> None:
     """
     Configure structured logging for the application.
