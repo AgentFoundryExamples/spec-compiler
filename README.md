@@ -168,8 +168,9 @@ The following environment variables are available (see `.env.example` for a comp
 - **`LOG_LEVEL`**: Logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). Default: `INFO`.
 - **`LOG_JSON`**: Enable JSON structured logging (`true`/`false`). Default: `true`. Should be `true` for Cloud Run deployments to integrate with Google Cloud Logging.
 
-#### Request Tracing
+#### Request Configuration
 - **`REQUEST_ID_HEADER`**: HTTP header name for request correlation (default: `X-Request-Id`). Used for distributed tracing.
+- **`MAX_REQUEST_BODY_SIZE_BYTES`**: Maximum request body size in bytes (default: `10485760` = 10MB). Requests exceeding this limit will be rejected with HTTP 413.
 
 **⚠️ Important Notes**:
 - GitHub integration, LLM API calls, and Pub/Sub messaging are **not yet implemented**. The corresponding environment variables are placeholders for future features.
@@ -177,6 +178,9 @@ The following environment variables are available (see `.env.example` for a comp
 - For production deployments, use your platform's secret management system (e.g., Google Cloud Secret Manager, AWS Secrets Manager).
 
 ## API Endpoints
+
+### Compile
+- **`POST /compile-spec`**: Compile a specification with LLM integration. Accepts a `CompileRequest` JSON payload and optional `Idempotency-Key` header. Returns HTTP 202 Accepted with a `CompileResponse` containing request tracking information. Currently stubs downstream LLM integration.
 
 ### Health & Monitoring
 - **`GET /health`**: Health check endpoint returning `{"status": "ok"}`. Used by Cloud Run and Docker health checks.
@@ -254,6 +258,112 @@ response = CompileResponse(
     message="Request accepted for processing"
 )
 ```
+
+### Using the Compile Endpoint
+
+The compile endpoint accepts specification compilation requests and returns a 202 Accepted response while stubbing downstream LLM processing.
+
+#### Making a Request
+
+**Request:**
+```bash
+curl -X POST http://localhost:8080/compile-spec \
+  -H "Content-Type: application/json" \
+  -H "X-Request-Id: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "Idempotency-Key: my-unique-key-123" \
+  -d '{
+    "plan_id": "plan-abc123",
+    "spec_index": 0,
+    "spec_data": {
+      "type": "feature",
+      "description": "Add user authentication"
+    },
+    "github_owner": "my-org",
+    "github_repo": "my-project"
+  }'
+```
+
+**Response (HTTP 202 Accepted):**
+```json
+{
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "plan_id": "plan-abc123",
+  "spec_index": 0,
+  "status": "accepted",
+  "message": "Request accepted for processing"
+}
+```
+
+#### Request Headers
+
+- **`X-Request-Id`** (optional): Client-provided request ID for distributed tracing. If not provided or invalid, a UUID will be generated.
+- **`Idempotency-Key`** (optional): Client-provided idempotency key for request deduplication tracking. Currently logged but not used for actual deduplication.
+- **`Content-Type`**: Must be `application/json`.
+- **`Content-Length`**: Automatically set by HTTP clients. Requests exceeding `MAX_REQUEST_BODY_SIZE_BYTES` (default: 10MB) will be rejected with HTTP 413.
+
+#### Response Codes
+
+- **`202 Accepted`**: Request was validated and accepted for processing
+- **`413 Request Entity Too Large`**: Request body exceeds size limit (configurable via `MAX_REQUEST_BODY_SIZE_BYTES`)
+- **`422 Unprocessable Entity`**: Request validation failed (invalid fields, missing required data, etc.)
+- **`500 Internal Server Error`**: Unexpected server error (logged with request_id for debugging)
+
+#### Body Size Limits
+
+Request body size is limited to prevent memory exhaustion. The limit is configurable via the `MAX_REQUEST_BODY_SIZE_BYTES` environment variable (default: 10MB).
+
+```bash
+# Configure in .env
+MAX_REQUEST_BODY_SIZE_BYTES=10485760  # 10MB
+```
+
+Requests exceeding this limit will receive a 413 error:
+```json
+{
+  "detail": "Request body exceeds maximum size limit of 10485760 bytes"
+}
+```
+
+#### Validation Errors
+
+Validation errors return HTTP 422 with detailed error information:
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "plan_id"],
+      "msg": "Field cannot be empty or whitespace-only",
+      "type": "value_error"
+    }
+  ]
+}
+```
+
+#### Edge Cases
+
+- **`spec_index=0`**: Valid, as spec_index is zero-based
+- **Empty `spec_data`**: Valid for both `{}` (dict) and `[]` (list)
+- **Whitespace-only strings**: Rejected with validation error
+- **Negative `spec_index`**: Rejected with validation error
+- **Malformed JSON**: Rejected with HTTP 422
+- **Missing required fields**: Rejected with HTTP 422 detailing all missing fields
+
+#### Stubbed Behavior
+
+**Current Implementation:**
+- Accepts and validates requests
+- Logs receipt with full context (plan_id, spec_index, github_owner/repo, request_id)
+- Creates placeholder `LlmResponseEnvelope` with `{"status": "stubbed", "details": "LLM call not yet implemented"}`
+- Logs the stubbed envelope as if dispatching to downstream service
+- Returns HTTP 202 with tracking information
+
+**Not Yet Implemented:**
+- Actual GitHub API integration
+- Real LLM API calls (OpenAI, Claude)
+- Pub/Sub message publishing
+- Request persistence or deduplication
+
 
 ### LLM Envelope Models (Skeletal)
 

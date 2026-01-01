@@ -25,7 +25,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from spec_compiler.app.routes import health
+from spec_compiler.app.routes import health, compile
 from spec_compiler.config import settings
 from spec_compiler.logging import get_logger
 from spec_compiler.middleware.error_handler import ErrorHandlingMiddleware
@@ -95,6 +95,7 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(health.router, tags=["health"])
+    app.include_router(compile.router, tags=["compile"])
 
     # Version endpoint
     @app.get("/version", tags=["info"])
