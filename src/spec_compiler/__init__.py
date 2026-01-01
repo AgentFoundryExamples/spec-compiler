@@ -17,4 +17,27 @@ Spec Compiler FastAPI Service
 A FastAPI service for compiling specifications with LLM integrations.
 """
 
+from spec_compiler.models import (
+    CompileRequest,
+    CompileResponse,
+    LlmRequestEnvelope,
+    LlmResponseEnvelope,
+    RepoContextPayload,
+    SystemPromptConfig,
+    create_llm_response_stub,
+    generate_request_id,
+)
+
 __version__ = "0.1.0"
+
+__all__ = [
+    "__version__",
+    "CompileRequest",
+    "CompileResponse",
+    "SystemPromptConfig",
+    "RepoContextPayload",
+    "LlmRequestEnvelope",
+    "LlmResponseEnvelope",
+    "generate_request_id",
+    "create_llm_response_stub",
+]
