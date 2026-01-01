@@ -17,7 +17,6 @@ Error handling middleware for uniform error responses.
 Captures unhandled exceptions and returns structured JSON error responses.
 """
 
-import traceback
 import uuid
 
 import structlog
@@ -106,7 +105,6 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                 request_id=request_id,
                 method=request.method,
                 path=request.url.path,
-                traceback=traceback.format_exc(),
             )
 
             # Create safe error message (don't leak internal details)
@@ -155,7 +153,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
 
         # Sanitize: ensure it's safe for logging (remove control characters)
         idempotency_key = "".join(
-            char if char.isprintable() or char.isspace() else "?" for char in idempotency_key
+            char for char in idempotency_key if char.isprintable() and not char.isspace() or char == " "
         )
 
         return idempotency_key.strip() or None
