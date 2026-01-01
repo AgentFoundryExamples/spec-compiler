@@ -44,3 +44,33 @@ def test_app():
         FastAPI application instance
     """
     return create_app()
+
+
+@pytest.fixture
+def test_client_with_error_routes() -> TestClient:
+    """
+    Create a test client with additional error test routes.
+
+    Returns:
+        TestClient instance with error test endpoints
+    """
+    app = create_app()
+
+    # Add test routes that raise exceptions
+    @app.get("/test-error")
+    async def test_error_endpoint():
+        raise ValueError("Test exception for error handling")
+
+    @app.get("/test-error-with-key")
+    async def test_error_with_key():
+        raise RuntimeError("Test error with idempotency key")
+
+    @app.get("/test-error-request-id")
+    async def test_error_request_id():
+        raise Exception("Test error for request_id reuse")
+
+    @app.get("/test-error-no-id")
+    async def test_error_no_id():
+        raise Exception("Test error without request_id")
+
+    return TestClient(app)

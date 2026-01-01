@@ -12,3 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Middleware package for spec-compiler."""
+
+from spec_compiler.middleware.error_handler import ErrorHandlingMiddleware
+from spec_compiler.middleware.request_id import RequestIdMiddleware
+
+__all__ = ["ErrorHandlingMiddleware", "RequestIdMiddleware"]
