@@ -19,6 +19,7 @@ body size limits, logging, and response format.
 """
 
 import json
+import logging
 import uuid
 
 from fastapi.testclient import TestClient
@@ -444,8 +445,6 @@ def test_compile_request_without_content_length_header(test_client: TestClient) 
 
 def test_compile_request_logs_llm_response_envelope(test_client: TestClient, caplog) -> None:
     """Test that compile endpoint logs the stubbed LLM response envelope."""
-    import logging
-
     caplog.set_level(logging.INFO)
 
     payload = {
@@ -467,8 +466,6 @@ def test_compile_request_logs_llm_response_envelope(test_client: TestClient, cap
 
 def test_compile_request_logs_compile_receipt(test_client: TestClient, caplog) -> None:
     """Test that compile endpoint logs request receipt with full context."""
-    import logging
-
     caplog.set_level(logging.INFO)
 
     payload = {
