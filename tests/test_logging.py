@@ -56,28 +56,35 @@ def test_structured_log_format_json_mode(monkeypatch) -> None:
     # Reconfigure logging with JSON mode
     from spec_compiler import logging as logging_module
 
-    logging_module.configure_logging()
-    logger = logging_module.get_logger("test")
+    # Save original handlers for cleanup
+    original_handlers = logging.root.handlers.copy()
 
-    # Capture log output
-    stream = StringIO()
-    handler = logging.StreamHandler(stream)
-    logging.root.handlers = [handler]
-
-    # Bind context and log
-    structlog.contextvars.bind_contextvars(request_id="test-request-id")
-    logger.info("test message", extra_field="extra_value")
-
-    # Get log output
-    log_output = stream.getvalue()
-
-    # Should be valid JSON
     try:
-        log_data = json.loads(log_output.strip())
-        assert "event" in log_data or "test message" in log_output
-    except json.JSONDecodeError:
-        # If not JSON, ensure it at least contains the message
-        assert "test message" in log_output
+        logging_module.configure_logging()
+        logger = logging_module.get_logger("test")
+
+        # Capture log output
+        stream = StringIO()
+        handler = logging.StreamHandler(stream)
+        logging.root.handlers = [handler]
+
+        # Bind context and log
+        structlog.contextvars.bind_contextvars(request_id="test-request-id")
+        logger.info("test message", extra_field="extra_value")
+
+        # Get log output
+        log_output = stream.getvalue()
+
+        # Should be valid JSON
+        try:
+            log_data = json.loads(log_output.strip())
+            assert "event" in log_data or "test message" in log_output
+        except json.JSONDecodeError as e:
+            # If not JSON, the test should fail.
+            raise AssertionError(f"Log output is not valid JSON: {log_output}") from e
+    finally:
+        # Restore original handlers to avoid affecting other tests
+        logging.root.handlers = original_handlers
 
 
 def test_severity_field_mapping() -> None:
