@@ -1,10 +1,245 @@
 {
-  "nodes": [],
-  "edges": [],
+  "nodes": [
+    {
+      "id": "src/spec_compiler/__init__.py",
+      "path": "src/spec_compiler/__init__.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": []
+      }
+    },
+    {
+      "id": "src/spec_compiler/app/__init__.py",
+      "path": "src/spec_compiler/app/__init__.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": []
+      }
+    },
+    {
+      "id": "src/spec_compiler/app/main.py",
+      "path": "src/spec_compiler/app/main.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "collections.abc.AsyncGenerator",
+          "contextlib.asynccontextmanager",
+          "os"
+        ],
+        "third-party": [
+          "fastapi.FastAPI",
+          "fastapi.middleware.cors.CORSMiddleware",
+          "uvicorn"
+        ]
+      }
+    },
+    {
+      "id": "src/spec_compiler/app/routes/__init__.py",
+      "path": "src/spec_compiler/app/routes/__init__.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": []
+      }
+    },
+    {
+      "id": "src/spec_compiler/app/routes/health.py",
+      "path": "src/spec_compiler/app/routes/health.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": [
+          "fastapi.APIRouter"
+        ]
+      }
+    },
+    {
+      "id": "src/spec_compiler/config.py",
+      "path": "src/spec_compiler/config.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": [
+          "pydantic.Field",
+          "pydantic_settings.BaseSettings",
+          "pydantic_settings.SettingsConfigDict"
+        ]
+      }
+    },
+    {
+      "id": "src/spec_compiler/logging.py",
+      "path": "src/spec_compiler/logging.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "logging",
+          "sys",
+          "typing.Any"
+        ],
+        "third-party": [
+          "structlog",
+          "structlog.types.EventDict",
+          "structlog.types.Processor"
+        ]
+      }
+    },
+    {
+      "id": "src/spec_compiler/middleware/__init__.py",
+      "path": "src/spec_compiler/middleware/__init__.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": []
+      }
+    },
+    {
+      "id": "src/spec_compiler/middleware/request_id.py",
+      "path": "src/spec_compiler/middleware/request_id.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "uuid"
+        ],
+        "third-party": [
+          "fastapi.Request",
+          "fastapi.Response",
+          "starlette.middleware.base.BaseHTTPMiddleware",
+          "starlette.middleware.base.RequestResponseEndpoint",
+          "structlog"
+        ]
+      }
+    },
+    {
+      "id": "tests/__init__.py",
+      "path": "tests/__init__.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": []
+      }
+    },
+    {
+      "id": "tests/conftest.py",
+      "path": "tests/conftest.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": [
+          "fastapi.testclient.TestClient",
+          "pytest"
+        ]
+      }
+    },
+    {
+      "id": "tests/test_config.py",
+      "path": "tests/test_config.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "os",
+          "unittest.mock.patch"
+        ],
+        "third-party": []
+      }
+    },
+    {
+      "id": "tests/test_health.py",
+      "path": "tests/test_health.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "uuid"
+        ],
+        "third-party": [
+          "fastapi.testclient.TestClient",
+          "pytest"
+        ]
+      }
+    },
+    {
+      "id": "tests/test_middleware.py",
+      "path": "tests/test_middleware.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "uuid"
+        ],
+        "third-party": [
+          "fastapi.testclient.TestClient"
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "src/spec_compiler/app/main.py",
+      "target": "src/spec_compiler/app/routes/health.py"
+    },
+    {
+      "source": "src/spec_compiler/app/main.py",
+      "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "src/spec_compiler/app/main.py",
+      "target": "src/spec_compiler/logging.py"
+    },
+    {
+      "source": "src/spec_compiler/app/main.py",
+      "target": "src/spec_compiler/middleware/request_id.py"
+    },
+    {
+      "source": "src/spec_compiler/app/routes/health.py",
+      "target": "src/spec_compiler/logging.py"
+    },
+    {
+      "source": "src/spec_compiler/logging.py",
+      "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "src/spec_compiler/middleware/request_id.py",
+      "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "tests/conftest.py",
+      "target": "src/spec_compiler/app/main.py"
+    },
+    {
+      "source": "tests/test_config.py",
+      "target": "src/spec_compiler/config.py"
+    }
+  ],
   "external_dependencies_summary": {
-    "stdlib": [],
-    "third-party": [],
-    "stdlib_count": 0,
-    "third-party_count": 0
+    "stdlib": [
+      "collections.abc.AsyncGenerator",
+      "contextlib.asynccontextmanager",
+      "logging",
+      "os",
+      "sys",
+      "typing.Any",
+      "unittest.mock.patch",
+      "uuid"
+    ],
+    "third-party": [
+      "fastapi.APIRouter",
+      "fastapi.FastAPI",
+      "fastapi.Request",
+      "fastapi.Response",
+      "fastapi.middleware.cors.CORSMiddleware",
+      "fastapi.testclient.TestClient",
+      "pydantic.Field",
+      "pydantic_settings.BaseSettings",
+      "pydantic_settings.SettingsConfigDict",
+      "pytest",
+      "starlette.middleware.base.BaseHTTPMiddleware",
+      "starlette.middleware.base.RequestResponseEndpoint",
+      "structlog",
+      "structlog.types.EventDict",
+      "structlog.types.Processor",
+      "uvicorn"
+    ],
+    "stdlib_count": 8,
+    "third-party_count": 16
   }
 }

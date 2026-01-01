@@ -13,9 +13,33 @@
     └── tree.md
   └── workflows
     └── af_maintenance.yml
+├── src
+  └── spec_compiler
+    ├── app
+      ├── routes
+        ├── __init__.py
+        └── health.py
+      ├── __init__.py
+      └── main.py
+    ├── middleware
+      ├── __init__.py
+      └── request_id.py
+    ├── __init__.py
+    ├── config.py
+    └── logging.py
+├── tests
+  ├── __init__.py
+  ├── conftest.py
+  ├── test_config.py
+  ├── test_health.py
+  └── test_middleware.py
+├── .env.example
+├── .gitignore
 ├── github-app-basic.openapi.json
 ├── LICENSE
 ├── LLMs.md
+├── pyproject.toml
 ├── README.md
+├── requirements.txt
 ├── sample.v1_1.json
 └── spec-scheduler.openapi.json
