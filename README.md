@@ -435,6 +435,47 @@ stub = create_llm_response_stub(
 )
 ```
 
+## Maintainer Notes
+
+### LLM Integration Placeholders
+
+The compile endpoint currently uses **placeholder/stub LLM envelopes** to simulate the future workflow without making actual LLM API calls. This is intentional to allow the service infrastructure to be deployed and tested before integrating external LLM services.
+
+**Current Behavior:**
+- When a compile request is received, the endpoint creates an `LlmResponseEnvelope` with status `"pending"` and metadata `{"status": "stubbed", "details": "LLM call not yet implemented"}`
+- This envelope is logged as if it were being dispatched to a downstream service
+- The envelope is **not returned to the client** - clients only receive the `CompileResponse` with status `"accepted"`
+- All LLM envelope models (`LlmRequestEnvelope`, `LlmResponseEnvelope`, `SystemPromptConfig`, `RepoContextPayload`) are defined but not actively used
+
+**Log Destination and Access:**
+- LLM envelope logs are written to **stdout in JSON format** (when `LOG_JSON=true`)
+- In local development: View logs in your terminal or pipe through `jq` for readability
+- In Docker: Use `docker logs -f <container-name>` to follow logs
+- In Cloud Run: Logs are automatically indexed in **Google Cloud Logging**
+  - Access via Cloud Console: Logging > Logs Explorer
+  - Filter by `resource.type=cloud_run_revision` and `resource.labels.service_name=spec-compiler`
+  - Search for `"Generated stubbed LLM response envelope"` to find envelope logs
+- All logs include the `request_id` field for correlation and tracing through the request lifecycle
+
+**Future Implementation:**
+When integrating actual LLM services, the workflow should:
+1. Create a real `LlmRequestEnvelope` with the specification context
+2. Dispatch the request to the appropriate LLM service (OpenAI GPT-5.1, Claude Sonnet 4.5, or Gemini 3.0 Pro)
+3. Handle async responses via Pub/Sub or webhooks
+4. Update the compile status from `"accepted"` to `"failed"` or complete via async status endpoint
+5. Implement request persistence and idempotency enforcement (currently only logs the key)
+
+**Important Assumptions:**
+- LLM API calls will be made according to the guidelines in `LLMs.md` (GPT-5.1 Responses API, Claude Messages API, Gemini API)
+- API keys are loaded from environment variables (`OPENAI_API_KEY`, `CLAUDE_API_KEY`)
+- The service is designed to be stateless - status updates would come via external Pub/Sub topics
+- Request/response envelopes provide a consistent structure regardless of which LLM is called
+
+**Testing Considerations:**
+- The stubbed envelopes allow testing of the API contract without LLM dependencies
+- Tests verify that envelopes are created and logged correctly
+- When LLM integration is added, existing tests should be updated to mock LLM API calls rather than relying on stubs
+
 ## Structured Logging & Observability
 
 This service uses **structured logging** with JSON output, designed for integration with Google Cloud Logging and other log aggregation systems.

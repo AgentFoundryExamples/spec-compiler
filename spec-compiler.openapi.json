@@ -1,0 +1,363 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Spec Compiler Service",
+    "description": "FastAPI service for compiling specifications (LLM integration in development)",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health Check",
+        "description": "Health check endpoint.\n\nReturns a simple status indicator for container orchestration systems.\n\nReturns:\n    Dictionary with status \"ok\"",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Check Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/compile-spec": {
+      "post": {
+        "tags": [
+          "compile"
+        ],
+        "summary": "Compile Spec",
+        "description": "Compile a specification with LLM integration.\n\nAccepts a compile request, validates the payload, logs the operation,\nand returns a 202 Accepted response. Currently stubs out downstream\nLLM integration.\n\nArgs:\n    request: FastAPI request object (for accessing request_id and body)\n    idempotency_key: Optional idempotency key for client-side deduplication\n\nReturns:\n    CompileResponse with request tracking information\n\nRaises:\n    HTTPException: 413 if request body exceeds size limit\n    HTTPException: 422 if validation fails (handled by Pydantic)",
+        "operationId": "compile_spec_compile_spec_post",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            },
+            "description": "Optional idempotency key for request deduplication. Alphanumeric, hyphens, and underscores only. Max length: 100 characters."
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Request accepted for processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompileResponse"
+                },
+                "example": {
+                  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+                  "plan_id": "plan-abc123",
+                  "spec_index": 0,
+                  "status": "accepted",
+                  "message": "Request accepted for processing"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body too large",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Request body exceeds maximum size limit of 10485760 bytes"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "plan_id"
+                      ],
+                      "msg": "Field cannot be empty or whitespace-only",
+                      "type": "value_error"
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "internal_error",
+                  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+                  "message": "An unexpected error occurred"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompileRequest"
+              },
+              "example": {
+                "plan_id": "plan-abc123",
+                "spec_index": 0,
+                "spec_data": {
+                  "type": "feature",
+                  "description": "Add user authentication"
+                },
+                "github_owner": "my-org",
+                "github_repo": "my-project"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/version": {
+      "get": {
+        "tags": [
+          "info"
+        ],
+        "summary": "Version Info",
+        "description": "Return application version information.\n\nReturns git SHA if available from environment, otherwise returns\nthe configured APP_VERSION.",
+        "operationId": "version_info_version_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Version Info Version Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CompileResponse": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id",
+            "description": "Unique request identifier"
+          },
+          "plan_id": {
+            "type": "string",
+            "title": "Plan Id",
+            "description": "Plan identifier"
+          },
+          "spec_index": {
+            "type": "integer",
+            "title": "Spec Index",
+            "description": "Specification index"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "failed"
+            ],
+            "title": "Status",
+            "description": "Processing status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message",
+            "description": "Optional status message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "plan_id",
+          "spec_index",
+          "status"
+        ],
+        "title": "CompileResponse",
+        "description": "Response model for the compile API endpoint.\n\nThis represents the external API contract for the compile response.\n\nAttributes:\n    request_id: Unique identifier for this request (UUID format)\n    plan_id: Plan identifier echoed from the request\n    spec_index: Specification index echoed from the request\n    status: Processing status (accepted or failed)\n    message: Optional message providing additional context"
+      },
+      "CompileRequest": {
+        "description": "Request model for the compile API endpoint.\n\nThis represents the external API contract for compiling a specification.\nAll fields are validated to ensure data integrity before processing.\n\nAttributes:\n    plan_id: Non-empty identifier for the plan\n    spec_index: Zero-based index of the specification (must be >= 0)\n    spec_data: Arbitrary JSON data (dict or list) representing the specification\n    github_owner: Non-empty GitHub repository owner (user or organization)\n    github_repo: Non-empty GitHub repository name",
+        "properties": {
+          "plan_id": {
+            "description": "Plan identifier",
+            "minLength": 1,
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "spec_index": {
+            "description": "Specification index (must be >= 0)",
+            "minimum": 0,
+            "title": "Spec Index",
+            "type": "integer"
+          },
+          "spec_data": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "items": {},
+                "type": "array"
+              }
+            ],
+            "description": "Specification data as arbitrary JSON (dict or list)",
+            "title": "Spec Data"
+          },
+          "github_owner": {
+            "description": "GitHub repository owner",
+            "minLength": 1,
+            "title": "Github Owner",
+            "type": "string"
+          },
+          "github_repo": {
+            "description": "GitHub repository name",
+            "minLength": 1,
+            "title": "Github Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_id",
+          "spec_index",
+          "spec_data",
+          "github_owner",
+          "github_repo"
+        ],
+        "title": "CompileRequest",
+        "type": "object"
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": [
+          "error",
+          "request_id",
+          "message"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "description": "Error type identifier (e.g., 'internal_error')",
+            "example": "internal_error"
+          },
+          "request_id": {
+            "type": "string",
+            "title": "Request ID",
+            "description": "Unique request identifier for tracking",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable error message",
+            "example": "An unexpected error occurred"
+          }
+        },
+        "title": "ErrorEnvelope",
+        "description": "Standard error envelope returned by error middleware for unhandled exceptions (HTTP 500)."
+      },
+      "ValidationError": {
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "properties": {
+          "loc": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "description": "Location of the error in the request (e.g., ['body', 'plan_id'])"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message",
+            "description": "Error message describing the validation failure"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type",
+            "description": "Type of validation error"
+          }
+        },
+        "title": "ValidationError",
+        "description": "Individual validation error detail."
+      },
+      "HTTPValidationError": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "description": "List of validation errors"
+          }
+        },
+        "title": "HTTPValidationError",
+        "description": "Validation error response (HTTP 422) containing a list of field-level errors."
+      }
+    }
+  }
+}

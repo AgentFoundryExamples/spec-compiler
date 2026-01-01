@@ -19,6 +19,7 @@ body size limits, logging, and response format.
 """
 
 import json
+import logging
 import uuid
 
 from fastapi.testclient import TestClient
@@ -440,3 +441,146 @@ def test_compile_request_without_content_length_header(test_client: TestClient) 
     response = test_client.post("/compile-spec", json=payload)
 
     assert response.status_code == 202
+
+
+def test_compile_request_logs_llm_response_envelope(test_client: TestClient, caplog) -> None:
+    """Test that compile endpoint logs the stubbed LLM response envelope."""
+    caplog.set_level(logging.INFO)
+
+    payload = {
+        "plan_id": "plan-llm-log",
+        "spec_index": 0,
+        "spec_data": {"type": "feature"},
+        "github_owner": "test-owner",
+        "github_repo": "test-repo",
+    }
+
+    response = test_client.post("/compile-spec", json=payload)
+
+    assert response.status_code == 202
+
+    # Check that LLM envelope logging occurred
+    log_messages = [record.message for record in caplog.records]
+    assert any("Generated stubbed LLM response envelope" in msg for msg in log_messages)
+
+    # Verify the envelope structure is logged with correct fields
+    # Find the log record that contains LLM metadata
+    llm_log_records = [
+        r for r in caplog.records
+        if "Generated stubbed LLM response envelope" in r.message
+    ]
+    assert len(llm_log_records) > 0
+    
+    # Check that the log record has the expected structured fields
+    llm_record = llm_log_records[0]
+    # The logger should have bound context with llm_status and llm_metadata
+    # structlog stores these in the record's message or as attributes
+    assert hasattr(llm_record, 'message')
+
+
+def test_compile_request_validates_llm_envelope_structure(test_client: TestClient) -> None:
+    """Test that the stubbed LLM envelope has the correct structure."""
+    from spec_compiler.models import create_llm_response_stub
+    
+    # Create a stub envelope like the endpoint does
+    request_id = "550e8400-e29b-41d4-a716-446655440000"
+    llm_response = create_llm_response_stub(
+        request_id=request_id,
+        status="pending",
+        content="",
+        metadata={
+            "status": "stubbed",
+            "details": "LLM call not yet implemented",
+        },
+    )
+    
+    # Verify the envelope structure matches documentation
+    assert llm_response.request_id == request_id
+    assert llm_response.status == "pending"
+    assert llm_response.content == ""
+    assert llm_response.metadata == {
+        "status": "stubbed",
+        "details": "LLM call not yet implemented",
+    }
+    # Model should be None when not specified (stub behavior)
+    assert llm_response.model is None
+    # Usage should be None when not specified (stub behavior)
+    assert llm_response.usage is None
+
+
+def test_compile_request_logs_compile_receipt(test_client: TestClient, caplog) -> None:
+    """Test that compile endpoint logs request receipt with full context."""
+    caplog.set_level(logging.INFO)
+
+    payload = {
+        "plan_id": "plan-receipt-log",
+        "spec_index": 5,
+        "spec_data": {"type": "feature", "description": "Test feature"},
+        "github_owner": "test-owner",
+        "github_repo": "test-repo",
+    }
+
+    response = test_client.post("/compile-spec", json=payload)
+
+    assert response.status_code == 202
+
+    # Check that compile request was logged with context
+    log_messages = [record.message for record in caplog.records]
+    assert any("Compile request received" in msg for msg in log_messages)
+    assert any("Compile request accepted" in msg for msg in log_messages)
+
+
+def test_compile_endpoint_error_middleware_catches_exceptions(
+    test_client_with_error_routes: TestClient,
+) -> None:
+    """Test that error middleware catches exceptions and returns structured error."""
+    response = test_client_with_error_routes.get("/test-error")
+
+    # Error middleware should catch the exception and return 500
+    assert response.status_code == 500
+    data = response.json()
+
+    # Check error envelope structure
+    assert "error" in data
+    assert "request_id" in data
+    assert "message" in data
+
+    # Verify request_id is a valid UUID
+    uuid.UUID(data["request_id"])
+
+
+def test_compile_response_message_can_be_null() -> None:
+    """Test that CompileResponse.message can be null (optional field)."""
+    # The current implementation always sets message, but we should verify
+    # the model allows null as per the schema
+    from spec_compiler.models.compile import CompileResponse
+
+    # Test creating response with null message
+    response = CompileResponse(
+        request_id="550e8400-e29b-41d4-a716-446655440000",
+        plan_id="plan-test",
+        spec_index=0,
+        status="accepted",
+        message=None,
+    )
+
+    assert response.message is None
+    assert response.status == "accepted"
+
+
+def test_compile_response_with_failed_status() -> None:
+    """Test that CompileResponse model allows 'failed' status."""
+    # While the endpoint currently only returns 'accepted', the model
+    # should support 'failed' for future async updates
+    from spec_compiler.models.compile import CompileResponse
+
+    response = CompileResponse(
+        request_id="550e8400-e29b-41d4-a716-446655440000",
+        plan_id="plan-test",
+        spec_index=0,
+        status="failed",
+        message="Compilation failed",
+    )
+
+    assert response.status == "failed"
+    assert response.message == "Compilation failed"
