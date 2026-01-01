@@ -447,6 +447,16 @@ The compile endpoint currently uses **placeholder/stub LLM envelopes** to simula
 - The envelope is **not returned to the client** - clients only receive the `CompileResponse` with status `"accepted"`
 - All LLM envelope models (`LlmRequestEnvelope`, `LlmResponseEnvelope`, `SystemPromptConfig`, `RepoContextPayload`) are defined but not actively used
 
+**Log Destination and Access:**
+- LLM envelope logs are written to **stdout in JSON format** (when `LOG_JSON=true`)
+- In local development: View logs in your terminal or pipe through `jq` for readability
+- In Docker: Use `docker logs -f <container-name>` to follow logs
+- In Cloud Run: Logs are automatically indexed in **Google Cloud Logging**
+  - Access via Cloud Console: Logging > Logs Explorer
+  - Filter by `resource.type=cloud_run_revision` and `resource.labels.service_name=spec-compiler`
+  - Search for `"Generated stubbed LLM response envelope"` to find envelope logs
+- All logs include the `request_id` field for correlation and tracing through the request lifecycle
+
 **Future Implementation:**
 When integrating actual LLM services, the workflow should:
 1. Create a real `LlmRequestEnvelope` with the specification context

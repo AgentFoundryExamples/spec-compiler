@@ -102,6 +102,9 @@
                       "type": "value_error"
                     }
                   ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -114,6 +117,9 @@
                   "error": "internal_error",
                   "request_id": "550e8400-e29b-41d4-a716-446655440000",
                   "message": "An unexpected error occurred"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -269,6 +275,88 @@
         ],
         "title": "CompileRequest",
         "type": "object"
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": [
+          "error",
+          "request_id",
+          "message"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "description": "Error type identifier (e.g., 'internal_error')",
+            "example": "internal_error"
+          },
+          "request_id": {
+            "type": "string",
+            "title": "Request ID",
+            "description": "Unique request identifier for tracking",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable error message",
+            "example": "An unexpected error occurred"
+          }
+        },
+        "title": "ErrorEnvelope",
+        "description": "Standard error envelope returned by error middleware for unhandled exceptions (HTTP 500)."
+      },
+      "ValidationError": {
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "properties": {
+          "loc": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "description": "Location of the error in the request (e.g., ['body', 'plan_id'])"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message",
+            "description": "Error message describing the validation failure"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type",
+            "description": "Type of validation error"
+          }
+        },
+        "title": "ValidationError",
+        "description": "Individual validation error detail."
+      },
+      "HTTPValidationError": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "description": "List of validation errors"
+          }
+        },
+        "title": "HTTPValidationError",
+        "description": "Validation error response (HTTP 422) containing a list of field-level errors."
       }
     }
   }
