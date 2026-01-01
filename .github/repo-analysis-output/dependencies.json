@@ -112,6 +112,50 @@
       }
     },
     {
+      "id": "src/spec_compiler/models/__init__.py",
+      "path": "src/spec_compiler/models/__init__.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "typing.Any",
+          "typing.Literal",
+          "uuid"
+        ],
+        "third-party": []
+      }
+    },
+    {
+      "id": "src/spec_compiler/models/compile.py",
+      "path": "src/spec_compiler/models/compile.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "typing.Any",
+          "typing.Literal"
+        ],
+        "third-party": [
+          "pydantic.BaseModel",
+          "pydantic.Field",
+          "pydantic.field_validator"
+        ]
+      }
+    },
+    {
+      "id": "src/spec_compiler/models/llm.py",
+      "path": "src/spec_compiler/models/llm.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "typing.Any",
+          "typing.Literal"
+        ],
+        "third-party": [
+          "pydantic.BaseModel",
+          "pydantic.Field"
+        ]
+      }
+    },
+    {
       "id": "tests/__init__.py",
       "path": "tests/__init__.py",
       "type": "file",
@@ -187,9 +231,48 @@
           "fastapi.testclient.TestClient"
         ]
       }
+    },
+    {
+      "id": "tests/test_models_compile.py",
+      "path": "tests/test_models_compile.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": [
+          "pydantic.ValidationError",
+          "pytest"
+        ]
+      }
+    },
+    {
+      "id": "tests/test_models_helpers.py",
+      "path": "tests/test_models_helpers.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "uuid"
+        ],
+        "third-party": []
+      }
+    },
+    {
+      "id": "tests/test_models_llm.py",
+      "path": "tests/test_models_llm.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": [
+          "pydantic.ValidationError",
+          "pytest"
+        ]
+      }
     }
   ],
   "edges": [
+    {
+      "source": "src/spec_compiler/__init__.py",
+      "target": "src/spec_compiler/models/__init__.py"
+    },
     {
       "source": "src/spec_compiler/app/main.py",
       "target": "src/spec_compiler/app/routes/health.py"
@@ -219,6 +302,14 @@
       "target": "src/spec_compiler/config.py"
     },
     {
+      "source": "src/spec_compiler/models/__init__.py",
+      "target": "src/spec_compiler/models/compile.py"
+    },
+    {
+      "source": "src/spec_compiler/models/__init__.py",
+      "target": "src/spec_compiler/models/llm.py"
+    },
+    {
       "source": "tests/conftest.py",
       "target": "src/spec_compiler/app/main.py"
     },
@@ -229,6 +320,26 @@
     {
       "source": "tests/test_logging.py",
       "target": "src/spec_compiler/logging.py"
+    },
+    {
+      "source": "tests/test_models_compile.py",
+      "target": "src/spec_compiler/models/compile.py"
+    },
+    {
+      "source": "tests/test_models_helpers.py",
+      "target": "src/spec_compiler/models/__init__.py"
+    },
+    {
+      "source": "tests/test_models_helpers.py",
+      "target": "src/spec_compiler/models/llm.py"
+    },
+    {
+      "source": "tests/test_models_helpers.py",
+      "target": "src/spec_compiler/__init__.py"
+    },
+    {
+      "source": "tests/test_models_llm.py",
+      "target": "src/spec_compiler/models/llm.py"
     }
   ],
   "external_dependencies_summary": {
@@ -241,6 +352,7 @@
       "os",
       "sys",
       "typing.Any",
+      "typing.Literal",
       "unittest.mock.patch",
       "uuid"
     ],
@@ -251,7 +363,10 @@
       "fastapi.Response",
       "fastapi.middleware.cors.CORSMiddleware",
       "fastapi.testclient.TestClient",
+      "pydantic.BaseModel",
       "pydantic.Field",
+      "pydantic.ValidationError",
+      "pydantic.field_validator",
       "pydantic_settings.BaseSettings",
       "pydantic_settings.SettingsConfigDict",
       "pytest",
@@ -262,7 +377,7 @@
       "structlog.types.Processor",
       "uvicorn"
     ],
-    "stdlib_count": 10,
-    "third-party_count": 16
+    "stdlib_count": 11,
+    "third-party_count": 19
   }
 }

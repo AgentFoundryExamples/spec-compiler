@@ -125,6 +125,24 @@
               ]
             },
             {
+              "type": "directory",
+              "name": "models",
+              "children": [
+                {
+                  "type": "file",
+                  "name": "__init__.py"
+                },
+                {
+                  "type": "file",
+                  "name": "compile.py"
+                },
+                {
+                  "type": "file",
+                  "name": "llm.py"
+                }
+              ]
+            },
+            {
               "type": "file",
               "name": "__init__.py"
             },
@@ -167,6 +185,18 @@
         {
           "type": "file",
           "name": "test_middleware.py"
+        },
+        {
+          "type": "file",
+          "name": "test_models_compile.py"
+        },
+        {
+          "type": "file",
+          "name": "test_models_helpers.py"
+        },
+        {
+          "type": "file",
+          "name": "test_models_llm.py"
         }
       ]
     },

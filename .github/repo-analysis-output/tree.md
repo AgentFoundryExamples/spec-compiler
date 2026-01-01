@@ -27,6 +27,10 @@
     ├── middleware
       ├── __init__.py
       └── request_id.py
+    ├── models
+      ├── __init__.py
+      ├── compile.py
+      └── llm.py
     ├── __init__.py
     ├── config.py
     └── logging.py
@@ -36,7 +40,10 @@
   ├── test_config.py
   ├── test_health.py
   ├── test_logging.py
-  └── test_middleware.py
+  ├── test_middleware.py
+  ├── test_models_compile.py
+  ├── test_models_helpers.py
+  └── test_models_llm.py
 ├── .dockerignore
 ├── .env.example
 ├── .gitignore
