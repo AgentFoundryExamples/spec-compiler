@@ -80,6 +80,10 @@
     },
     {
       "type": "file",
+      "name": "sample.v1_1.json"
+    },
+    {
+      "type": "file",
       "name": "spec-scheduler.openapi.json"
     }
   ]
