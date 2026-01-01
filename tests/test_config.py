@@ -20,7 +20,7 @@ def test_settings_defaults():
         assert settings.openai_api_key is None
         assert settings.claude_api_key is None
         assert settings.gcp_project_id is None
-        assert settings.cors_origins == "*"
+        assert settings.cors_origins == ""
         assert settings.log_level == "INFO"
         assert settings.log_json is True
 

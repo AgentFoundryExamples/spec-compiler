@@ -35,21 +35,20 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
             HTTP response with request ID header
         """
         # Extract or generate request ID
-        request_id = request.headers.get(settings.request_id_header.lower(), None)
+        request_id = request.headers.get(settings.request_id_header)
 
-        # Validate and sanitize request ID (handle malformed values)
-        if request_id is None or len(request_id) > 100:
-            # Generate new UUID if missing or too long
+        # Validate and sanitize request ID
+        if not request_id or len(request_id) > 100:
             request_id = str(uuid.uuid4())
         else:
-            # Attempt to validate as UUID - generate new one if invalid
             try:
+                # Validate that the provided ID is a UUID.
+                # If not, generate a new one to prevent injection of malformed IDs.
                 uuid.UUID(request_id)
-            except (ValueError, AttributeError):
+            except ValueError:
                 request_id = str(uuid.uuid4())
 
         # Bind request ID to logging context
-        structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(request_id=request_id)
 
         # Store in request state for access in route handlers

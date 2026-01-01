@@ -41,8 +41,8 @@ class Settings(BaseSettings):
 
     # CORS Configuration
     cors_origins: str = Field(
-        default="*",
-        description="Comma-separated list of allowed CORS origins, or * for all",
+        default="",
+        description="Comma-separated list of allowed CORS origins",
     )
 
     # Application Version
