@@ -119,7 +119,7 @@ gcloud-deploy: ## Deploy to Cloud Run
 		--platform managed \
 		--region us-central1 \
 		--allow-unauthenticated \
-		--port 8080 \
+		--port $(PORT) \
 		--memory 512Mi \
 		--cpu 1 \
 		--max-instances 10 \
