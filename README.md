@@ -18,6 +18,12 @@ A FastAPI service for compiling specifications with LLM integrations. This servi
 
 - Python 3.11 or higher
 - pip for package management
+- Virtual environment tool (venv, included with Python 3.11+)
+
+**Note**: These instructions work on macOS, Linux, and Windows. On Windows, use `python` instead of `python3`. The virtual environment activation command depends on your shell:
+- **Command Prompt**: `venv\Scripts\activate`
+- **PowerShell**: `.\venv\Scripts\Activate.ps1`
+- **Git Bash**: `source venv/Scripts/activate`
 
 ### Installation
 
@@ -44,17 +50,36 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
+**⚠️ Security Warning**: Never commit your `.env` file or any file containing real secrets to version control. The `.env` file is already in `.gitignore` to prevent accidental commits. Always use `.env.example` as a template and keep actual secrets local only. You can verify your .env is ignored by running `git status --ignored`.
+
 ### Running the Service
 
-Start the development server:
+Start the development server with environment variables loaded from `.env`:
+
 ```bash
+# The application automatically loads .env via python-dotenv (configured in config.py)
+# On macOS/Linux:
 PYTHONPATH=src python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 --reload
+
+# On Windows (Command Prompt):
+set PYTHONPATH=src && python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 --reload
+
+# On Windows (PowerShell):
+$env:PYTHONPATH="src"; python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 --reload
 ```
+
+**How Environment Variables are Loaded**:
+- The `python-dotenv` package is included in `requirements.txt`
+- Environment variables are automatically loaded from `.env` file when the application starts (see `config.py`)
+- You can override any `.env` value by setting it explicitly in your shell (e.g., `PORT=3000 PYTHONPATH=src python -m uvicorn ...`)
+- The `APP_ENV` variable controls behavior (development mode enables auto-reload and verbose logging)
 
 The service will be available at:
 - API: http://localhost:8080
 - Interactive API docs (Swagger UI): http://localhost:8080/docs
 - OpenAPI schema: http://localhost:8080/openapi.json
+- Health check: http://localhost:8080/health
+- Version info: http://localhost:8080/version
 
 ### Testing
 
@@ -115,24 +140,100 @@ See `.github/workflows/ci.yml` for the complete CI configuration.
 
 ## Configuration
 
-All configuration is managed through environment variables. See `.env.example` for all available options.
+All configuration is managed through environment variables. Copy `.env.example` to `.env` and customize as needed.
 
-Key configuration variables:
-- `APP_ENV`: Application environment (development, staging, production)
-- `PORT`: Server port (default: 8080)
-- `OPENAI_API_KEY`: OpenAI API key for GPT models
-- `CLAUDE_API_KEY`: Anthropic API key for Claude models
-- `GCP_PROJECT_ID`: Google Cloud Project ID
-- `CORS_ORIGINS`: Comma-separated list of allowed CORS origins
-- `LOG_LEVEL`: Logging level (default: INFO)
-- `LOG_JSON`: Enable JSON logging (default: true)
+### Environment Variables Reference
+
+The following environment variables are available (see `.env.example` for a complete template):
+
+#### Application Settings
+- **`APP_ENV`**: Application environment (`development`, `staging`, `production`). Controls logging verbosity and auto-reload behavior.
+- **`PORT`**: Server port (default: `8080`). Cloud Run will automatically set this when deployed.
+- **`APP_VERSION`**: Application version string (default: `0.1.0`). Can also use git SHA.
+
+#### API Keys (Optional - Not Required for Core Functionality)
+- **`OPENAI_API_KEY`**: OpenAI API key for GPT models (format: `sk-...`). **Not yet used** - reserved for future LLM integrations.
+- **`CLAUDE_API_KEY`**: Anthropic API key for Claude models (format: `sk-ant-...`). **Not yet used** - reserved for future LLM integrations.
+
+#### Google Cloud Configuration (Optional)
+- **`GCP_PROJECT_ID`**: Google Cloud Project ID. **Not yet used** - reserved for future integrations.
+- **`PUBSUB_TOPIC_PLAN_STATUS`**: Pub/Sub topic name for plan status updates. **Not yet used** - reserved for future Pub/Sub integrations.
+- **`DOWNSTREAM_LOG_SINK`**: Downstream log sink for Cloud Logging. **Not yet used** - reserved for future logging integrations.
+
+#### CORS Settings
+- **`CORS_ORIGINS`**: Comma-separated list of allowed CORS origins (e.g., `http://localhost:3000,https://example.com`). Leave empty to disable CORS, or use `*` for all origins (not recommended in production).
+
+#### Logging Configuration
+- **`LOG_LEVEL`**: Logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). Default: `INFO`.
+- **`LOG_JSON`**: Enable JSON structured logging (`true`/`false`). Default: `true`. Should be `true` for Cloud Run deployments to integrate with Google Cloud Logging.
+
+#### Request Tracing
+- **`REQUEST_ID_HEADER`**: HTTP header name for request correlation (default: `X-Request-Id`). Used for distributed tracing.
+
+**⚠️ Important Notes**:
+- GitHub integration, LLM API calls, and Pub/Sub messaging are **not yet implemented**. The corresponding environment variables are placeholders for future features.
+- Never commit real API keys, tokens, or secrets to version control. Always use `.env` for local secrets (already in `.gitignore`).
+- For production deployments, use your platform's secret management system (e.g., Google Cloud Secret Manager, AWS Secrets Manager).
 
 ## API Endpoints
 
-- `GET /health`: Health check endpoint returning `{"status": "ok"}`
-- `GET /version`: Version information with git SHA and environment
-- `GET /docs`: Interactive API documentation (Swagger UI)
-- `GET /openapi.json`: OpenAPI specification
+### Health & Monitoring
+- **`GET /health`**: Health check endpoint returning `{"status": "ok"}`. Used by Cloud Run and Docker health checks.
+- **`GET /version`**: Version information including app version, git SHA (if available), and environment.
+
+### Documentation
+- **`GET /docs`**: Interactive API documentation (Swagger UI). Automatically generated from OpenAPI schema.
+- **`GET /openapi.json`**: OpenAPI specification in JSON format. Use this for code generation or API clients.
+
+## Structured Logging & Observability
+
+This service uses **structured logging** with JSON output, designed for integration with Google Cloud Logging and other log aggregation systems.
+
+### Logging Behavior
+
+- **JSON Format**: When `LOG_JSON=true` (default), all logs are output as JSON with structured fields including `timestamp`, `level`, `logger`, `message`, and contextual data.
+- **Request Tracing**: Every request receives a unique request ID (via `X-Request-Id` header) that's included in all logs for that request. This enables distributed tracing across services.
+- **Log Levels**: Controlled via `LOG_LEVEL` environment variable. Use `DEBUG` for development, `INFO` for production.
+- **Google Cloud Logging**: When deployed to Cloud Run, structured JSON logs are automatically parsed and indexed by Google Cloud Logging, enabling powerful querying and alerting.
+
+### Viewing Logs
+
+**Local Development**:
+```bash
+# Human-readable logs (LOG_JSON=false)
+LOG_JSON=false PYTHONPATH=src python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080
+
+# Structured JSON logs (LOG_JSON=true) - pipe through jq for readability (optional: install jq with your package manager)
+LOG_JSON=true PYTHONPATH=src python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 | jq
+```
+
+**Docker Logs**:
+```bash
+# Follow container logs
+docker logs -f spec-compiler-container
+
+# With Makefile
+make logs
+```
+
+**Cloud Run** (requires GCP access):
+```bash
+# View logs in Google Cloud Console
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=spec-compiler" --limit 50
+
+# Or use the Cloud Console: Logging > Logs Explorer
+```
+
+### Log Correlation
+
+All requests are automatically tagged with:
+- `request_id`: Unique identifier for each request
+- `path`: HTTP path
+- `method`: HTTP method
+- `status_code`: Response status
+- `duration_ms`: Request duration in milliseconds
+
+Use the request ID to trace a request through all log entries.
 
 ## Project Structure
 
@@ -249,12 +350,14 @@ When running in a container, you can configure the service using environment var
 
 - `PORT` - Port to bind to (default: 8080, Cloud Run will set this automatically)
 - `APP_ENV` - Application environment (development, staging, production)
-- `LOG_JSON` - Enable JSON logging (default: true, recommended for Cloud Run)
+- `LOG_JSON` - Enable JSON logging (default: true, **required** for Cloud Run integration with Google Cloud Logging)
 - `LOG_LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR)
-- `OPENAI_API_KEY` - OpenAI API key (optional)
-- `CLAUDE_API_KEY` - Anthropic API key (optional)
-- `GCP_PROJECT_ID` - Google Cloud Project ID (optional)
+- `OPENAI_API_KEY` - OpenAI API key (optional, not yet used)
+- `CLAUDE_API_KEY` - Anthropic API key (optional, not yet used)
+- `GCP_PROJECT_ID` - Google Cloud Project ID (optional, not yet used)
 - `CORS_ORIGINS` - Comma-separated CORS origins
+
+**Cloud Run Requirements**: When deploying to Cloud Run, ensure `LOG_JSON=true` to enable proper integration with Google Cloud Logging. Cloud Run expects JSON-formatted logs on stdout for indexing and querying. The application automatically handles this when `LOG_JSON=true`.
 
 Example with environment variables:
 
