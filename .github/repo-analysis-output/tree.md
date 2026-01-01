@@ -8,6 +8,8 @@
   ├── repo-analysis-output
     ├── dependencies.json
     ├── dependencies.md
+    ├── file-summaries.json
+    ├── file-summaries.md
     ├── SUMMARY.md
     ├── tree.json
     └── tree.md
@@ -33,11 +35,14 @@
   ├── test_config.py
   ├── test_health.py
   └── test_middleware.py
+├── .dockerignore
 ├── .env.example
 ├── .gitignore
+├── Dockerfile
 ├── github-app-basic.openapi.json
 ├── LICENSE
 ├── LLMs.md
+├── Makefile
 ├── pyproject.toml
 ├── README.md
 ├── requirements.txt

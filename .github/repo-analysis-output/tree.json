@@ -38,6 +38,14 @@
             },
             {
               "type": "file",
+              "name": "file-summaries.json"
+            },
+            {
+              "type": "file",
+              "name": "file-summaries.md"
+            },
+            {
+              "type": "file",
               "name": "SUMMARY.md"
             },
             {
@@ -156,11 +164,19 @@
     },
     {
       "type": "file",
+      "name": ".dockerignore"
+    },
+    {
+      "type": "file",
       "name": ".env.example"
     },
     {
       "type": "file",
       "name": ".gitignore"
+    },
+    {
+      "type": "file",
+      "name": "Dockerfile"
     },
     {
       "type": "file",
@@ -173,6 +189,10 @@
     {
       "type": "file",
       "name": "LLMs.md"
+    },
+    {
+      "type": "file",
+      "name": "Makefile"
     },
     {
       "type": "file",
