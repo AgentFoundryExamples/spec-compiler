@@ -28,6 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from spec_compiler.app.routes import health
 from spec_compiler.config import settings
 from spec_compiler.logging import get_logger
+from spec_compiler.middleware.error_handler import ErrorHandlingMiddleware
 from spec_compiler.middleware.request_id import RequestIdMiddleware
 
 logger = get_logger(__name__)
@@ -71,6 +72,9 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
         lifespan=lifespan,
     )
+
+    # Add error handling middleware (outermost, catches all exceptions)
+    app.add_middleware(ErrorHandlingMiddleware)
 
     # Add request ID middleware
     app.add_middleware(RequestIdMiddleware)

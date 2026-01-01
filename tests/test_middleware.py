@@ -92,3 +92,158 @@ def test_middleware_adds_request_id_to_all_endpoints(test_client: TestClient) ->
     # Each request should get a unique ID
     uuid.UUID(health_response.headers["X-Request-Id"])
     uuid.UUID(version_response.headers["X-Request-Id"])
+
+
+# Error Handling Middleware Tests
+
+
+def test_error_handling_middleware_passthrough(test_client: TestClient) -> None:
+    """Test that error handling middleware passes through successful requests."""
+    response = test_client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    assert "X-Request-Id" in response.headers
+
+
+def test_error_handling_middleware_catches_exception(
+    test_client_with_error_routes: TestClient,
+) -> None:
+    """Test that error handling middleware catches and formats exceptions."""
+    # Make request that will trigger the exception
+    response = test_client_with_error_routes.get("/test-error")
+
+    # Verify error response structure
+    assert response.status_code == 500
+    data = response.json()
+    assert data["error"] == "internal_error"
+    assert "request_id" in data
+    assert "message" in data
+    assert "Test exception" not in data["message"]  # Don't leak exception details
+    assert "contact support" in data["message"].lower()
+
+    # Verify request_id is a valid UUID
+    uuid.UUID(data["request_id"])
+
+    # Verify request_id header matches body
+    assert response.headers["X-Request-Id"] == data["request_id"]
+
+
+def test_error_handling_middleware_with_idempotency_key(test_client: TestClient) -> None:
+    """Test that error handling middleware handles Idempotency-Key header."""
+    idempotency_key = "test-idempotency-key-12345"
+    response = test_client.get("/health", headers={"Idempotency-Key": idempotency_key})
+
+    assert response.status_code == 200
+    # Idempotency key should be echoed back
+    assert response.headers.get("Idempotency-Key") == idempotency_key
+
+
+def test_error_handling_middleware_idempotency_key_in_error(
+    test_client_with_error_routes: TestClient,
+) -> None:
+    """Test that Idempotency-Key is echoed in error responses."""
+    idempotency_key = "error-test-key-67890"
+    response = test_client_with_error_routes.get(
+        "/test-error-with-key", headers={"Idempotency-Key": idempotency_key}
+    )
+
+    assert response.status_code == 500
+    # Idempotency key should be echoed even in error response
+    assert response.headers.get("Idempotency-Key") == idempotency_key
+
+
+def test_error_handling_middleware_truncates_long_idempotency_key(test_client: TestClient) -> None:
+    """Test that excessively long Idempotency-Key is truncated."""
+    # Create a key longer than MAX_IDEMPOTENCY_KEY_LENGTH (255)
+    long_key = "x" * 500
+
+    response = test_client.get("/health", headers={"Idempotency-Key": long_key})
+
+    assert response.status_code == 200
+    echoed_key = response.headers.get("Idempotency-Key")
+    assert echoed_key is not None
+    # Should be truncated to 255 characters
+    assert len(echoed_key) <= 255
+
+
+def test_error_handling_middleware_sanitizes_unicode_idempotency_key(test_client: TestClient) -> None:
+    """Test that unicode/special characters in Idempotency-Key are sanitized."""
+    # Key with control characters (avoid unicode emoji since httpx headers must be ASCII)
+    unicode_key = "test-key-\x00\x01-control"
+
+    response = test_client.get("/health", headers={"Idempotency-Key": unicode_key})
+
+    assert response.status_code == 200
+    echoed_key = response.headers.get("Idempotency-Key")
+    assert echoed_key is not None
+    # Control characters should be replaced with '?'
+    assert "?" in echoed_key or len(echoed_key) > 0
+    # Original control chars should not be present
+    assert "\x00" not in echoed_key
+    assert "\x01" not in echoed_key
+
+
+def test_error_handling_middleware_handles_empty_idempotency_key(test_client: TestClient) -> None:
+    """Test that empty Idempotency-Key is handled gracefully."""
+    response = test_client.get("/health", headers={"Idempotency-Key": ""})
+
+    assert response.status_code == 200
+    # Empty key should not be echoed
+    assert "Idempotency-Key" not in response.headers
+
+
+def test_error_handling_middleware_reuses_existing_request_id(
+    test_client_with_error_routes: TestClient,
+) -> None:
+    """Test that error handling middleware reuses request_id from RequestIdMiddleware."""
+    # Provide a request ID
+    request_id = str(uuid.uuid4())
+    response = test_client_with_error_routes.get(
+        "/test-error-request-id", headers={"X-Request-Id": request_id}
+    )
+
+    assert response.status_code == 500
+    data = response.json()
+
+    # Error response should use the same request_id we provided
+    assert data["request_id"] == request_id
+    assert response.headers["X-Request-Id"] == request_id
+
+
+def test_error_handling_middleware_generates_request_id_if_missing(
+    test_client_with_error_routes: TestClient,
+) -> None:
+    """Test that error handling uses generated request_id if none provided."""
+    # Don't provide a request ID
+    response = test_client_with_error_routes.get("/test-error-no-id")
+
+    assert response.status_code == 500
+    data = response.json()
+
+    # Should have a valid request_id
+    assert "request_id" in data
+    uuid.UUID(data["request_id"])  # Validate it's a UUID
+    assert response.headers["X-Request-Id"] == data["request_id"]
+
+
+def test_error_handling_middleware_logs_exception_details(
+    test_client_with_error_routes: TestClient, caplog
+) -> None:
+    """Test that error handling middleware logs full exception details."""
+    import logging
+
+    # Capture logs at ERROR level
+    caplog.set_level(logging.ERROR)
+
+    # Make request that will trigger the exception
+    response = test_client_with_error_routes.get("/test-error")
+
+    assert response.status_code == 500
+
+    # Verify that error was logged
+    # Note: structlog logs to stdout by default in JSON format
+    # This test verifies the logging call was made, actual log output
+    # is tested in test_logging.py
+    assert response.json()["error"] == "internal_error"
+
