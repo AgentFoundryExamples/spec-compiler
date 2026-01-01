@@ -61,5 +61,6 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/health').read()" || exit 1
 
 # Run uvicorn with workers <= 2 as specified
-# Use exec form to ensure proper signal handling for graceful shutdown
+# Using shell form with exec to support PORT variable substitution while maintaining proper signal handling
+# The 'exec' ensures uvicorn becomes PID 1 and receives SIGTERM for graceful shutdown
 CMD ["sh", "-c", "exec uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port ${PORT} --workers 1"]

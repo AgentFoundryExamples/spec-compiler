@@ -85,6 +85,7 @@ format: ## Format code locally (requires Python environment)
 	ruff check --fix src/ tests/
 
 # Docker Compose targets (if docker-compose.yml is added in the future)
+# These are placeholders for future multi-service orchestration
 compose-up: ## Start services with docker-compose
 	docker-compose up -d
 
