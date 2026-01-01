@@ -47,7 +47,7 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
-**⚠️ Security Warning**: Never commit your `.env` file or any file containing real secrets to version control. The `.env` file is already in `.gitignore` to prevent accidental commits. Always use `.env.example` as a template and keep actual secrets local only.
+**⚠️ Security Warning**: Never commit your `.env` file or any file containing real secrets to version control. The `.env` file is already in `.gitignore` to prevent accidental commits. Always use `.env.example` as a template and keep actual secrets local only. You can verify your .env is ignored by running `git status --ignored`.
 
 ### Running the Service
 
@@ -193,7 +193,7 @@ This service uses **structured logging** with JSON output, designed for integrat
 # Human-readable logs (LOG_JSON=false)
 LOG_JSON=false PYTHONPATH=src python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080
 
-# Structured JSON logs (LOG_JSON=true) - pipe through jq for readability
+# Structured JSON logs (LOG_JSON=true) - pipe through jq for readability (optional: install jq with your package manager)
 LOG_JSON=true PYTHONPATH=src python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 | jq
 ```
 
