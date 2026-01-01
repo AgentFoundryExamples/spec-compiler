@@ -73,6 +73,10 @@
     {
       "type": "file",
       "name": "README.md"
+    },
+    {
+      "type": "file",
+      "name": "spec-scheduler.openapi.json"
     }
   ]
 }
