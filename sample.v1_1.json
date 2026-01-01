@@ -1,0 +1,136 @@
+{
+  "schema_version": "af/1.1",
+  "issues": [
+    {
+      "id": "ISS-1",
+      "title": "Enhance celestial visuals and themes",
+      "body": "### Goal\nDeliver realistic celestial rendering and admin theme controls.\n\n### Context\nExisting planets, moons, and stars look placeholder and lack customization, undermining the wow factor.\n\n### Plan\n1. Add reusable texture, normal, and halo assets plus shading tweaks for planets, moons, and stars.\n2. Update rendering components to apply consistent lighting, rotation cues, and faint glow borders tied to theme colors.\n3. Extend admin editors to manage theme presets (planet type, lunar traits, star halo intensity) persisted through universe data services.\n4. Document art direction guidelines and workflow updates for configuring celestial themes.\n\n### Risks\nLarge textures can bloat bundle sizes or drop frame rates; enforce compression and asset reuse.\n\n### Avoid\nDo not reposition celestial objects; limit changes to styling, shading, and metadata.",
+      "paths": [
+        "src/components/PlanetSurface.tsx",
+        "src/components/shared/CentralStar.tsx",
+        "src/components/shared/OrbitingPlanet.tsx",
+        "src/components/shared/PlanetarySystem.tsx",
+        "src/components/admin/PlanetEditor.tsx",
+        "src/components/admin/SolarSystemEditor.tsx",
+        "src/components/admin/UniverseEditor.tsx",
+        "src/styles/planet.css",
+        "docs/visuals.md",
+        "docs/content-authoring.md"
+      ],
+      "blocks": [
+        "ISS-2",
+        "ISS-3",
+        "ISS-4"
+      ],
+      "acceptance": [
+        "Planets and moons render with high-quality textures, normals, and rotation cues derived from selectable themes while remaining consistently lit.",
+        "Stars (including the primary system star) expose halo strength, texture, and color controls in admin editors and display them in the scene.",
+        "A faint theme-colored glow/border wraps every planet and moon without altering orbital positions or layout.",
+        "Admin editors persist expanded theme metadata through existing universe mutate/persist flows.",
+        "docs/visuals.md and docs/content-authoring.md describe the new customization workflow and asset guidelines."
+      ],
+      "edgeCases": [
+        "Missing or legacy theme data falls back to a default preset without crashing renders or editors.",
+        "Texture import failures degrade gracefully with placeholder shading instead of blank meshes.",
+        "High-DPI/mobile devices maintain performance and avoid halo aliasing despite the added effects.",
+        "Server-side rendering paths continue to work when materials are lazily loaded on the client."
+      ]
+    },
+    {
+      "id": "ISS-2",
+      "title": "Add admin workflow for managing links",
+      "body": "### Goal\nEnable admins to add and edit outbound links for planets via the editor UI.\n\n### Context\nLinks currently exist but cannot be created or updated from the admin experience, forcing manual JSON edits.\n\n### Plan\n1. Expand universe data types and persistence logic to include structured link entries (label, url, optional description/icon hint).\n2. Create PlanetEditor/UniverseEditor UI for adding, editing, reordering, and removing links with validation plus inline feedback.\n3. Ensure presentation components consume the updated link metadata so end users see the new values immediately.\n4. Document the link workflow, validation rules, and any configuration needed for previewing links.\n\n### Risks\nInsufficient validation could allow malformed URLs or duplicates that break rendering; enforce checks in UI and persistence layers.\n\n### Avoid\nDo not change how links are displayed beyond reflecting the edited metadata.",
+      "paths": [
+        "src/components/admin/PlanetEditor.tsx",
+        "src/components/admin/UniverseEditor.tsx",
+        "src/lib/universe/types.ts",
+        "src/lib/universe/mutate.ts",
+        "src/lib/universe/persist.ts",
+        "src/lib/universe/data-service.ts",
+        "src/app/api/admin/universe/route.ts",
+        "docs/content-authoring.md",
+        "README.md"
+      ],
+      "dependencies": [
+        "ISS-1"
+      ],
+      "blocks": [
+        "ISS-3",
+        "ISS-4"
+      ],
+      "acceptance": [
+        "Admins can create, edit, reorder, and delete link entries (label + URL + optional notes/icon) for each planet within the editor UI.",
+        "Link entries are validated (protocol, uniqueness) before saving and persisted through mutate/persist/data-service layers plus API route.",
+        "Front-end consumers render the new/edited links without manual JSON edits once saved.",
+        "Unit or integration tests cover serialization and UI validation logic.",
+        "README.md and docs/content-authoring.md explain the link workflow and data requirements."
+      ],
+      "edgeCases": [
+        "Invalid protocols or missing labels are rejected with actionable inline errors.",
+        "Duplicate links or racing saves preserve deterministic ordering and do not corrupt data.",
+        "Planets with zero links continue to render a friendly empty state.",
+        "Large link lists remain performant in the editor (e.g., virtualization or capped renders)."
+      ]
+    },
+    {
+      "id": "ISS-3",
+      "title": "Compact moons and links viewer",
+      "body": "### Goal\nKeep planet content visible by moving moons and links into compact collapsible sections.\n\n### Context\nLarge moon collections currently overflow the content viewer, hiding text and links.\n\n### Plan\n1. Introduce collapsible Moon and Links panels occupying <15% of the content viewer when collapsed, expanding into independent scrollable lists when opened.\n2. Update viewer logic (Sidebar/MarkdownContent) to preserve primary content area while allowing users to scroll through long moon/link lists.\n3. Reset scroll position to the top when navigating into a moon detail and ensure focus handling works via keyboard/screen reader.\n4. Document the interaction model and authoring guidance for large moon/link sets.\n\n### Risks\nImproper overflow handling could trap scroll or introduce layout shifts across breakpoints.\n\n### Avoid\nDo not modify spatial positioning of celestial bodies outside the content viewer.",
+      "paths": [
+        "src/components/Sidebar.tsx",
+        "src/components/MarkdownContent.tsx",
+        "src/components/UniverseScene.tsx",
+        "src/styles/sidebar.css",
+        "src/components/admin/PlanetEditor.tsx",
+        "docs/content-authoring.md"
+      ],
+      "dependencies": [
+        "ISS-1",
+        "ISS-2"
+      ],
+      "blocks": [
+        "ISS-4"
+      ],
+      "acceptance": [
+        "Moon and Link sections render as separate collapsible controls that occupy <15% of the viewer footprint while collapsed and expand without hiding markdown content.",
+        "Expanded sections provide scrollable areas with their own overflow handling so dozens of moons/links remain accessible.",
+        "Navigating to a moon resets the content scroll position to the top and restores focus to the content container.",
+        "Keyboard and screen-reader users can toggle sections and reach items without losing context.",
+        "docs/content-authoring.md documents how these panels behave and how authors should manage large moon/link sets."
+      ],
+      "edgeCases": [
+        "Views with zero moons or links hide the corresponding collapsible section entirely.",
+        "Very large moon/link collections (100+) remain performant and scroll smoothly without jank.",
+        "Rapid toggle/resize events do not cause layout thrashing or overflow of primary content.",
+        "State resets correctly when switching between different planets or moons."
+      ]
+    },
+    {
+      "id": "ISS-4",
+      "title": "Update changelog and roadmap for release",
+      "body": "### Goal\nRecord the visual and UX upgrade release in project docs and update versioning artifacts.\n\n### Context\nAfter delivering celestial upgrades, link editing, and viewer compaction, documentation must explain the release scope and forward plan.\n\n### Plan\n1. Add a CHANGELOG entry summarizing the new visuals, link management workflow, and collapsible content viewer.\n2. Update the roadmap/README to describe the current state and upcoming polish items.\n3. Align any version identifiers or release metadata referenced in docs so stakeholders know which build includes these changes.\n\n### Risks\nIncomplete documentation leaves PMs without context for the release.\n\n### Avoid\nDo not introduce new functional code changes; limit to docs and metadata.",
+      "paths": [
+        "docs/CHANGELOG.md",
+        "docs/roadmap.md",
+        "README.md"
+      ],
+      "dependencies": [
+        "ISS-1",
+        "ISS-2",
+        "ISS-3"
+      ],
+      "acceptance": [
+        "CHANGELOG.md includes a dated entry covering the celestial visuals, admin link workflow, and collapsible viewer release.",
+        "docs/roadmap.md reflects completed work plus next visual polish milestones.",
+        "README.md (or relevant landing docs) references the new customization and content workflows with correct version identifiers.",
+        "No stray TODOs or outdated instructions remain about the prior placeholder visuals or missing link editor."
+      ],
+      "edgeCases": [
+        "Changelog ordering stays consistent with existing semantic versioning or release cadence.",
+        "Doc link anchors remain valid so navigation from README/roadmap is not broken.",
+        "Version identifiers do not skip ahead of any unreleased work.",
+        "Documentation build/tests (if any) pass after updates."
+      ]
+    }
+  ]
+}
