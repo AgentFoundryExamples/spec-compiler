@@ -8,19 +8,21 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 ## Statistics
 
-- **Total files**: 14
-- **Intra-repo dependencies**: 9
-- **External stdlib dependencies**: 8
+- **Total files**: 15
+- **Intra-repo dependencies**: 10
+- **External stdlib dependencies**: 10
 - **External third-party dependencies**: 16
 
 ## External Dependencies
 
 ### Standard Library / Core Modules
 
-Total: 8 unique modules
+Total: 10 unique modules
 
 - `collections.abc.AsyncGenerator`
 - `contextlib.asynccontextmanager`
+- `io.StringIO`
+- `json`
 - `logging`
 - `os`
 - `sys`
@@ -52,7 +54,7 @@ Total: 16 unique packages
 ## Most Depended Upon Files (Intra-Repo)
 
 - `src/spec_compiler/config.py` (4 dependents)
-- `src/spec_compiler/logging.py` (2 dependents)
+- `src/spec_compiler/logging.py` (3 dependents)
 - `src/spec_compiler/app/routes/health.py` (1 dependents)
 - `src/spec_compiler/middleware/request_id.py` (1 dependents)
 - `src/spec_compiler/app/main.py` (1 dependents)
@@ -65,3 +67,4 @@ Total: 16 unique packages
 - `src/spec_compiler/middleware/request_id.py` (1 dependencies)
 - `tests/conftest.py` (1 dependencies)
 - `tests/test_config.py` (1 dependencies)
+- `tests/test_logging.py` (1 dependencies)

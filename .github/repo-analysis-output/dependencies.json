@@ -159,6 +159,23 @@
       }
     },
     {
+      "id": "tests/test_logging.py",
+      "path": "tests/test_logging.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "io.StringIO",
+          "json",
+          "logging",
+          "uuid"
+        ],
+        "third-party": [
+          "fastapi.testclient.TestClient",
+          "structlog"
+        ]
+      }
+    },
+    {
       "id": "tests/test_middleware.py",
       "path": "tests/test_middleware.py",
       "type": "file",
@@ -208,12 +225,18 @@
     {
       "source": "tests/test_config.py",
       "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "tests/test_logging.py",
+      "target": "src/spec_compiler/logging.py"
     }
   ],
   "external_dependencies_summary": {
     "stdlib": [
       "collections.abc.AsyncGenerator",
       "contextlib.asynccontextmanager",
+      "io.StringIO",
+      "json",
       "logging",
       "os",
       "sys",
@@ -239,7 +262,7 @@
       "structlog.types.Processor",
       "uvicorn"
     ],
-    "stdlib_count": 8,
+    "stdlib_count": 10,
     "third-party_count": 16
   }
 }

@@ -65,6 +65,10 @@
             {
               "type": "file",
               "name": "af_maintenance.yml"
+            },
+            {
+              "type": "file",
+              "name": "ci.yml"
             }
           ]
         }
@@ -158,6 +162,10 @@
         },
         {
           "type": "file",
+          "name": "test_logging.py"
+        },
+        {
+          "type": "file",
           "name": "test_middleware.py"
         }
       ]
@@ -173,6 +181,10 @@
     {
       "type": "file",
       "name": ".gitignore"
+    },
+    {
+      "type": "file",
+      "name": ".pre-commit-config.yaml"
     },
     {
       "type": "file",

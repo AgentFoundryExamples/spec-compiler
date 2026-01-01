@@ -14,7 +14,8 @@
     ├── tree.json
     └── tree.md
   └── workflows
-    └── af_maintenance.yml
+    ├── af_maintenance.yml
+    └── ci.yml
 ├── src
   └── spec_compiler
     ├── app
@@ -34,10 +35,12 @@
   ├── conftest.py
   ├── test_config.py
   ├── test_health.py
+  ├── test_logging.py
   └── test_middleware.py
 ├── .dockerignore
 ├── .env.example
 ├── .gitignore
+├── .pre-commit-config.yaml
 ├── Dockerfile
 ├── github-app-basic.openapi.json
 ├── LICENSE
