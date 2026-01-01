@@ -1,0 +1,604 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "GitHub App Token Minting Service",
+    "description": "\nService for minting GitHub App tokens with GCP integration.\n\n## Authentication\n\n**Cloud Run IAM Authentication:**\n- All API endpoints (except health check) are protected by Cloud Run IAM authentication at the infrastructure level\n- No application-level authentication is performed\n- Deploy with: `gcloud run deploy --no-allow-unauthenticated`\n- Callers must have the `roles/run.invoker` IAM role\n- Requests must include a valid GCP identity token in the Authorization header: `Bearer \u003Cidentity-token\u003E`\n\n**Obtaining Identity Tokens:**\n- **User accounts:** `gcloud auth print-identity-token`\n- **Service accounts (Python):** Use `google.oauth2.id_token.fetch_id_token(auth_req, service_url)`\n- **Service accounts (Node.js):** Use `GoogleAuth.getIdTokenClient(serviceUrl)`\n- **Cloud Scheduler:** Configure OIDC authentication with service account\n\n**Identity Token Audience:**\n- Must match the Cloud Run service URL\n- Use regional URLs (e.g., `https://service-xxxxx-uc.a.run.app`)\n- Do not use custom domains\n\n**Security Model:**\nThe OpenAPI specification below defines a \"CloudRunIAM\" security scheme to document\nthe authentication requirements for client generators. However, the actual authentication\nis enforced by Cloud Run's IAM layer at the infrastructure level, not by this application.\nThe bearer token referenced is a GCP identity token, not the GitHub access token.\n        ",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health Check",
+        "description": "Health check endpoint with Firestore connectivity and config validation.\n\nPerforms checks on:\n- Firestore connectivity (with timeout and caching)\n- GitHub App configuration presence and basic validity\n\nReturns 200 if all checks pass, 503 if any check fails.\nResults are cached to avoid excessive Firestore queries.\n\nReturns:\n    Dictionary with overall status and component statuses.",
+        "operationId": "health_check_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Check Healthz Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Readiness Check",
+        "description": "Readiness check endpoint.\n\nIndicates whether the application is ready to serve traffic.\nReturns 200 if ready, 503 if not ready.\n\nReadiness is determined by whether critical components\n(Firestore, GitHub config) have been successfully initialized.\n\nReturns:\n    Dictionary with readiness status and component details.",
+        "operationId": "readiness_check_readyz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Readiness Check Readyz Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/github/install": {
+      "get": {
+        "tags": [
+          "oauth",
+          "oauth"
+        ],
+        "summary": "Initiate GitHub App OAuth Authorization",
+        "description": "Initiates the OAuth user authorization flow for a GitHub App by redirecting to GitHub's authorization page.\n\n**Note on Terminology:** This endpoint name uses \"install\" for historical reasons, but it initiates \nan OAuth user authorization flow, not a GitHub App installation. The flow grants the app permission \nto act on behalf of the authenticated user. For actual app installation to organizations/repos, \nsee GitHub's installation endpoints (not implemented in this service).\n\n**⚠️ Interactive Use Only:** This endpoint is designed for interactive browser use only. \nIt initiates an OAuth flow that requires user interaction in a web browser. \nDo not call this endpoint from automated scripts or API clients.\n\n**Process:**\n1. Generates a cryptographically strong CSRF state token\n2. Stores the state token server-side with 5-minute expiration\n3. Sets an `oauth_state` cookie in the browser for additional verification\n4. Redirects browser to GitHub's OAuth authorization page\n5. User authorizes the app on GitHub\n6. GitHub redirects back to `/oauth/callback` with authorization code\n\n**Security Features:**\n- CSRF protection via state token\n- Cookie-based state verification\n- State tokens expire after 5 minutes\n- State tokens are single-use only\n\n**Cookies Set:**\n- `oauth_state`: Secure, HttpOnly cookie for state verification (expires in 5 minutes)\n  - `secure=true` in production (HTTPS only)\n  - `samesite=lax` to prevent CSRF attacks",
+        "operationId": "github_install_github_install_get",
+        "parameters": [
+          {
+            "name": "scopes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated list of OAuth scopes to request. Common scopes: repo, user, read:org, write:org",
+              "examples": [
+                "repo,user:email,read:org",
+                "user,read:org",
+                "repo,user"
+              ],
+              "default": "user:email,read:org",
+              "title": "Scopes"
+            },
+            "description": "Comma-separated list of OAuth scopes to request. Common scopes: repo, user, read:org, write:org"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "302": {
+            "description": "Redirect to GitHub OAuth authorization page",
+            "headers": {
+              "Location": {
+                "description": "GitHub OAuth authorization URL with client_id, state, and scopes",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Set-Cookie": {
+                "description": "oauth_state cookie for CSRF verification (HttpOnly, 5-minute expiration)",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server configuration error",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "GitHub OAuth is not properly configured"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CloudRunIAM": []
+          }
+        ]
+      }
+    },
+    "/oauth/callback": {
+      "get": {
+        "tags": [
+          "oauth",
+          "oauth"
+        ],
+        "summary": "GitHub OAuth Callback Handler",
+        "description": "Handles the OAuth callback from GitHub after user authorization.\n\n**⚠️ Do Not Call Directly:** This endpoint should only be accessed via GitHub's OAuth redirect.\nBrowser clients should not call this endpoint manually; it's invoked automatically by GitHub\nafter the user completes the authorization flow on GitHub's website.\n\n**Process:**\n1. Receives authorization code and state from GitHub redirect\n2. Validates CSRF state token (checks cookie and server-side store)\n3. Exchanges authorization code for GitHub access token\n4. Logs token details (with masking for security)\n5. Returns user-friendly HTML success or error page\n6. Clears the oauth_state cookie\n\n**Security Features:**\n- Validates state token matches the cookie value\n- Verifies state token hasn't expired (5-minute lifetime)\n- Ensures state token is used only once (consumed on verification)\n- Masks tokens in logs (shows only first 8 and last 4 characters)\n\n**⚠️ Token Handling:**\nAccess tokens are logged for development/debugging but **NOT persisted** to any database.\nThis implementation is designed for **single-user interactive scenarios** only.\nFor multi-user production deployments, implement secure token storage.\n\n**Common Errors:**\n- `400 Bad Request`: Missing parameters, state mismatch, expired state\n- `500 Internal Server Error`: Token exchange failure, GitHub API error",
+        "operationId": "oauth_callback_oauth_callback_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Authorization code from GitHub (provided by GitHub redirect)",
+              "examples": [
+                "abc123def456"
+              ],
+              "title": "Code"
+            },
+            "description": "Authorization code from GitHub (provided by GitHub redirect)"
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "CSRF state token (must match the cookie value)",
+              "examples": [
+                "Hk9u7yXZ4bQrPm8L..."
+              ],
+              "title": "State"
+            },
+            "description": "CSRF state token (must match the cookie value)"
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Error code if authorization failed (e.g., 'access_denied')",
+              "examples": [
+                "access_denied"
+              ],
+              "title": "Error"
+            },
+            "description": "Error code if authorization failed (e.g., 'access_denied')"
+          },
+          {
+            "name": "error_description",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Human-readable error description from GitHub",
+              "examples": [
+                "The user denied the authorization request"
+              ],
+              "title": "Error Description"
+            },
+            "description": "Human-readable error description from GitHub"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OAuth flow completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              },
+              "text/html": {
+                "example": "\n\u003C!DOCTYPE html\u003E\n\u003Chtml\u003E\n\u003Chead\u003E\u003Ctitle\u003EOAuth Success\u003C/title\u003E\u003C/head\u003E\n\u003Cbody\u003E\n    \u003Ch1\u003EAuthorization Successful\u003C/h1\u003E\n    \u003Cp\u003EToken Type: bearer\u003C/p\u003E\n    \u003Cp\u003EGranted Scopes: repo,user:email\u003C/p\u003E\n    \u003Cp\u003EExpiration: Token does not expire.\u003C/p\u003E\n\u003C/body\u003E\n\u003C/html\u003E\n                    "
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - missing parameters, invalid state, or authorization denied",
+            "content": {
+              "text/html": {
+                "examples": {
+                  "missing_params": {
+                    "summary": "Missing required parameters",
+                    "value": "HTML error page: Missing required parameters (code or state)"
+                  },
+                  "state_mismatch": {
+                    "summary": "State token mismatch",
+                    "value": "HTML error page: State token does not match (CSRF protection)"
+                  },
+                  "expired_state": {
+                    "summary": "Expired state token",
+                    "value": "HTML error page: State token expired or already used"
+                  },
+                  "user_denied": {
+                    "summary": "User denied authorization",
+                    "value": "HTML error page: GitHub authorization failed (user denied)"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error - token exchange failed or GitHub API error",
+            "content": {
+              "text/html": {
+                "example": "HTML error page: Failed to exchange authorization code for access token"
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CloudRunIAM": []
+          }
+        ]
+      }
+    },
+    "/admin/token-metadata": {
+      "get": {
+        "tags": [
+          "admin",
+          "admin"
+        ],
+        "summary": "Get GitHub Token Metadata",
+        "description": "Get non-sensitive metadata about the stored GitHub OAuth token.\n\n**Security:**\n- IAM authentication is enforced at the Cloud Run infrastructure level, not in application code\n- This endpoint has no application-level authentication - it relies entirely on Cloud Run IAM\n- Configure Cloud Run to require authentication: `gcloud run deploy --no-allow-unauthenticated`\n- Never returns the actual access token or encrypted ciphertext\n- Only returns metadata: scope, token_type, expires_at, updated_at\n\n**Storage:**\n- Tokens are stored encrypted in Firestore using AES-256-GCM\n- The encryption key is managed via environment variables\n- Only metadata fields are returned by this endpoint\n\n**Use Cases:**\n- Operators verifying when the token was last updated\n- Confirming token scopes without exposing sensitive data\n- Health checks to ensure token exists\n\n**Response:**\n- 200: Metadata found and returned\n- 404: Token document not found in Firestore\n- 500: Firestore access error or other internal error\n- 503: Firestore service unavailable\n\n**Important:** Authentication must be configured at the Cloud Run deployment level.\nWithout Cloud Run IAM configuration, this endpoint would be publicly accessible.",
+        "operationId": "get_token_metadata_admin_token_metadata_get",
+        "responses": {
+          "200": {
+            "description": "Token metadata retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Token Metadata Admin Token Metadata Get"
+                },
+                "example": {
+                  "token_type": "bearer",
+                  "scope": "repo,user:email,read:org",
+                  "expires_at": "2025-12-31T23:59:59+00:00",
+                  "has_refresh_token": true,
+                  "updated_at": "2025-12-30T12:00:00+00:00"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Token document not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Token document not found in Firestore"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Failed to retrieve token metadata"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Firestore service unavailable",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Firestore service is temporarily unavailable"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CloudRunIAM": []
+          }
+        ]
+      }
+    },
+    "/api/token": {
+      "post": {
+        "tags": [
+          "token",
+          "token"
+        ],
+        "summary": "Get GitHub User Access Token",
+        "description": "Get the stored GitHub user access token, refreshing if necessary.\n\n**Authentication:**\n- This endpoint is protected by Cloud Run IAM authentication at the infrastructure level\n- No application-level authentication is performed\n- Configure Cloud Run to require authentication: `gcloud run deploy --no-allow-unauthenticated`\n- Callers must have appropriate IAM permissions to invoke the Cloud Run service\n\n**Behavior:**\n1. Retrieves the stored GitHub user token from Firestore\n2. Checks if the token is near expiry (within configured threshold) or if force_refresh is requested\n3. If refresh is needed, calls GitHub's refresh API to obtain a new token\n4. Respects cooldown period after failed refresh attempts to prevent excessive API calls\n5. Returns the token (current or refreshed) with metadata\n\n**Token Refresh:**\n- Tokens are refreshed when:\n  - `force_refresh=true` is provided (query parameter or request body)\n  - Token expiration is within the configured threshold (default: 30 minutes)\n- Tokens without expiration dates are only refreshed when `force_refresh=true`\n- After a failed refresh, a cooldown period prevents immediate retries (default: 300 seconds)\n\n**Request Parameters:**\n- `force_refresh` (optional): Can be provided as query parameter or in JSON request body\n  - Query parameter: `/api/token?force_refresh=true`\n  - Request body: `{\"force_refresh\": true}`\n  - Default: `false`\n\n**Response:**\nReturns JSON with:\n- `access_token`: The GitHub user access token (string)\n- `token_type`: Token type, typically \"bearer\" (string)\n- `expires_at`: ISO-8601 timestamp or null for non-expiring tokens (string or null)\n\n**Error Responses:**\n- 404: User has not completed authorization - no token stored\n- 500: Token refresh failed due to GitHub API error\n- 503: Firestore service unavailable\n\n**Important:** This endpoint does NOT expose:\n- Internal metadata (last_refresh_attempt, last_refresh_status, etc.)\n- Firestore document structure\n- Encryption details\n\n**Use Cases:**\n- Internal services retrieving tokens for GitHub API calls\n- Automated workflows requiring fresh access tokens\n- Token management and rotation",
+        "operationId": "get_token_api_token_post",
+        "parameters": [
+          {
+            "name": "force_refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Force token refresh (query parameter)",
+              "title": "Force Refresh"
+            },
+            "description": "Force token refresh (query parameter)"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TokenRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token retrieved successfully (may have been refreshed)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                },
+                "examples": {
+                  "non_expiring_token": {
+                    "summary": "Non-expiring GitHub token",
+                    "description": "Most GitHub user-to-server tokens do not expire",
+                    "value": {
+                      "access_token": "gho_ExampleToken123...",
+                      "token_type": "bearer"
+                    }
+                  },
+                  "expiring_token": {
+                    "summary": "Expiring GitHub token",
+                    "description": "Some tokens may have expiration dates",
+                    "value": {
+                      "access_token": "gho_ExampleToken456...",
+                      "token_type": "bearer",
+                      "expires_at": "2025-12-31T23:59:59+00:00"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User has not completed authorization",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "User has not completed authorization"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Token refresh failed",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Failed to refresh GitHub token"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Firestore service unavailable",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Firestore service is temporarily unavailable"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CloudRunIAM": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "TokenRequest": {
+        "properties": {
+          "force_refresh": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Force Refresh",
+            "description": "Force token refresh even if not near expiry",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "TokenRequest",
+        "description": "Request body for token endpoint (optional)."
+      },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "GitHub user access token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "description": "Token type (typically 'bearer')"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "Token expiration time in ISO-8601 format, or null for non-expiring tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "token_type"
+        ],
+        "title": "TokenResponse",
+        "description": "Response model for token endpoint."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "CloudRunIAM": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "GCP Identity Token",
+        "description": "Cloud Run IAM authentication using GCP identity tokens. Obtain an identity token via `gcloud auth print-identity-token` (for users) or `google.oauth2.id_token.fetch_id_token()` (for service accounts). The token audience must match the Cloud Run service URL. Callers must have the `roles/run.invoker` IAM role."
+      }
+    }
+  }
+}
