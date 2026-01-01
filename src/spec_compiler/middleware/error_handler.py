@@ -18,6 +18,7 @@ Captures unhandled exceptions and returns structured JSON error responses.
 """
 
 import traceback
+import uuid
 
 import structlog
 from fastapi import Request, Response
@@ -87,7 +88,14 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
 
         except Exception as exc:
             # Get request_id from request state (set by RequestIdMiddleware)
-            request_id = getattr(request.state, "request_id", "unknown")
+            # Generate a fallback UUID if somehow missing
+            request_id = getattr(request.state, "request_id", None)
+            if not request_id:
+                request_id = str(uuid.uuid4())
+                logger.warning(
+                    "request_id missing from request.state, generated fallback",
+                    fallback_request_id=request_id,
+                )
 
             # Log the full exception with stack trace
             logger.error(
