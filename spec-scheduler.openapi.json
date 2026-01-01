@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Plan Scheduler Service",
-    "description": "FastAPI service for plan scheduling with Firestore integration",
+    "title": "Spec Compiler Service",
+    "description": "FastAPI service for compiling specifications with LLM integrations",
     "version": "0.1.0"
   },
   "paths": {
@@ -12,7 +12,7 @@
           "health"
         ],
         "summary": "Health Check",
-        "description": "Basic health check endpoint.\n\nReturns a simple OK status without performing any expensive operations.\nSuitable for basic health monitoring.\n\nReturns:\n    dict: Status indicating service is healthy",
+        "description": "Health check endpoint.\n\nReturns a simple status indicator for container orchestration systems.\n\nReturns:\n    Dictionary with status \"ok\"",
         "operationId": "health_check_health_get",
         "responses": {
           "200": {
@@ -20,7 +20,9 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
+                  "additionalProperties": {
+                    "type": "string"
+                  },
                   "type": "object",
                   "title": "Response Health Check Health Get"
                 }
@@ -30,185 +32,76 @@
         }
       }
     },
-    "/readiness": {
-      "get": {
-        "tags": [
-          "health"
-        ],
-        "summary": "Readiness Check",
-        "description": "Readiness probe endpoint for Cloud Run.\n\nChecks if the service is ready to accept traffic by verifying\nthat dependencies (Firestore) are reachable. Returns quickly\nto avoid blocking container startup.\n\nCloud Run will not send traffic until this endpoint returns 200.\n\nArgs:\n    response: FastAPI response object for setting status codes\n\nReturns:\n    dict: Status with ready flag and any issues detected",
-        "operationId": "readiness_check_readiness_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Readiness Check Readiness Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/liveness": {
-      "get": {
-        "tags": [
-          "health"
-        ],
-        "summary": "Liveness Check",
-        "description": "Liveness probe endpoint for Cloud Run.\n\nSimple endpoint that returns OK to indicate the service is alive\nand not deadlocked. Does not check dependencies - only verifies\nthe application process is responsive.\n\nCloud Run will restart the container if this endpoint fails repeatedly.\n\nReturns:\n    dict: Status indicating service is alive",
-        "operationId": "liveness_check_liveness_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Liveness Check Liveness Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/plans": {
+    "/compile-spec": {
       "post": {
         "tags": [
-          "plans"
+          "compile"
         ],
-        "summary": "Create Plan",
-        "description": "Create a new plan with specifications.\n\nThis endpoint accepts a plan ingestion request, validates it, and persists\nit to Firestore. It implements idempotent behavior:\n- Returns 201 Created for new plans\n- Returns 200 OK for duplicate ingestions with identical payload\n- Returns 409 Conflict for duplicate plan IDs with different payload\n\nValidation:\n- Plan ID must be a valid UUID string\n- At least one specification must be provided\n- All required fields must be present\n\nArgs:\n    plan_in: Plan ingestion request payload\n\nReturns:\n    PlanCreateResponse with plan_id and status\n\nRaises:\n    HTTPException: 409 for conflicts, 500 for server errors",
-        "operationId": "create_plan_plans_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlanIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Plan created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlanCreateResponse"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Idempotent ingestion - plan already exists with identical payload",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlanCreateResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error - invalid UUID, empty specs, or malformed payload",
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid UUID string: not-a-uuid"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict - plan exists with different payload",
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Plan already exists with different body"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/plans/{plan_id}": {
-      "get": {
-        "tags": [
-          "plans"
-        ],
-        "summary": "Get Plan Status",
-        "description": "Get plan status with all spec statuses.\n\nThis endpoint retrieves the current status of a plan and all its specifications\nfrom Firestore. It provides a lightweight status view without exposing internal\ndetails like spec contents, history, or raw payloads.\n\nThe endpoint efficiently fetches the plan and all specs using a single query\nordered by spec_index. No Firestore composite index is required as the query\noperates on a subcollection with a single sort field.\n\nArgs:\n    plan_id: Plan identifier as UUID\n    include_stage: Optional flag to include/exclude stage field (default: true)\n\nReturns:\n    PlanStatusOut with plan metadata and spec statuses\n\nRaises:\n    HTTPException: 404 if plan not found, 500 for server errors",
-        "operationId": "get_plan_status_plans__plan_id__get",
+        "summary": "Compile Spec",
+        "description": "Compile a specification with LLM integration.\n\nAccepts a compile request, validates the payload, logs the operation,\nand returns a 202 Accepted response. Currently stubs out downstream\nLLM integration.\n\nArgs:\n    request: FastAPI request object (for accessing request_id and body)\n    idempotency_key: Optional idempotency key for client-side deduplication\n\nReturns:\n    CompileResponse with request tracking information\n\nRaises:\n    HTTPException: 413 if request body exceeds size limit\n    HTTPException: 422 if validation fails (handled by Pydantic)",
+        "operationId": "compile_spec_compile_spec_post",
         "parameters": [
           {
-            "name": "plan_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Plan Id"
-            }
-          },
-          {
-            "name": "include_stage",
-            "in": "query",
+            "name": "Idempotency-Key",
+            "in": "header",
             "required": false,
             "schema": {
-              "type": "boolean",
-              "description": "Include stage field in spec statuses",
-              "default": true,
-              "title": "Include Stage"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
             },
-            "description": "Include stage field in spec statuses"
+            "description": "Optional idempotency key for request deduplication. Currently logged but not enforced. Alphanumeric, hyphens, and underscores only. Max length: 100 characters."
           }
         ],
         "responses": {
-          "200": {
-            "description": "Plan status retrieved successfully",
+          "202": {
+            "description": "Request accepted for processing",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlanStatusOut"
+                  "$ref": "#/components/schemas/CompileResponse"
+                },
+                "example": {
+                  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+                  "plan_id": "plan-abc123",
+                  "spec_index": 0,
+                  "status": "accepted",
+                  "message": "Request accepted for processing"
                 }
               }
             }
           },
-          "404": {
-            "description": "Plan not found",
+          "413": {
+            "description": "Request body too large",
             "content": {
               "application/json": {
                 "example": {
-                  "detail": "Plan not found"
+                  "detail": "Request body exceeds maximum size limit of 10485760 bytes"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "plan_id"
+                      ],
+                      "msg": "Field cannot be empty or whitespace-only",
+                      "type": "value_error"
+                    }
+                  ]
                 }
               }
             }
@@ -218,116 +111,55 @@
             "content": {
               "application/json": {
                 "example": {
-                  "detail": "Internal server error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "error": "internal_error",
+                  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+                  "message": "An unexpected error occurred"
                 }
               }
             }
           }
-        }
-      }
-    },
-    "/pubsub/spec-status": {
-      "post": {
-        "tags": [
-          "pubsub"
-        ],
-        "summary": "Spec Status Update",
-        "description": "Receive and process Pub/Sub push notifications for spec status updates.\n\nThis endpoint:\n1. Verifies authentication (OIDC JWT or shared token)\n2. Decodes the base64-encoded message payload\n3. Validates the payload against SpecStatusPayload schema\n4. Processes the status update transactionally in Firestore\n5. Triggers execution for the next spec if applicable\n6. Returns 204 No Content quickly\n\nSecurity:\n- Primary: OIDC JWT validation when PUBSUB_OIDC_ENABLED is True\n  - Validates Authorization header contains valid Google-signed JWT\n  - Verifies audience, issuer, and optionally service account email\n- Fallback: Shared token verification when OIDC is disabled or fails\n  - Requires PUBSUB_VERIFICATION_TOKEN to be set in environment\n  - Verifies token from x-goog-pubsub-verification-token header\n- Returns 401 if neither authentication method succeeds\n\nIdempotency:\n- Detects duplicate messages via messageId in history\n- Safely handles retries from Pub/Sub\n\nArgs:\n    envelope: Pub/Sub push envelope containing message and metadata\n    response: FastAPI response object\n    authorization: Authorization header for OIDC JWT authentication\n    x_goog_pubsub_verification_token: Verification token from Pub/Sub header\n\nReturns:\n    Response with 204 No Content\n\nRaises:\n    HTTPException: 401 for auth failures, 400 for invalid payloads, 500 for server errors",
-        "operationId": "spec_status_update_pubsub_spec_status_post",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          },
-          {
-            "name": "x-goog-pubsub-verification-token",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Goog-Pubsub-Verification-Token"
-            }
-          }
-        ],
+        },
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PubSubPushEnvelope"
+                "$ref": "#/components/schemas/CompileRequest"
+              },
+              "example": {
+                "plan_id": "plan-abc123",
+                "spec_index": 0,
+                "spec_data": {
+                  "type": "feature",
+                  "description": "Add user authentication"
+                },
+                "github_owner": "my-org",
+                "github_repo": "my-project"
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/version": {
+      "get": {
+        "tags": [
+          "info"
+        ],
+        "summary": "Version Info",
+        "description": "Return application version information.\n\nReturns git SHA if available from environment, otherwise returns\nthe configured APP_VERSION.",
+        "operationId": "version_info_version_get",
         "responses": {
-          "204": {
-            "description": "Status update processed successfully"
-          },
-          "401": {
-            "description": "Unauthorized - invalid authentication",
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid or missing authentication"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request - invalid payload",
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Invalid message payload"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "example": {
-                  "detail": "Internal server error"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
+          "200": {
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Version Info Version Get"
                 }
               }
             }
@@ -338,276 +170,33 @@
   },
   "components": {
     "schemas": {
-      "HTTPValidationError": {
+      "CompileResponse": {
         "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
-      },
-      "PlanCreateResponse": {
-        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id",
+            "description": "Unique request identifier"
+          },
           "plan_id": {
             "type": "string",
             "title": "Plan Id",
-            "description": "Plan ID"
+            "description": "Plan identifier"
           },
-          "status": {
-            "type": "string",
-            "pattern": "^(running|finished|failed)$",
-            "title": "Status",
-            "description": "Plan status: running, finished, or failed"
-          }
-        },
-        "type": "object",
-        "required": [
-          "plan_id",
-          "status"
-        ],
-        "title": "PlanCreateResponse",
-        "description": "Response model for plan creation API.\n\nStatus is limited to: \"running\" | \"finished\" | \"failed\""
-      },
-      "PlanIn": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id",
-            "description": "Plan ID as UUID string"
-          },
-          "specs": {
-            "items": {
-              "$ref": "#/components/schemas/SpecIn"
-            },
-            "type": "array",
-            "title": "Specs",
-            "description": "List of specifications"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "specs"
-        ],
-        "title": "PlanIn",
-        "description": "Plan input model with UUID validation.\n\nThe plan id must be a valid UUID string.\nAt least one SpecIn must be provided in the specs list."
-      },
-      "PlanStatus": {
-        "type": "string",
-        "enum": [
-          "running",
-          "finished",
-          "failed"
-        ],
-        "title": "PlanStatus",
-        "description": "Valid plan status values."
-      },
-      "PlanStatusOut": {
-        "properties": {
-          "plan_id": {
-            "type": "string",
-            "title": "Plan Id",
-            "description": "Plan identifier as UUID string"
-          },
-          "overall_status": {
-            "$ref": "#/components/schemas/PlanStatus",
-            "description": "Overall plan status: running, finished, or failed"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At",
-            "description": "Timestamp when plan was created (UTC)"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At",
-            "description": "Timestamp when plan was last updated (UTC)"
-          },
-          "total_specs": {
-            "type": "integer",
-            "minimum": 0,
-            "title": "Total Specs",
-            "description": "Total number of specs in the plan"
-          },
-          "completed_specs": {
-            "type": "integer",
-            "minimum": 0,
-            "title": "Completed Specs",
-            "description": "Number of completed specs"
-          },
-          "current_spec_index": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Current Spec Index",
-            "description": "Index of the currently running spec (null if none running)"
-          },
-          "specs": {
-            "items": {
-              "$ref": "#/components/schemas/SpecStatusOut"
-            },
-            "type": "array",
-            "title": "Specs",
-            "description": "List of spec statuses"
-          }
-        },
-        "type": "object",
-        "required": [
-          "plan_id",
-          "overall_status",
-          "created_at",
-          "updated_at",
-          "total_specs",
-          "completed_specs",
-          "specs"
-        ],
-        "title": "PlanStatusOut",
-        "description": "Response model for plan status queries.\n\nProvides complete plan status including all spec statuses. Designed for\nstatus polling and progress tracking by external integrators.\n\nHelper methods compute completed_specs and current_spec_index from the specs list\nto ensure consistency and avoid duplicating logic in API handlers.\n\nAll timestamps are timezone-aware (UTC)."
-      },
-      "PubSubMessage": {
-        "properties": {
-          "data": {
-            "type": "string",
-            "title": "Data",
-            "description": "Base64-encoded message payload"
-          },
-          "attributes": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Attributes",
-            "description": "Optional message attributes/metadata"
-          },
-          "messageId": {
-            "type": "string",
-            "title": "Messageid",
-            "description": "Unique message ID assigned by Pub/Sub",
-            "default": ""
-          },
-          "publishTime": {
-            "type": "string",
-            "title": "Publishtime",
-            "description": "RFC3339 timestamp of message publication",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "data"
-        ],
-        "title": "PubSubMessage",
-        "description": "Pub/Sub message object within the push envelope.\n\nThis represents the 'message' field in the push request from Pub/Sub.\nThe 'data' field contains base64-encoded JSON payload.\n\nFields:\n    data: Base64-encoded message payload (required)\n    attributes: Optional key-value metadata attached to the message\n    messageId: Unique identifier for this message\n    publishTime: RFC3339 timestamp when message was published"
-      },
-      "PubSubPushEnvelope": {
-        "properties": {
-          "message": {
-            "$ref": "#/components/schemas/PubSubMessage",
-            "description": "Pub/Sub message object"
-          },
-          "subscription": {
-            "type": "string",
-            "title": "Subscription",
-            "description": "Full subscription resource name",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "message"
-        ],
-        "title": "PubSubPushEnvelope",
-        "description": "Outer envelope for Pub/Sub push subscription requests.\n\nThis model matches the JSON structure that Google Cloud Pub/Sub sends\nwhen pushing messages to HTTP endpoints. The actual payload is nested\nwithin message.data as base64-encoded JSON.\n\nFields:\n    message: The Pub/Sub message object containing data and metadata\n    subscription: Full resource name of the subscription (e.g.,\n                  \"projects/my-project/subscriptions/my-sub\")"
-      },
-      "SpecIn": {
-        "properties": {
-          "purpose": {
-            "type": "string",
-            "title": "Purpose",
-            "description": "Purpose of the specification"
-          },
-          "vision": {
-            "type": "string",
-            "title": "Vision",
-            "description": "Vision for the specification"
-          },
-          "must": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Must",
-            "description": "Required features/constraints (can be empty)"
-          },
-          "dont": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Dont",
-            "description": "Things to avoid (can be empty)"
-          },
-          "nice": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Nice",
-            "description": "Nice-to-have features (can be empty)"
-          },
-          "assumptions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Assumptions",
-            "description": "Assumptions made (can be empty)"
-          }
-        },
-        "type": "object",
-        "required": [
-          "purpose",
-          "vision"
-        ],
-        "title": "SpecIn",
-        "description": "Specification input model matching the required contract.\n\nAll list fields must be present and serialize as lists (never None or missing).\nEmpty lists are allowed but fields cannot be omitted."
-      },
-      "SpecStatus": {
-        "type": "string",
-        "enum": [
-          "blocked",
-          "running",
-          "finished",
-          "failed"
-        ],
-        "title": "SpecStatus",
-        "description": "Valid spec status values."
-      },
-      "SpecStatusOut": {
-        "properties": {
           "spec_index": {
             "type": "integer",
-            "minimum": 0,
             "title": "Spec Index",
-            "description": "Index of the spec in the plan"
+            "description": "Specification index"
           },
           "status": {
-            "$ref": "#/components/schemas/SpecStatus",
-            "description": "Spec status: blocked, running, finished, or failed"
+            "type": "string",
+            "enum": [
+              "accepted",
+              "failed"
+            ],
+            "title": "Status",
+            "description": "Processing status"
           },
-          "stage": {
+          "message": {
             "anyOf": [
               {
                 "type": "string"
@@ -616,57 +205,70 @@
                 "type": "null"
               }
             ],
-            "title": "Stage",
-            "description": "Optional execution stage/phase (e.g., 'implementation', 'reviewing')"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At",
-            "description": "Timestamp when spec was last updated (UTC)"
+            "title": "Message",
+            "description": "Optional status message"
           }
         },
         "type": "object",
         "required": [
+          "request_id",
+          "plan_id",
           "spec_index",
-          "status",
-          "updated_at"
+          "status"
         ],
-        "title": "SpecStatusOut",
-        "description": "Response model for spec status queries.\n\nProvides a lightweight status view of a spec without exposing internal details\nlike purpose, vision, or history. Only includes execution state and progress metadata.\n\nAll timestamps are timezone-aware (UTC)."
+        "title": "CompileResponse",
+        "description": "Response model for the compile API endpoint.\n\nThis represents the external API contract for the compile response.\n\nAttributes:\n    request_id: Unique identifier for this request (UUID format)\n    plan_id: Plan identifier echoed from the request\n    spec_index: Specification index echoed from the request\n    status: Processing status (accepted or failed)\n    message: Optional message providing additional context"
       },
-      "ValidationError": {
+      "CompileRequest": {
+        "description": "Request model for the compile API endpoint.\n\nThis represents the external API contract for compiling a specification.\nAll fields are validated to ensure data integrity before processing.\n\nAttributes:\n    plan_id: Non-empty identifier for the plan\n    spec_index: Zero-based index of the specification (must be >= 0)\n    spec_data: Arbitrary JSON data (dict or list) representing the specification\n    github_owner: Non-empty GitHub repository owner (user or organization)\n    github_repo: Non-empty GitHub repository name",
         "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
+          "plan_id": {
+            "description": "Plan identifier",
+            "minLength": 1,
+            "title": "Plan Id",
+            "type": "string"
           },
-          "msg": {
-            "type": "string",
-            "title": "Message"
+          "spec_index": {
+            "description": "Specification index (must be >= 0)",
+            "minimum": 0,
+            "title": "Spec Index",
+            "type": "integer"
           },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
+          "spec_data": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "items": {},
+                "type": "array"
+              }
+            ],
+            "description": "Specification data as arbitrary JSON (dict or list)",
+            "title": "Spec Data"
+          },
+          "github_owner": {
+            "description": "GitHub repository owner",
+            "minLength": 1,
+            "title": "Github Owner",
+            "type": "string"
+          },
+          "github_repo": {
+            "description": "GitHub repository name",
+            "minLength": 1,
+            "title": "Github Repo",
+            "type": "string"
           }
         },
-        "type": "object",
         "required": [
-          "loc",
-          "msg",
-          "type"
+          "plan_id",
+          "spec_index",
+          "spec_data",
+          "github_owner",
+          "github_repo"
         ],
-        "title": "ValidationError"
+        "title": "CompileRequest",
+        "type": "object"
       }
     }
   }
