@@ -8,10 +8,10 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 ## Statistics
 
-- **Total files**: 21
-- **Intra-repo dependencies**: 18
+- **Total files**: 22
+- **Intra-repo dependencies**: 21
 - **External stdlib dependencies**: 11
-- **External third-party dependencies**: 19
+- **External third-party dependencies**: 20
 
 ## External Dependencies
 
@@ -33,7 +33,7 @@ Total: 11 unique modules
 
 ### Third-Party Packages
 
-Total: 19 unique packages
+Total: 20 unique packages
 
 - `fastapi.APIRouter`
 - `fastapi.FastAPI`
@@ -50,6 +50,7 @@ Total: 19 unique packages
 - `pytest`
 - `starlette.middleware.base.BaseHTTPMiddleware`
 - `starlette.middleware.base.RequestResponseEndpoint`
+- `starlette.responses.JSONResponse`
 - `structlog`
 - `structlog.types.EventDict`
 - `structlog.types.Processor`
@@ -61,16 +62,18 @@ Total: 19 unique packages
 - `src/spec_compiler/logging.py` (3 dependents)
 - `src/spec_compiler/models/llm.py` (3 dependents)
 - `src/spec_compiler/models/__init__.py` (2 dependents)
+- `src/spec_compiler/middleware/error_handler.py` (2 dependents)
+- `src/spec_compiler/middleware/request_id.py` (2 dependents)
 - `src/spec_compiler/models/compile.py` (2 dependents)
 - `src/spec_compiler/app/routes/health.py` (1 dependents)
-- `src/spec_compiler/middleware/request_id.py` (1 dependents)
 - `src/spec_compiler/app/main.py` (1 dependents)
 - `src/spec_compiler/__init__.py` (1 dependents)
 
 ## Files with Most Dependencies (Intra-Repo)
 
-- `src/spec_compiler/app/main.py` (4 dependencies)
+- `src/spec_compiler/app/main.py` (5 dependencies)
 - `tests/test_models_helpers.py` (3 dependencies)
+- `src/spec_compiler/middleware/__init__.py` (2 dependencies)
 - `src/spec_compiler/models/__init__.py` (2 dependencies)
 - `src/spec_compiler/__init__.py` (1 dependencies)
 - `src/spec_compiler/app/routes/health.py` (1 dependencies)
@@ -78,4 +81,3 @@ Total: 19 unique packages
 - `src/spec_compiler/middleware/request_id.py` (1 dependencies)
 - `tests/conftest.py` (1 dependencies)
 - `tests/test_config.py` (1 dependencies)
-- `tests/test_logging.py` (1 dependencies)

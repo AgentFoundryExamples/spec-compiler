@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 21
+Total files: 22
 
 ## src/spec_compiler/__init__.py
 **Language:** Python  
@@ -29,8 +29,8 @@ Total files: 21
 **Role:** entry-point  
 **Role Justification:** common entry point name 'main'  
 **Summary:** Python main entry point (role: entry-point)  
-**Size:** 3.52 KB  
-**LOC:** 83  
+**Size:** 3.71 KB  
+**LOC:** 85  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/app/routes/__init__.py
@@ -74,8 +74,17 @@ Total files: 21
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
 **Summary:** Python module initialization (role: module-init)  
-**Size:** 0.61 KB  
-**LOC:** 1  
+**Size:** 0.81 KB  
+**LOC:** 4  
+**TODOs/FIXMEs:** 0  
+
+## src/spec_compiler/middleware/error_handler.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Summary:** Python core implementation  
+**Size:** 5.79 KB  
+**LOC:** 102  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/middleware/request_id.py
@@ -128,8 +137,8 @@ Total files: 21
 **Role:** test  
 **Role Justification:** located in 'tests' directory  
 **Summary:** Python test implementation (role: test)  
-**Size:** 1.17 KB  
-**LOC:** 24  
+**Size:** 1.98 KB  
+**LOC:** 45  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_config.py
@@ -164,8 +173,8 @@ Total files: 21
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 3.45 KB  
-**LOC:** 51  
+**Size:** 9.13 KB  
+**LOC:** 141  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_models_compile.py

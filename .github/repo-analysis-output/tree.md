@@ -26,6 +26,7 @@
       └── main.py
     ├── middleware
       ├── __init__.py
+      ├── error_handler.py
       └── request_id.py
     ├── models
       ├── __init__.py

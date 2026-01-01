@@ -95,6 +95,24 @@
       }
     },
     {
+      "id": "src/spec_compiler/middleware/error_handler.py",
+      "path": "src/spec_compiler/middleware/error_handler.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "uuid"
+        ],
+        "third-party": [
+          "fastapi.Request",
+          "fastapi.Response",
+          "starlette.middleware.base.BaseHTTPMiddleware",
+          "starlette.middleware.base.RequestResponseEndpoint",
+          "starlette.responses.JSONResponse",
+          "structlog"
+        ]
+      }
+    },
+    {
       "id": "src/spec_compiler/middleware/request_id.py",
       "path": "src/spec_compiler/middleware/request_id.py",
       "type": "file",
@@ -225,6 +243,7 @@
       "type": "file",
       "external_dependencies": {
         "stdlib": [
+          "logging",
           "uuid"
         ],
         "third-party": [
@@ -287,6 +306,10 @@
     },
     {
       "source": "src/spec_compiler/app/main.py",
+      "target": "src/spec_compiler/middleware/error_handler.py"
+    },
+    {
+      "source": "src/spec_compiler/app/main.py",
       "target": "src/spec_compiler/middleware/request_id.py"
     },
     {
@@ -296,6 +319,14 @@
     {
       "source": "src/spec_compiler/logging.py",
       "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "src/spec_compiler/middleware/__init__.py",
+      "target": "src/spec_compiler/middleware/error_handler.py"
+    },
+    {
+      "source": "src/spec_compiler/middleware/__init__.py",
+      "target": "src/spec_compiler/middleware/request_id.py"
     },
     {
       "source": "src/spec_compiler/middleware/request_id.py",
@@ -372,12 +403,13 @@
       "pytest",
       "starlette.middleware.base.BaseHTTPMiddleware",
       "starlette.middleware.base.RequestResponseEndpoint",
+      "starlette.responses.JSONResponse",
       "structlog",
       "structlog.types.EventDict",
       "structlog.types.Processor",
       "uvicorn"
     ],
     "stdlib_count": 11,
-    "third-party_count": 19
+    "third-party_count": 20
   }
 }

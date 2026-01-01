@@ -120,6 +120,10 @@
                 },
                 {
                   "type": "file",
+                  "name": "error_handler.py"
+                },
+                {
+                  "type": "file",
                   "name": "request_id.py"
                 }
               ]

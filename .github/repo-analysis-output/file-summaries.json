@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 21,
+  "total_files": 22,
   "files": [
     {
       "schema_version": "2.0",
@@ -39,8 +39,8 @@
       "summary": "Python main entry point (role: entry-point)",
       "summary_text": "Python main entry point (role: entry-point)",
       "metrics": {
-        "size_bytes": 3606,
-        "loc": 83,
+        "size_bytes": 3802,
+        "loc": 85,
         "todo_count": 0
       }
     },
@@ -109,8 +109,22 @@
       "summary": "Python module initialization (role: module-init)",
       "summary_text": "Python module initialization (role: module-init)",
       "metrics": {
-        "size_bytes": 622,
-        "loc": 1,
+        "size_bytes": 828,
+        "loc": 4,
+        "todo_count": 0
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "src/spec_compiler/middleware/error_handler.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "summary": "Python core implementation",
+      "summary_text": "Python core implementation",
+      "metrics": {
+        "size_bytes": 5934,
+        "loc": 102,
         "todo_count": 0
       }
     },
@@ -193,8 +207,8 @@
       "summary": "Python test implementation (role: test)",
       "summary_text": "Python test implementation (role: test)",
       "metrics": {
-        "size_bytes": 1194,
-        "loc": 24,
+        "size_bytes": 2031,
+        "loc": 45,
         "todo_count": 0
       }
     },
@@ -249,8 +263,8 @@
       "summary": "Python test file (role: test)",
       "summary_text": "Python test file (role: test)",
       "metrics": {
-        "size_bytes": 3532,
-        "loc": 51,
+        "size_bytes": 9352,
+        "loc": 141,
         "todo_count": 0
       }
     },
