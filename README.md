@@ -185,6 +185,145 @@ The following environment variables are available (see `.env.example` for a comp
 - **`GET /docs`**: Interactive API documentation (Swagger UI). Automatically generated from OpenAPI schema.
 - **`GET /openapi.json`**: OpenAPI specification in JSON format. Use this for code generation or API clients.
 
+## API Models and Contracts
+
+The service defines typed Pydantic models for the compile API contract and internal LLM envelopes.
+
+### Compile API Models
+
+#### CompileRequest
+
+The request model for the compile endpoint with validation:
+
+```python
+{
+    "plan_id": str,           # Non-empty plan identifier
+    "spec_index": int,        # Specification index (>= 0)
+    "spec_data": dict | list, # Arbitrary JSON specification data
+    "github_owner": str,      # Non-empty GitHub repository owner
+    "github_repo": str        # Non-empty GitHub repository name
+}
+```
+
+**Validation Rules:**
+- `plan_id`, `github_owner`, and `github_repo` must be non-empty and cannot be whitespace-only
+- `spec_index` must be >= 0 (zero-based indexing)
+- `spec_data` accepts both dict and list payloads without schema enforcement
+
+**Example:**
+```python
+from spec_compiler import CompileRequest
+
+request = CompileRequest(
+    plan_id="plan-abc123",
+    spec_index=0,
+    spec_data={"type": "feature", "description": "Add authentication"},
+    github_owner="my-org",
+    github_repo="my-project"
+)
+```
+
+#### CompileResponse
+
+The response model for the compile endpoint:
+
+```python
+{
+    "request_id": str,              # Unique UUID request identifier
+    "plan_id": str,                 # Plan identifier (echoed from request)
+    "spec_index": int,              # Spec index (echoed from request)
+    "status": "accepted" | "failed", # Processing status
+    "message": str | None           # Optional status message
+}
+```
+
+**Status Values:**
+- `accepted`: Request was accepted for processing
+- `failed`: Request validation or processing failed
+
+**Example:**
+```python
+from spec_compiler import CompileResponse
+
+response = CompileResponse(
+    request_id="550e8400-e29b-41d4-a716-446655440000",
+    plan_id="plan-abc123",
+    spec_index=0,
+    status="accepted",
+    message="Request accepted for processing"
+)
+```
+
+### LLM Envelope Models (Skeletal)
+
+These models are defined for future LLM integration and are currently used for typing and structural placeholders.
+
+#### SystemPromptConfig
+
+Configuration for system prompts:
+```python
+{
+    "template": str,        # System prompt template
+    "variables": dict,      # Variables for interpolation
+    "max_tokens": int       # Maximum tokens (> 0)
+}
+```
+
+#### RepoContextPayload
+
+Repository context for LLM requests:
+```python
+{
+    "tree": list[dict],           # Repository file tree structure
+    "dependencies": list[dict],   # Repository dependencies
+    "file_summaries": list[dict]  # File summaries for context
+}
+```
+
+#### LlmRequestEnvelope
+
+Envelope for LLM API requests:
+```python
+{
+    "request_id": str,              # Unique request identifier
+    "model": str,                   # LLM model (default: "gpt-5.1")
+    "system_prompt": SystemPromptConfig,
+    "user_prompt": str,
+    "repo_context": RepoContextPayload | None,
+    "metadata": dict
+}
+```
+
+#### LlmResponseEnvelope
+
+Envelope for LLM API responses:
+```python
+{
+    "request_id": str,         # Request identifier for correlation
+    "status": str,             # Response status
+    "content": str,            # Response content from LLM
+    "model": str | None,       # Model that generated response
+    "usage": dict | None,      # Token usage information
+    "metadata": dict           # Additional metadata
+}
+```
+
+### Helper Functions
+
+```python
+from spec_compiler import generate_request_id, create_llm_response_stub
+
+# Generate a unique UUID request ID
+request_id = generate_request_id()
+
+# Create a placeholder LLM response for testing/typing
+stub = create_llm_response_stub(
+    request_id=request_id,
+    status="pending",
+    content=""
+)
+```
+
 ## Structured Logging & Observability
 
 This service uses **structured logging** with JSON output, designed for integration with Google Cloud Logging and other log aggregation systems.
@@ -244,6 +383,10 @@ spec-compiler/
 │       ├── __init__.py
 │       ├── config.py              # Configuration management
 │       ├── logging.py             # Structured logging setup
+│       ├── models/                # API models and types
+│       │   ├── __init__.py        # Model exports and helpers
+│       │   ├── compile.py         # CompileRequest/Response models
+│       │   └── llm.py             # LLM envelope models
 │       ├── middleware/
 │       │   ├── __init__.py
 │       │   └── request_id.py      # Request ID middleware
@@ -255,12 +398,16 @@ spec-compiler/
 │               └── health.py      # Health check routes
 ├── tests/
 │   ├── __init__.py
-│   ├── conftest.py               # Pytest fixtures
-│   └── test_health.py            # Health endpoint tests
-├── requirements.txt              # Python dependencies
-├── pyproject.toml               # Project configuration
-├── .env.example                 # Environment variables template
-└── README.md                    # This file
+│   ├── conftest.py                # Pytest fixtures
+│   ├── test_health.py             # Health endpoint tests
+│   ├── test_models_compile.py     # Compile models tests
+│   ├── test_models_llm.py         # LLM models tests
+│   └── test_models_helpers.py     # Model helpers tests
+├── requirements.txt               # Python dependencies
+├── pyproject.toml                 # Project configuration
+├── .env.example                   # Environment variables template
+├── LLMs.md                        # LLM integration guidelines
+└── README.md                      # This file
 ```
 
 ## Docker Deployment
