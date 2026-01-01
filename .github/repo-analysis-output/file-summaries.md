@@ -155,8 +155,8 @@ Total files: 24
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 13.85 KB  
-**LOC:** 312  
+**Size:** 18.81 KB  
+**LOC:** 406  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_config.py

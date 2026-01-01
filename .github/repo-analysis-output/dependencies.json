@@ -221,6 +221,7 @@
       "external_dependencies": {
         "stdlib": [
           "json",
+          "logging",
           "uuid"
         ],
         "third-party": [
@@ -401,6 +402,14 @@
     {
       "source": "tests/test_compile_endpoint.py",
       "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint.py",
+      "target": "src/spec_compiler/models/__init__.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint.py",
+      "target": "src/spec_compiler/models/compile.py"
     },
     {
       "source": "tests/test_config.py",

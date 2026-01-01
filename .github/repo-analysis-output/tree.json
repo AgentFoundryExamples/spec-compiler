@@ -266,7 +266,7 @@
     },
     {
       "type": "file",
-      "name": "spec-scheduler.openapi.json"
+      "name": "spec-compiler.openapi.json"
     }
   ]
 }

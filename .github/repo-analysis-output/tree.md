@@ -60,4 +60,4 @@
 ├── README.md
 ├── requirements.txt
 ├── sample.v1_1.json
-└── spec-scheduler.openapi.json
+└── spec-compiler.openapi.json
