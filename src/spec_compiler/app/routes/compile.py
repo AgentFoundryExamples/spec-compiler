@@ -18,6 +18,7 @@ Provides the main compile endpoint for processing specifications.
 """
 
 import json
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
@@ -80,7 +81,6 @@ logger = get_logger(__name__)
 )
 async def compile_spec(
     request: Request,
-    compile_request: CompileRequest,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> CompileResponse:
     """
@@ -91,8 +91,7 @@ async def compile_spec(
     LLM integration.
 
     Args:
-        request: FastAPI request object (for accessing request_id from middleware)
-        compile_request: The compile request payload
+        request: FastAPI request object (for accessing request_id and body)
         idempotency_key: Optional idempotency key for client-side deduplication
 
     Returns:
@@ -100,7 +99,7 @@ async def compile_spec(
 
     Raises:
         HTTPException: 413 if request body exceeds size limit
-        HTTPException: 422 if validation fails (handled by FastAPI)
+        HTTPException: 422 if validation fails (handled by Pydantic)
     """
     # Get request_id from middleware
     request_id = getattr(request.state, "request_id", None)
@@ -110,13 +109,8 @@ async def compile_spec(
 
         request_id = generate_request_id()
 
-    # Check body size limit
-    # Note: We use manual Content-Length checking here rather than FastAPI/Starlette's
-    # built-in max body size support because:
-    # 1. It provides more granular control over error messages
-    # 2. Allows different limits per endpoint if needed
-    # 3. Enables logging before rejection
-    # For production, also configure nginx/load balancer limits as defense-in-depth
+    # Check body size limit BEFORE parsing to prevent memory exhaustion
+    # This check happens before FastAPI/Pydantic parses the JSON body
     content_length = request.headers.get("content-length")
     if content_length:
         try:
@@ -136,11 +130,68 @@ async def compile_spec(
             # Invalid content-length header, let FastAPI handle it
             pass
 
-    # Sanitize idempotency key for logging (prevent injection attacks)
+    # Read and parse body manually after size check
+    body_bytes = await request.body()
+    try:
+        body_dict = json.loads(body_bytes)
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid JSON: {str(e)}",
+        ) from None
+
+    # Validate using Pydantic model
+    try:
+        compile_request = CompileRequest.model_validate(body_dict)
+    except Exception as e:
+        # Preserve Pydantic's validation error format
+        from pydantic import ValidationError
+
+        if isinstance(e, ValidationError):
+            # Convert Pydantic errors to JSON-serializable format
+            # Use the errors() method which returns a list of dicts
+            errors = e.errors()
+            # Ensure all error details are JSON serializable
+            serializable_errors = []
+            for error in errors:
+                serializable_error = {
+                    "loc": error.get("loc", []),
+                    "msg": error.get("msg", ""),
+                    "type": error.get("type", ""),
+                }
+                if "input" in error:
+                    serializable_error["input"] = error["input"]
+                if "ctx" in error:
+                    # Ensure ctx is serializable
+                    try:
+                        json.dumps(error["ctx"])
+                        serializable_error["ctx"] = error["ctx"]
+                    except (TypeError, ValueError):
+                        # Skip non-serializable ctx
+                        pass
+                serializable_errors.append(serializable_error)
+
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=serializable_errors,
+            ) from None
+        else:
+            # For other exceptions, wrap in simple format
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(e),
+            ) from None
+
+    # Sanitize idempotency key for logging (prevent log injection attacks)
+    # Only allow alphanumeric characters, hyphens, and underscores
     safe_idempotency_key = None
     if idempotency_key:
-        # Limit length and strip dangerous characters
-        safe_idempotency_key = idempotency_key[: settings.max_idempotency_key_length].strip()
+        # Validate pattern: alphanumeric, hyphens, underscores only
+        sanitized = re.sub(r"[^a-zA-Z0-9\-_]", "", idempotency_key)
+        # Truncate to max length
+        safe_idempotency_key = (
+            sanitized[: settings.max_idempotency_key_length] if sanitized else None
+        )
 
     # Log receipt of compile request
     logger.info(
@@ -156,6 +207,9 @@ async def compile_spec(
     )
 
     # Generate placeholder LLM response envelope
+    # NOTE: This is intentionally created but not returned/used. It simulates
+    # the future workflow where we would dispatch to LLM services. The envelope
+    # is logged to validate the data structure and demonstrate the intended flow.
     llm_response = create_llm_response_stub(
         request_id=request_id,
         status="pending",
