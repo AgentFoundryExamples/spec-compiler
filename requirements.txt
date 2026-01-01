@@ -1,0 +1,27 @@
+# Core FastAPI dependencies
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# Configuration and environment
+python-dotenv==1.0.1
+
+# Structured logging for Cloud Run
+structlog==24.4.0
+
+# HTTP client for potential integrations
+httpx==0.28.1
+
+# Testing dependencies
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+
+# Code quality tools
+black==24.10.0
+ruff==0.8.4
+mypy==1.13.0
+
+# Additional type stubs
+types-requests==2.32.0.20241016
