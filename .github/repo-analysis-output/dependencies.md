@@ -8,16 +8,16 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 ## Statistics
 
-- **Total files**: 22
-- **Intra-repo dependencies**: 21
-- **External stdlib dependencies**: 11
-- **External third-party dependencies**: 20
+- **Total files**: 24
+- **Intra-repo dependencies**: 27
+- **External stdlib dependencies**: 13
+- **External third-party dependencies**: 23
 
 ## External Dependencies
 
 ### Standard Library / Core Modules
 
-Total: 11 unique modules
+Total: 13 unique modules
 
 - `collections.abc.AsyncGenerator`
 - `contextlib.asynccontextmanager`
@@ -25,7 +25,9 @@ Total: 11 unique modules
 - `json`
 - `logging`
 - `os`
+- `re`
 - `sys`
+- `typing.Annotated`
 - `typing.Any`
 - `typing.Literal`
 - `unittest.mock.patch`
@@ -33,13 +35,16 @@ Total: 11 unique modules
 
 ### Third-Party Packages
 
-Total: 20 unique packages
+Total: 23 unique packages
 
 - `fastapi.APIRouter`
 - `fastapi.FastAPI`
+- `fastapi.HTTPException`
+- `fastapi.Header`
 - `fastapi.Request`
 - `fastapi.Response`
 - `fastapi.middleware.cors.CORSMiddleware`
+- `fastapi.status`
 - `fastapi.testclient.TestClient`
 - `pydantic.BaseModel`
 - `pydantic.Field`
@@ -52,26 +57,25 @@ Total: 20 unique packages
 - `starlette.middleware.base.RequestResponseEndpoint`
 - `starlette.responses.JSONResponse`
 - `structlog`
-- `structlog.types.EventDict`
-- `structlog.types.Processor`
-- `uvicorn`
+- ... and 3 more (see JSON for full list)
 
 ## Most Depended Upon Files (Intra-Repo)
 
-- `src/spec_compiler/config.py` (4 dependents)
-- `src/spec_compiler/logging.py` (3 dependents)
+- `src/spec_compiler/config.py` (6 dependents)
+- `src/spec_compiler/logging.py` (4 dependents)
+- `src/spec_compiler/models/__init__.py` (3 dependents)
+- `src/spec_compiler/models/compile.py` (3 dependents)
 - `src/spec_compiler/models/llm.py` (3 dependents)
-- `src/spec_compiler/models/__init__.py` (2 dependents)
 - `src/spec_compiler/middleware/error_handler.py` (2 dependents)
 - `src/spec_compiler/middleware/request_id.py` (2 dependents)
-- `src/spec_compiler/models/compile.py` (2 dependents)
 - `src/spec_compiler/app/routes/health.py` (1 dependents)
+- `src/spec_compiler/app/routes/compile.py` (1 dependents)
 - `src/spec_compiler/app/main.py` (1 dependents)
-- `src/spec_compiler/__init__.py` (1 dependents)
 
 ## Files with Most Dependencies (Intra-Repo)
 
-- `src/spec_compiler/app/main.py` (5 dependencies)
+- `src/spec_compiler/app/main.py` (6 dependencies)
+- `src/spec_compiler/app/routes/compile.py` (4 dependencies)
 - `tests/test_models_helpers.py` (3 dependencies)
 - `src/spec_compiler/middleware/__init__.py` (2 dependencies)
 - `src/spec_compiler/models/__init__.py` (2 dependencies)
@@ -80,4 +84,3 @@ Total: 20 unique packages
 - `src/spec_compiler/logging.py` (1 dependencies)
 - `src/spec_compiler/middleware/request_id.py` (1 dependencies)
 - `tests/conftest.py` (1 dependencies)
-- `tests/test_config.py` (1 dependencies)

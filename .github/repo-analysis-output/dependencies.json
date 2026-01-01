@@ -45,6 +45,26 @@
       }
     },
     {
+      "id": "src/spec_compiler/app/routes/compile.py",
+      "path": "src/spec_compiler/app/routes/compile.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "json",
+          "re",
+          "typing.Annotated"
+        ],
+        "third-party": [
+          "fastapi.APIRouter",
+          "fastapi.HTTPException",
+          "fastapi.Header",
+          "fastapi.Request",
+          "fastapi.status",
+          "pydantic.ValidationError"
+        ]
+      }
+    },
+    {
       "id": "src/spec_compiler/app/routes/health.py",
       "path": "src/spec_compiler/app/routes/health.py",
       "type": "file",
@@ -195,6 +215,20 @@
       }
     },
     {
+      "id": "tests/test_compile_endpoint.py",
+      "path": "tests/test_compile_endpoint.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "json",
+          "uuid"
+        ],
+        "third-party": [
+          "fastapi.testclient.TestClient"
+        ]
+      }
+    },
+    {
       "id": "tests/test_config.py",
       "path": "tests/test_config.py",
       "type": "file",
@@ -298,6 +332,10 @@
     },
     {
       "source": "src/spec_compiler/app/main.py",
+      "target": "src/spec_compiler/app/routes/compile.py"
+    },
+    {
+      "source": "src/spec_compiler/app/main.py",
       "target": "src/spec_compiler/config.py"
     },
     {
@@ -311,6 +349,22 @@
     {
       "source": "src/spec_compiler/app/main.py",
       "target": "src/spec_compiler/middleware/request_id.py"
+    },
+    {
+      "source": "src/spec_compiler/app/routes/compile.py",
+      "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "src/spec_compiler/app/routes/compile.py",
+      "target": "src/spec_compiler/logging.py"
+    },
+    {
+      "source": "src/spec_compiler/app/routes/compile.py",
+      "target": "src/spec_compiler/models/__init__.py"
+    },
+    {
+      "source": "src/spec_compiler/app/routes/compile.py",
+      "target": "src/spec_compiler/models/compile.py"
     },
     {
       "source": "src/spec_compiler/app/routes/health.py",
@@ -343,6 +397,10 @@
     {
       "source": "tests/conftest.py",
       "target": "src/spec_compiler/app/main.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint.py",
+      "target": "src/spec_compiler/config.py"
     },
     {
       "source": "tests/test_config.py",
@@ -381,7 +439,9 @@
       "json",
       "logging",
       "os",
+      "re",
       "sys",
+      "typing.Annotated",
       "typing.Any",
       "typing.Literal",
       "unittest.mock.patch",
@@ -390,9 +450,12 @@
     "third-party": [
       "fastapi.APIRouter",
       "fastapi.FastAPI",
+      "fastapi.HTTPException",
+      "fastapi.Header",
       "fastapi.Request",
       "fastapi.Response",
       "fastapi.middleware.cors.CORSMiddleware",
+      "fastapi.status",
       "fastapi.testclient.TestClient",
       "pydantic.BaseModel",
       "pydantic.Field",
@@ -409,7 +472,7 @@
       "structlog.types.Processor",
       "uvicorn"
     ],
-    "stdlib_count": 11,
-    "third-party_count": 20
+    "stdlib_count": 13,
+    "third-party_count": 23
   }
 }

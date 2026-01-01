@@ -21,6 +21,7 @@
     ├── app
       ├── routes
         ├── __init__.py
+        ├── compile.py
         └── health.py
       ├── __init__.py
       └── main.py
@@ -38,6 +39,7 @@
 ├── tests
   ├── __init__.py
   ├── conftest.py
+  ├── test_compile_endpoint.py
   ├── test_config.py
   ├── test_health.py
   ├── test_logging.py
