@@ -105,6 +105,17 @@ class TestCreateLlmResponseStub:
         assert "content" in data
         assert "metadata" in data
 
+    def test_stub_with_custom_metadata(self) -> None:
+        """Test creating stub with custom metadata."""
+        metadata = {"key": "value", "count": 42}
+        stub = create_llm_response_stub(
+            "req-meta",
+            status="success",
+            content="test",
+            metadata=metadata,
+        )
+        assert stub.metadata == {"key": "value", "count": 42}
+
     def test_multiple_stubs_are_independent(self) -> None:
         """Test that creating multiple stubs creates independent objects."""
         stub1 = create_llm_response_stub("req-1", status="pending")

@@ -18,6 +18,7 @@ Exports compile API contract models and LLM envelope models.
 """
 
 import uuid
+from typing import Any, Literal
 
 from spec_compiler.models.compile import CompileRequest, CompileResponse
 from spec_compiler.models.llm import (
@@ -51,8 +52,9 @@ def generate_request_id() -> str:
 
 def create_llm_response_stub(
     request_id: str,
-    status: str = "pending",
+    status: Literal["success", "error", "pending", "timeout", "rate_limited"] = "pending",
     content: str = "",
+    metadata: dict[str, Any] | None = None,
 ) -> LlmResponseEnvelope:
     """
     Create a placeholder LLM response envelope for testing/typing.
@@ -61,6 +63,7 @@ def create_llm_response_stub(
         request_id: The request identifier
         status: Response status (default: "pending")
         content: Response content (default: "")
+        metadata: Optional metadata dict (default: empty dict)
 
     Returns:
         LlmResponseEnvelope instance
@@ -69,5 +72,5 @@ def create_llm_response_stub(
         request_id=request_id,
         status=status,
         content=content,
-        metadata={},
+        metadata=metadata if metadata is not None else {},
     )

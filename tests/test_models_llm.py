@@ -241,6 +241,27 @@ class TestLlmResponseEnvelope:
         assert data["usage"] == {"tokens": 100}
         assert data["metadata"] == {"test": "data"}
 
+    def test_status_literal_enforcement(self) -> None:
+        """Test that status field only accepts allowed literal values."""
+        from pydantic import ValidationError
+
+        # Valid statuses should work
+        for valid_status in ["success", "error", "pending", "timeout", "rate_limited"]:
+            response = LlmResponseEnvelope(
+                request_id="req-test",
+                status=valid_status,
+            )
+            assert response.status == valid_status
+
+        # Invalid status should raise validation error
+        with pytest.raises(ValidationError) as exc_info:
+            LlmResponseEnvelope(
+                request_id="req-invalid",
+                status="invalid_status",
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("status",) for error in errors)
+
 
 class TestLlmModelsIntegration:
     """Integration tests for LLM models working together."""

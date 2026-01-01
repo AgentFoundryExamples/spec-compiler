@@ -18,7 +18,7 @@ Skeletal models for future LLM integration. These are used for typing
 and structural placeholders but not yet connected to actual LLM services.
 """
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -139,7 +139,7 @@ class LlmResponseEnvelope(BaseModel):
         ...,
         description="Request identifier for correlation",
     )
-    status: str = Field(
+    status: Literal["success", "error", "pending", "timeout", "rate_limited"] = Field(
         default="pending",
         description="Response status",
     )
