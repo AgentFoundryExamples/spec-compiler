@@ -20,7 +20,10 @@ A FastAPI service for compiling specifications with LLM integrations. This servi
 - pip for package management
 - Virtual environment tool (venv, included with Python 3.11+)
 
-**Note**: These instructions work on macOS, Linux, and Windows. On Windows, use `python` instead of `python3` and `venv\Scripts\activate` instead of `source venv/bin/activate`.
+**Note**: These instructions work on macOS, Linux, and Windows. On Windows, use `python` instead of `python3`. The virtual environment activation command depends on your shell:
+- **Command Prompt**: `venv\Scripts\activate`
+- **PowerShell**: `venv\Scripts\Activate.ps1`
+- **Git Bash**: `source venv/Scripts/activate`
 
 ### Installation
 
@@ -55,7 +58,14 @@ Start the development server with environment variables loaded from `.env`:
 
 ```bash
 # The application automatically loads .env via python-dotenv (configured in config.py)
+# On macOS/Linux:
 PYTHONPATH=src python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 --reload
+
+# On Windows (Command Prompt):
+set PYTHONPATH=src && python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 --reload
+
+# On Windows (PowerShell):
+$env:PYTHONPATH="src"; python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
 **How Environment Variables are Loaded**:
