@@ -22,8 +22,8 @@ run: ## Run container in production mode
 	@echo "Starting container $(CONTAINER_NAME) on port $(PORT)..."
 	docker run -d \
 		--name $(CONTAINER_NAME) \
-		-p $(PORT):8080 \
-		-e PORT=8080 \
+		-p $(PORT):$(PORT) \
+		-e PORT=$(PORT) \
 		-e APP_ENV=production \
 		-e LOG_JSON=true \
 		-e LOG_LEVEL=INFO \
@@ -36,8 +36,8 @@ run-dev: ## Run container in development mode with environment variables
 	@echo "Starting container $(CONTAINER_NAME) in development mode on port $(PORT)..."
 	docker run -d \
 		--name $(CONTAINER_NAME) \
-		-p $(PORT):8080 \
-		-e PORT=8080 \
+		-p $(PORT):$(PORT) \
+		-e PORT=$(PORT) \
 		-e APP_ENV=$(APP_ENV) \
 		-e LOG_JSON=false \
 		-e LOG_LEVEL=DEBUG \
@@ -50,8 +50,8 @@ run-dev: ## Run container in development mode with environment variables
 run-interactive: ## Run container interactively (for debugging)
 	@echo "Starting container in interactive mode..."
 	docker run -it --rm \
-		-p $(PORT):8080 \
-		-e PORT=8080 \
+		-p $(PORT):$(PORT) \
+		-e PORT=$(PORT) \
 		-e APP_ENV=$(APP_ENV) \
 		-e LOG_JSON=false \
 		$(IMAGE_NAME):$(IMAGE_TAG)
@@ -61,8 +61,8 @@ logs: ## Show container logs
 
 stop: ## Stop running container
 	@echo "Stopping container $(CONTAINER_NAME)..."
-	-docker stop $(CONTAINER_NAME)
-	-docker rm $(CONTAINER_NAME)
+	-docker stop $(CONTAINER_NAME) >/dev/null 2>&1
+	-docker rm $(CONTAINER_NAME) >/dev/null 2>&1
 	@echo "Container stopped and removed."
 
 clean: stop ## Stop container and remove image

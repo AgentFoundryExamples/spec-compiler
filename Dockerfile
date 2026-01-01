@@ -23,11 +23,6 @@ RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pyth
 # Stage 2: Runtime image
 FROM python:3.11-slim AS runtime
 
-# Install minimal runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser -u 1000 appuser
 
@@ -61,6 +56,8 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/health').read()" || exit 1
 
 # Run uvicorn with workers <= 2 as specified
+# Using 1 worker (instead of 2) because Cloud Run handles horizontal scaling at the container level
+# Multiple workers would add unnecessary memory overhead without performance benefit in Cloud Run
 # Using shell form with exec to support PORT variable substitution while maintaining proper signal handling
 # The 'exec' ensures uvicorn becomes PID 1 and receives SIGTERM for graceful shutdown
 CMD ["sh", "-c", "exec uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port ${PORT} --workers 1"]
