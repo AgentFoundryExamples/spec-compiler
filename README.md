@@ -85,6 +85,34 @@ Type check with mypy:
 mypy src/
 ```
 
+### Pre-commit Hooks (Optional)
+
+Pre-commit hooks are available to automatically run formatting and linting checks before each commit:
+
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Install the git hooks
+pre-commit install
+
+# Run manually on all files (optional)
+pre-commit run --all-files
+```
+
+The pre-commit hooks will automatically run black, ruff, and pytest before each commit.
+
+### Continuous Integration
+
+This project uses GitHub Actions for continuous integration. On every pull request and push to main, the CI workflow will:
+
+- Install Python 3.11 and dependencies
+- Run black formatting checks
+- Run ruff linting checks  
+- Run the full test suite with coverage reporting
+
+See `.github/workflows/ci.yml` for the complete CI configuration.
+
 ## Configuration
 
 All configuration is managed through environment variables. See `.env.example` for all available options.
