@@ -21,7 +21,6 @@ body size limits, logging, and response format.
 import json
 import uuid
 
-import pytest
 from fastapi.testclient import TestClient
 
 
