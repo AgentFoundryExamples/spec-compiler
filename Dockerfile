@@ -16,7 +16,9 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Note: --trusted-host flags may be needed in some environments with SSL issues
+# In production with proper SSL certificates, these flags can be removed
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org -r requirements.txt
 
 # Stage 2: Runtime image
 FROM python:3.11-slim AS runtime
