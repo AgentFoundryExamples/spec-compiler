@@ -302,9 +302,12 @@ def test_compile_request_malformed_json_returns_422(test_client: TestClient) -> 
 
 def test_compile_request_body_size_limit_enforcement(test_client: TestClient) -> None:
     """Test that oversized request body returns 413 error."""
+    # Import settings to get the configured limit
+    from spec_compiler.config import settings
+
     # Create a large spec_data that exceeds the limit
-    # Default limit is 10MB, create something larger
-    large_data = {"large_field": "x" * 11_000_000}  # ~11MB
+    # Add 1MB buffer to ensure we exceed the limit
+    large_data = {"large_field": "x" * (settings.max_request_body_size_bytes + 1_000_000)}
     payload = {
         "plan_id": "plan-large",
         "spec_index": 0,

@@ -77,6 +77,13 @@ class Settings(BaseSettings):
         gt=0,
     )
 
+    # Idempotency Key Limits
+    max_idempotency_key_length: int = Field(
+        default=100,
+        description="Maximum idempotency key length for security",
+        gt=0,
+    )
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins from comma-separated string."""

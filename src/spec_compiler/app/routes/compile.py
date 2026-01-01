@@ -110,8 +110,13 @@ async def compile_spec(
 
         request_id = generate_request_id()
 
-    # Check body size limit (FastAPI doesn't provide built-in body size check before parsing)
-    # This is a defense-in-depth measure - in production, you'd also want nginx/load balancer limits
+    # Check body size limit
+    # Note: We use manual Content-Length checking here rather than FastAPI/Starlette's
+    # built-in max body size support because:
+    # 1. It provides more granular control over error messages
+    # 2. Allows different limits per endpoint if needed
+    # 3. Enables logging before rejection
+    # For production, also configure nginx/load balancer limits as defense-in-depth
     content_length = request.headers.get("content-length")
     if content_length:
         try:
@@ -135,7 +140,7 @@ async def compile_spec(
     safe_idempotency_key = None
     if idempotency_key:
         # Limit length and strip dangerous characters
-        safe_idempotency_key = idempotency_key[:100].strip()
+        safe_idempotency_key = idempotency_key[: settings.max_idempotency_key_length].strip()
 
     # Log receipt of compile request
     logger.info(
