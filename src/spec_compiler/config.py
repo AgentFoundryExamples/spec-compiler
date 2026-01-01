@@ -70,6 +70,20 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", description="Logging level")
     log_json: bool = Field(default=True, description="Enable JSON structured logging for Cloud Run")
 
+    # Request Body Limits
+    max_request_body_size_bytes: int = Field(
+        default=10_485_760,  # 10MB default
+        description="Maximum request body size in bytes",
+        gt=0,
+    )
+
+    # Idempotency Key Limits
+    max_idempotency_key_length: int = Field(
+        default=100,
+        description="Maximum idempotency key length for security",
+        gt=0,
+    )
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins from comma-separated string."""
