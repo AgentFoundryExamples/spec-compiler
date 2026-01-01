@@ -64,6 +64,10 @@
     },
     {
       "type": "file",
+      "name": "github-app-basic.openapi.json"
+    },
+    {
+      "type": "file",
       "name": "LICENSE"
     },
     {
