@@ -37,7 +37,7 @@ class GitHubFileError(Exception):
     Attributes:
         message: Human-readable error message
         status_code: HTTP status code if applicable
-        response_body: Raw response body for debugging
+        response_body: Raw response body for debugging (sanitized)
         context: Additional context about the error
     """
 
@@ -51,8 +51,21 @@ class GitHubFileError(Exception):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
-        self.response_body = response_body
+        # Sanitize response to prevent token leakage
+        self.response_body = self._sanitize_response(response_body) if response_body else None
         self.context = context or {}
+
+    @staticmethod
+    def _sanitize_response(response_body: str) -> str:
+        """Sanitize response body to prevent sensitive data leakage."""
+        import re
+
+        truncated = response_body[:500]
+        # Redact potential token patterns in error responses
+        truncated = re.sub(
+            r"(Bearer\s+)([A-Za-z0-9_\-\.]+)", r"\1[REDACTED]", truncated, flags=re.IGNORECASE
+        )
+        return truncated
 
 
 class InvalidJSONError(Exception):
@@ -135,6 +148,12 @@ class GitHubRepoClient:
         }
 
         if token:
+            # Validate token to prevent header injection
+            if "\n" in token or "\r" in token:
+                raise GitHubFileError(
+                    "Invalid token: contains newline characters",
+                    context={"owner": owner, "repo": repo, "path": path},
+                )
             headers["Authorization"] = f"Bearer {token}"
 
         logger.info(
@@ -147,8 +166,8 @@ class GitHubRepoClient:
         )
 
         try:
-            # Make HTTP request to GitHub API
-            with httpx.Client(timeout=self.timeout) as client:
+            # Make HTTP request to GitHub API with TLS verification
+            with httpx.Client(timeout=self.timeout, verify=True) as client:
                 response = client.get(url, headers=headers)
 
             # Check for HTTP errors
@@ -243,7 +262,44 @@ class GitHubRepoClient:
 
             elif encoding is None or encoding == "":
                 # Content is already plain text (uncommon but possible)
-                decoded_content = content or ""
+                # Validate that content field exists and is a string
+                if content is None:
+                    error_msg = "GitHub API response has no encoding but content is null"
+                    logger.error(
+                        "github_plaintext_missing_content",
+                        owner=owner,
+                        repo=repo,
+                        path=path,
+                    )
+                    raise GitHubFileError(
+                        error_msg,
+                        status_code=response.status_code,
+                        response_body=response.text,
+                        context={"owner": owner, "repo": repo, "path": path},
+                    )
+                if not isinstance(content, str):
+                    error_msg = (
+                        f"GitHub API response content is not a string: {type(content).__name__}"
+                    )
+                    logger.error(
+                        "github_plaintext_invalid_type",
+                        owner=owner,
+                        repo=repo,
+                        path=path,
+                        content_type=type(content).__name__,
+                    )
+                    raise GitHubFileError(
+                        error_msg,
+                        status_code=response.status_code,
+                        response_body=response.text,
+                        context={
+                            "owner": owner,
+                            "repo": repo,
+                            "path": path,
+                            "content_type": type(content).__name__,
+                        },
+                    )
+                decoded_content = content
                 logger.info(
                     "github_plaintext_content",
                     owner=owner,

@@ -433,3 +433,70 @@ def test_get_json_file_url_formatting(repo_client):
         url = call_args[0][0]
         assert url == "https://api.github.com/repos/owner/repo/contents/test.json"
         assert "//" not in url.replace("https://", "")
+
+
+def test_get_json_file_header_injection_prevention(repo_client):
+    """Test that header injection is prevented in tokens."""
+    malicious_token = "valid-token\nX-Malicious: header"
+
+    with pytest.raises(GitHubFileError) as exc_info:
+        repo_client.get_json_file("owner", "repo", "test.json", token=malicious_token)
+
+    assert "Invalid token" in str(exc_info.value)
+    assert "newline" in str(exc_info.value)
+
+
+def test_github_file_error_sanitizes_response_body():
+    """Test that GitHubFileError sanitizes sensitive data from response body."""
+    response_with_token = "Authorization: Bearer gho_secret123"
+    error = GitHubFileError(
+        "Test error",
+        status_code=401,
+        response_body=response_with_token,
+    )
+
+    assert "gho_secret123" not in error.response_body
+    assert "[REDACTED]" in error.response_body
+
+
+def test_get_json_file_plaintext_null_content(repo_client):
+    """Test handling of null content with plaintext encoding."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "content": None,
+        "encoding": None,
+    }
+    mock_response.text = '{"content": null, "encoding": null}'
+
+    with patch("httpx.Client") as mock_client_class:
+        mock_client = MagicMock()
+        mock_client_class.return_value.__enter__.return_value = mock_client
+        mock_client.get.return_value = mock_response
+
+        with pytest.raises(GitHubFileError) as exc_info:
+            repo_client.get_json_file("owner", "repo", "test.json")
+
+        assert "content is null" in str(exc_info.value)
+
+
+def test_get_json_file_plaintext_non_string_content(repo_client):
+    """Test handling of non-string content with plaintext encoding."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "content": 12345,  # Not a string
+        "encoding": None,
+    }
+    mock_response.text = '{"content": 12345, "encoding": null}'
+
+    with patch("httpx.Client") as mock_client_class:
+        mock_client = MagicMock()
+        mock_client_class.return_value.__enter__.return_value = mock_client
+        mock_client.get.return_value = mock_response
+
+        with pytest.raises(GitHubFileError) as exc_info:
+            repo_client.get_json_file("owner", "repo", "test.json")
+
+        assert "not a string" in str(exc_info.value)
+        assert "int" in str(exc_info.value)

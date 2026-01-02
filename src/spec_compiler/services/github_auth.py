@@ -37,7 +37,7 @@ class MintingError(Exception):
     Attributes:
         message: Human-readable error message
         status_code: HTTP status code if applicable
-        response_body: Raw response body for debugging
+        response_body: Raw response body for debugging (sanitized to avoid token leakage)
         context: Additional context about the error
     """
 
@@ -51,8 +51,33 @@ class MintingError(Exception):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
-        self.response_body = response_body
+        # Sanitize response_body to prevent token leakage
+        self.response_body = self._sanitize_response(response_body) if response_body else None
         self.context = context or {}
+
+    @staticmethod
+    def _sanitize_response(response_body: str) -> str:
+        """
+        Sanitize response body to prevent sensitive token data leakage.
+
+        Truncates to 500 chars and redacts common token field patterns.
+        """
+        truncated = response_body[:500]
+        # Redact potential token values in JSON responses
+        import re
+
+        # Pattern matches access_token field values in JSON
+        truncated = re.sub(
+            r'("access_token"\s*:\s*")([^"]+)(")',
+            r"\1[REDACTED]\3",
+            truncated,
+            flags=re.IGNORECASE,
+        )
+        # Pattern matches bearer token patterns
+        truncated = re.sub(
+            r"(Bearer\s+)([A-Za-z0-9_\-\.]+)", r"\1[REDACTED]", truncated, flags=re.IGNORECASE
+        )
+        return truncated
 
 
 class GitHubAuthClient:
@@ -70,6 +95,7 @@ class GitHubAuthClient:
         auth_header: str | None = None,
         timeout: float = 30.0,
         enable_caching: bool = True,
+        cache_expiry_buffer_seconds: int = 300,
     ):
         """
         Initialize the GitHub authentication client.
@@ -79,6 +105,8 @@ class GitHubAuthClient:
             auth_header: Authorization header value (defaults to config)
             timeout: HTTP request timeout in seconds
             enable_caching: Enable in-memory token caching per repo
+            cache_expiry_buffer_seconds: Buffer time in seconds before token expiry
+                to consider it invalid (default: 300 seconds / 5 minutes)
         """
         self.minting_service_base_url = (
             minting_service_base_url or settings.minting_service_base_url
@@ -86,6 +114,7 @@ class GitHubAuthClient:
         self.auth_header = auth_header or settings.minting_service_auth_header
         self.timeout = timeout
         self.enable_caching = enable_caching
+        self.cache_expiry_buffer_seconds = cache_expiry_buffer_seconds
         self._token_cache: dict[str, GitHubAuthToken] = {}
 
         if not self.minting_service_base_url:
@@ -157,6 +186,12 @@ class GitHubAuthClient:
         url = f"{self.minting_service_base_url.rstrip('/')}/api/token"
         headers: dict[str, str] = {"Content-Type": "application/json"}
         if self.auth_header:
+            # Validate auth_header to prevent header injection
+            if "\n" in self.auth_header or "\r" in self.auth_header:
+                raise MintingError(
+                    "Invalid authorization header: contains newline characters",
+                    context={"owner": owner, "repo": repo},
+                )
             headers["Authorization"] = f"Bearer {self.auth_header}"
 
         request_body = {"force_refresh": force_refresh}
@@ -170,8 +205,8 @@ class GitHubAuthClient:
         )
 
         try:
-            # Make HTTP request to minting service
-            with httpx.Client(timeout=self.timeout) as client:
+            # Make HTTP request to minting service with TLS verification
+            with httpx.Client(timeout=self.timeout, verify=True) as client:
                 response = client.post(url, headers=headers, json=request_body)
 
             # Check for HTTP errors
@@ -297,7 +332,7 @@ class GitHubAuthClient:
 
         A token is valid if:
         - It has no expiry (expires_at is None), OR
-        - Its expiry is more than 5 minutes in the future
+        - Its expiry is more than cache_expiry_buffer_seconds in the future
 
         Args:
             token: Token to validate
@@ -314,9 +349,9 @@ class GitHubAuthClient:
             expiry_dt = datetime.fromisoformat(token.expires_at.replace("Z", "+00:00"))
             now = datetime.now(UTC)
 
-            # Check if token expires in more than 5 minutes
+            # Check if token expires in more than the configured buffer
             time_until_expiry = (expiry_dt - now).total_seconds()
-            return time_until_expiry > 300  # 5 minutes buffer
+            return time_until_expiry > self.cache_expiry_buffer_seconds
 
         except (ValueError, AttributeError) as e:
             logger.warning(
@@ -342,7 +377,8 @@ class GitHubAuthClient:
                 logger.info("token_cache_cleared", owner=owner, repo=repo)
         elif owner:
             # Clear all tokens for this owner
-            keys_to_remove = [key for key in self._token_cache if key.startswith(f"{owner}/")]
+            # Use exact match on owner part to avoid matching partial names
+            keys_to_remove = [key for key in self._token_cache if key.split("/", 1)[0] == owner]
             for key in keys_to_remove:
                 del self._token_cache[key]
             logger.info("token_cache_cleared_owner", owner=owner, count=len(keys_to_remove))

@@ -46,6 +46,7 @@ def auth_client(mock_settings):
         auth_header="test-token",
         timeout=30.0,
         enable_caching=True,
+        cache_expiry_buffer_seconds=300,
     )
 
 
@@ -57,6 +58,7 @@ def auth_client_no_cache(mock_settings):
         auth_header="test-token",
         timeout=30.0,
         enable_caching=False,
+        cache_expiry_buffer_seconds=300,
     )
 
 
@@ -414,3 +416,86 @@ def test_clear_cache_owner(auth_client):
     assert "owner1/repo1" not in auth_client._token_cache
     assert "owner1/repo2" not in auth_client._token_cache
     assert "owner2/repo1" in auth_client._token_cache
+
+
+def test_mint_user_to_server_token_header_injection_prevention(auth_client):
+    """Test that header injection is prevented."""
+    # Create client with malicious auth header
+    malicious_client = GitHubAuthClient(
+        minting_service_base_url="https://minting.example.com",
+        auth_header="valid-token\nX-Malicious: header",
+    )
+
+    with pytest.raises(MintingError) as exc_info:
+        malicious_client.mint_user_to_server_token("owner", "repo")
+
+    assert "Invalid authorization header" in str(exc_info.value)
+    assert "newline" in str(exc_info.value)
+
+
+def test_minting_error_sanitizes_response_body():
+    """Test that MintingError sanitizes sensitive data from response body."""
+    response_with_token = '{"access_token": "gho_secret123", "token_type": "bearer"}'
+    error = MintingError(
+        "Test error",
+        status_code=500,
+        response_body=response_with_token,
+    )
+
+    assert "gho_secret123" not in error.response_body
+    assert "[REDACTED]" in error.response_body
+    assert "access_token" in error.response_body
+
+
+def test_minting_error_sanitizes_bearer_tokens():
+    """Test that MintingError sanitizes bearer tokens in response."""
+    response_with_bearer = "Authorization: Bearer gho_secrettoken123"
+    error = MintingError(
+        "Test error",
+        response_body=response_with_bearer,
+    )
+
+    assert "gho_secrettoken123" not in error.response_body
+    assert "[REDACTED]" in error.response_body
+
+
+def test_cache_expiry_buffer_configurable():
+    """Test that cache expiry buffer is configurable."""
+    client = GitHubAuthClient(
+        minting_service_base_url="https://test.com",
+        auth_header="token",
+        cache_expiry_buffer_seconds=600,  # 10 minutes
+    )
+
+    assert client.cache_expiry_buffer_seconds == 600
+
+    # Test that it uses the configured buffer
+    future_expiry = (datetime.now(UTC) + timedelta(minutes=8)).isoformat()
+    token = GitHubAuthToken(
+        access_token="gho_test",
+        token_type="bearer",
+        expires_at=future_expiry,
+    )
+
+    # With 10-minute buffer, 8 minutes should be invalid
+    assert client._is_token_valid(token) is False
+
+
+def test_clear_cache_owner_exact_match():
+    """Test that clearing cache by owner uses exact match, not prefix."""
+    client = GitHubAuthClient(
+        minting_service_base_url="https://test.com",
+        auth_header="token",
+    )
+
+    # Create tokens for owners that share a prefix
+    client._token_cache["owner/repo1"] = MagicMock()
+    client._token_cache["owner2/repo2"] = MagicMock()
+    client._token_cache["owner-suffix/repo3"] = MagicMock()
+
+    # Clear only 'owner' - should not match 'owner2' or 'owner-suffix'
+    client.clear_cache("owner")
+
+    assert "owner/repo1" not in client._token_cache
+    assert "owner2/repo2" in client._token_cache
+    assert "owner-suffix/repo3" in client._token_cache
