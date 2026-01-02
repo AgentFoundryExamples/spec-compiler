@@ -624,6 +624,16 @@ curl -X POST http://localhost:8080/debug/status
 - **`MINTING_SERVICE_BASE_URL`**: Base URL for the GitHub token minting service. This should be the Cloud Run service URL where the minting service is deployed (e.g., `https://github-token-service-xxxxx-uc.a.run.app`). **Required for GitHub API calls**.
 - **`MINTING_SERVICE_AUTH_HEADER`**: Optional authorization header value for authenticating with the minting service. For Cloud Run IAM authentication, this should be a GCP identity token obtained via `gcloud auth print-identity-token` or programmatically via `google.oauth2.id_token.fetch_id_token()`.
 
+#### Downstream Sender Configuration
+- **`DOWNSTREAM_TARGET_URI`**: Placeholder URI for the downstream target where compiled specs are forwarded (default: `placeholder://downstream/target`). This is used by the `DefaultDownstreamLoggerSender` for structured logging. Examples of future URIs: `pubsub://my-project/my-topic`, `https://api.example.com/specs`, `kafka://my-cluster/my-topic`.
+- **`SKIP_DOWNSTREAM_SEND`**: Skip downstream send flag (`true`/`false`, default: `false`). When `true`, downstream send is bypassed and a skip reason is logged instead. Useful for disabling downstream forwarding without removing the configuration.
+
+**Current Downstream Behavior:**
+- The service uses `DefaultDownstreamLoggerSender` which **only logs** compiled specs without making actual network calls
+- No real transport integration (no HTTP POST, no Pub/Sub publish, no Kafka produce)
+- Emits structured logs with plan_id, spec_index, spec version, and issue count
+- Future implementations will replace this with actual transport (e.g., `PubSubDownstreamSender`, `HttpDownstreamSender`)
+
 **⚠️ Important Notes**:
 - LLM configuration is now available for controlling provider, model, and stub mode. Actual LLM API integration is stubbed by default unless `LLM_STUB_MODE=false`.
 - GitHub integration and Pub/Sub messaging features are present but may have limited functionality in some environments.
@@ -653,6 +663,11 @@ LLM_STUB_MODE=true PYTHONPATH=src python -m uvicorn spec_compiler.app.main:app -
 
 # Windows PowerShell
 $env:LLM_STUB_MODE="true"; $env:PYTHONPATH="src"; python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 --reload
+
+# Windows Command Prompt (cmd.exe)
+set LLM_STUB_MODE=true
+set PYTHONPATH=src
+python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
 #### How Stub Mode Works
@@ -896,7 +911,7 @@ LLM_PROVIDER=invalid_provider
 # Simulate missing API key
 LLM_STUB_MODE=false
 LLM_PROVIDER=openai
-OPENAI_API_KEY=  # Empty
+OPENAI_API_KEY="invalid-key"  # Set to an invalid value
 # Make compile request → Should fail with HTTP 500
 
 # Simulate validation error
