@@ -371,12 +371,9 @@ class TestDeterministicBehavior:
             # First call
             token1 = client.mint_user_to_server_token("owner", "repo")
 
-            # Reset mock to same state
-            mock_client.post.return_value = mock_response
-
-            # Second call with same inputs
+            # Second call with same inputs - mock returns same response
             token2 = client.mint_user_to_server_token("owner", "repo")
 
-            # Results should be identical
+            # Results should be identical (deterministic behavior)
             assert token1.access_token == token2.access_token
             assert token1.token_type == token2.token_type
