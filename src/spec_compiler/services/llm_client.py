@@ -81,16 +81,42 @@ class StubLlmClient(LlmClient):
     actual API calls. Useful for testing without consuming API quota.
     """
 
-    def __init__(self, sample_file_path: str | None = None):
+    def __init__(
+        self,
+        sample_file_path: str | None = None,
+        provider: str | None = None,
+        model: str | None = None,
+    ):
         """
         Initialize the stub LLM client.
 
         Args:
             sample_file_path: Optional path to sample JSON file. If not provided,
                             uses sample.v1_1.json from repository root.
+            provider: Optional provider name for metadata (e.g., "openai", "anthropic")
+            model: Optional model name for metadata (e.g., "gpt-5.1", "claude-3-5-sonnet-20241022")
         """
         self.sample_file_path = sample_file_path or self._get_default_sample_path()
-        logger.info(f"StubLlmClient initialized with sample file: {self.sample_file_path}")
+        self.provider = provider or settings.llm_provider
+        self.model = model or self._get_default_model()
+        logger.info(
+            f"StubLlmClient initialized with sample file: {self.sample_file_path}, "
+            f"provider={self.provider}, model={self.model}"
+        )
+
+    def _get_default_model(self) -> str:
+        """
+        Get the default model name based on the configured provider.
+
+        Returns:
+            Model name string
+        """
+        if self.provider == "openai":
+            return settings.openai_model
+        elif self.provider == "anthropic":
+            return settings.claude_model
+        else:
+            return "stub-model"
 
     def _get_default_sample_path(self) -> str:
         """
@@ -145,15 +171,16 @@ class StubLlmClient(LlmClient):
             # Parse as LlmCompiledSpecOutput to validate structure
             compiled_output = LlmCompiledSpecOutput.from_json_string(sample_content)
 
-            # Create synthetic response envelope
+            # Create synthetic response envelope with provider/model metadata
             response = LlmResponseEnvelope(
                 request_id=payload.request_id,
                 status="success",
                 content=sample_content,
-                model="stub-model",
+                model=self.model,
                 usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
                 metadata={
                     "stub_mode": True,
+                    "provider": self.provider,
                     "sample_file": self.sample_file_path,
                     "version": compiled_output.version,
                     "issue_count": len(compiled_output.issues),
@@ -162,7 +189,8 @@ class StubLlmClient(LlmClient):
 
             logger.info(
                 f"Generated stub response for request_id={payload.request_id}, "
-                f"version={compiled_output.version}, issues={len(compiled_output.issues)}"
+                f"version={compiled_output.version}, issues={len(compiled_output.issues)}, "
+                f"provider={self.provider}, model={self.model}"
             )
 
             return response
@@ -206,14 +234,11 @@ def create_llm_client(provider: str | None = None, stub_mode: bool | None = None
         return OpenAiResponsesClient()
 
     elif provider == "anthropic":
-        logger.warning(
-            "Anthropic provider requested but not yet implemented. "
-            "Consider using stub mode for testing."
-        )
-        raise LlmConfigurationError(
-            f"Provider '{provider}' is not yet implemented. "
-            "Supported providers: openai. Use LLM_STUB_MODE=true for testing."
-        )
+        logger.info("Creating Anthropic Claude client")
+        # Import here to avoid circular dependencies
+        from spec_compiler.services.anthropic_llm_client import ClaudeLlmClient
+
+        return ClaudeLlmClient()
 
     else:
         raise LlmConfigurationError(

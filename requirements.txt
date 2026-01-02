@@ -16,6 +16,9 @@ httpx==0.28.1
 # OpenAI SDK for LLM integration
 openai==1.58.1
 
+# Anthropic SDK for Claude integration
+anthropic==0.75.0
+
 # Google Cloud Pub/Sub for status publishing
 google-cloud-pubsub==2.26.1
 
