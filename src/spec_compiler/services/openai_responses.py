@@ -12,34 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-OpenAI Responses API client implementation.
+OpenAI Chat Completions API client implementation.
 
-Provides a client for the OpenAI Responses API with support for GPT-5+
-models, structured output, retry logic, and proper error handling.
+Provides a client for the OpenAI Chat Completions API with support for GPT-5+
+models, structured JSON output, retry logic, and proper error handling.
 
-NOTE: This implementation targets the NEW OpenAI Responses API endpoint
-(/v1/responses), which is the recommended long-term API for GPT-5+ models
-as specified in LLMs.md. This is distinct from the legacy Chat Completions
-API (/v1/chat/completions) and follows the latest API structure documented
-at https://platform.openai.com/docs/models/gpt-5 (as of 2024-2025).
+This implementation uses the official OpenAI Python SDK (openai package) and
+targets GPT-5.1 models as specified in LLMs.md. The Chat Completions API is
+the standard, long-term supported API for GPT models.
 
-The Responses API uses a different request structure:
-- Endpoint: POST /v1/responses (not /v1/chat/completions)
-- Request fields: 'input' (not 'messages'), 'instructions' (not system message)
-- Input format: Array with role/content objects containing 'input_text' type
-- Response format: 'output' field with content array (not 'choices')
+API Structure:
+- Uses client.chat.completions.create() from official SDK
+- Messages format: Array of {'role': 'system'|'user', 'content': str}
+- Structured output: response_format={'type': 'json_object'}
+- Response format: Standard ChatCompletion object with 'choices' array
 
-This follows the guidance from LLMs.md which explicitly states:
-"Target API should be the Responses API since it is the recommended most
-long term compatible option. The GPT 5 series models are supportive of the
-responses API."
+This follows the guidance from LLMs.md which specifies GPT-5.1 as the target
+model using the official openai SDK.
 """
 
 import logging
 import time
 from typing import Any
 
-import httpx
+from openai import OpenAI, APIError, APITimeoutError, RateLimitError
+from openai.types.chat import ChatCompletion
 
 from spec_compiler.config import settings
 from spec_compiler.models.llm import LlmRequestEnvelope, LlmResponseEnvelope
@@ -48,47 +45,42 @@ from spec_compiler.services.llm_input import LlmInputComposer
 
 logger = logging.getLogger(__name__)
 
-# OpenAI API configuration
-# NOTE: The Responses API endpoint (/v1/responses) is the NEW recommended
-# endpoint for GPT-5+ models. This is distinct from the legacy Chat Completions
-# API (/v1/chat/completions). See module docstring for details.
-OPENAI_API_BASE_URL = "https://api.openai.com/v1"
-RESPONSES_ENDPOINT = f"{OPENAI_API_BASE_URL}/responses"
-
 # Retry configuration
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_TIMEOUT_SECONDS = 120.0
-RETRY_STATUS_CODES = {429, 500, 502, 503, 504}  # Retry on rate limits and server errors
 RETRY_BACKOFF_BASE = 2.0  # Exponential backoff base
 
 
 class OpenAiResponsesClient(LlmClient):
     """
-    OpenAI Responses API client.
+    OpenAI Chat Completions API client.
 
-    Implements the LlmClient interface for OpenAI's Responses API,
-    targeting GPT-5+ models with structured JSON output support.
+    Implements the LlmClient interface for OpenAI's Chat Completions API,
+    targeting GPT-5+ models with structured JSON output support using the
+    official OpenAI Python SDK.
     """
 
     def __init__(
         self,
         api_key: str | None = None,
         model: str | None = None,
-        organization_id: str | None = None,
-        project_id: str | None = None,
-        max_retries: int = DEFAULT_MAX_RETRIES,
-        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        organization: str | None = None,
+        project: str | None = None,
+        base_url: str | None = None,
+        max_retries: int | None = None,
+        timeout: float | None = None,
     ):
         """
-        Initialize the OpenAI Responses client.
+        Initialize the OpenAI client.
 
         Args:
             api_key: OpenAI API key. If None, uses OPENAI_API_KEY from settings
             model: Model identifier (e.g., "gpt-5.1"). If None, uses OPENAI_MODEL from settings
-            organization_id: Optional OpenAI organization ID
-            project_id: Optional OpenAI project ID
-            max_retries: Maximum number of retry attempts for failed requests
-            timeout: Request timeout in seconds
+            organization: Optional OpenAI organization ID. If None, uses OPENAI_ORGANIZATION from settings
+            project: Optional OpenAI project ID. If None, uses OPENAI_PROJECT from settings
+            base_url: Optional base URL for API. If None, uses OPENAI_API_BASE from settings
+            max_retries: Maximum number of retry attempts. If None, uses LLM_MAX_RETRIES from settings
+            timeout: Request timeout in seconds. If None, uses LLM_TIMEOUT from settings
 
         Raises:
             LlmConfigurationError: If API key is not configured
@@ -100,45 +92,37 @@ class OpenAiResponsesClient(LlmClient):
             )
 
         self.model = model or settings.openai_model
-        self.organization_id = organization_id
-        self.project_id = project_id
-        self.max_retries = max_retries
-        self.timeout = timeout
+        self.organization = organization or settings.openai_organization
+        self.project = project or settings.openai_project
+        self.base_url = base_url or settings.openai_api_base
+        self.max_retries = max_retries if max_retries is not None else settings.llm_max_retries
+        self.timeout = timeout if timeout is not None else settings.llm_timeout
+
+        # Initialize OpenAI client with custom configuration
+        # Note: SDK handles retries internally when max_retries > 0
+        self.client = OpenAI(
+            api_key=self.api_key,
+            organization=self.organization,
+            project=self.project,
+            base_url=self.base_url,
+            max_retries=0,  # We handle retries ourselves for better control
+            timeout=self.timeout,
+        )
 
         logger.info(
             f"OpenAiResponsesClient initialized with model={self.model}, "
             f"max_retries={self.max_retries}, timeout={self.timeout}s"
         )
 
-    def _build_headers(self) -> dict[str, str]:
+    def _build_request_params(self, payload: LlmRequestEnvelope) -> dict[str, Any]:
         """
-        Build HTTP headers for the API request.
-
-        Returns:
-            Dictionary of HTTP headers
-        """
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-
-        if self.organization_id:
-            headers["OpenAI-Organization"] = self.organization_id
-
-        if self.project_id:
-            headers["OpenAI-Project"] = self.project_id
-
-        return headers
-
-    def _build_request_body(self, payload: LlmRequestEnvelope) -> dict[str, Any]:
-        """
-        Build the request body for the Responses API.
+        Build the request parameters for the Chat Completions API.
 
         Args:
             payload: Request envelope with all necessary data
 
         Returns:
-            Dictionary representing the API request body
+            Dictionary representing the API request parameters
         """
         # Compose user content using the input composer
         composer = LlmInputComposer()
@@ -151,14 +135,7 @@ class OpenAiResponsesClient(LlmClient):
         # Get system prompt from settings or payload
         system_prompt = payload.system_prompt.template or settings.get_system_prompt()
 
-        # Compose the user content
-        # NOTE: The system prompt is included in the user_content composition
-        # AND passed separately in the 'instructions' field. This is intentional:
-        # - The 'instructions' field provides high-level guidance to the model
-        # - The user_content includes the system prompt as a labeled section
-        #   for structured context that the model can reference
-        # This dual approach ensures the system prompt is both processed by
-        # the model's instruction-following mechanism and available as context.
+        # Compose the user content (includes system prompt and repo context)
         user_content = composer.compose_user_content(
             system_prompt=system_prompt,
             tree_json=tree_json,
@@ -167,49 +144,41 @@ class OpenAiResponsesClient(LlmClient):
             spec_data=payload.metadata.get("spec_data", {}),
         )
 
-        # Build the request body according to Responses API structure
-        # NOTE: This structure follows the NEW Responses API format (GPT-5+):
-        # - 'input': Array of messages (not 'messages' like Chat Completions API)
-        # - 'instructions': System-level guidance (not a system message in 'messages')
-        # - 'content': Array with 'input_text' type objects (not plain strings)
-        # - 'response_format': Structured output specification
-        # See: https://platform.openai.com/docs/models/gpt-5 and module docstring
-        request_body: dict[str, Any] = {
+        # Build the request parameters according to Chat Completions API structure
+        # Uses standard messages format: [{"role": "system", "content": ...}, {"role": "user", "content": ...}]
+        request_params: dict[str, Any] = {
             "model": self.model,
-            "input": [
-                {
-                    "role": "user",
-                    "content": [{"type": "input_text", "text": user_content}],
-                }
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
             ],
-            "instructions": system_prompt,
             "response_format": {"type": "json_object"},
         }
 
         # Add optional parameters from system_prompt config
         if payload.system_prompt.max_tokens:
-            request_body["max_output_tokens"] = payload.system_prompt.max_tokens
+            request_params["max_tokens"] = payload.system_prompt.max_tokens
 
-        return request_body
+        return request_params
 
     def _make_request_with_retry(
-        self, headers: dict[str, str], body: dict[str, Any], request_id: str
-    ) -> dict[str, Any]:
+        self, request_params: dict[str, Any], request_id: str
+    ) -> ChatCompletion:
         """
-        Make API request with retry logic.
+        Make API request with retry logic using the official SDK.
 
         Args:
-            headers: HTTP headers
-            body: Request body
+            request_params: Request parameters for the API
             request_id: Request ID for logging
 
         Returns:
-            Parsed JSON response
+            ChatCompletion response object from SDK
 
         Raises:
             LlmApiError: If request fails after all retries
         """
         last_exception: Exception | None = None
+        start_time = time.time()
 
         for attempt in range(self.max_retries):
             try:
@@ -218,45 +187,33 @@ class OpenAiResponsesClient(LlmClient):
                     f"for request_id={request_id}"
                 )
 
-                with httpx.Client(timeout=self.timeout) as client:
-                    response = client.post(
-                        RESPONSES_ENDPOINT,
-                        headers=headers,
-                        json=body,
-                    )
+                # Make the API call using official SDK
+                response = self.client.chat.completions.create(**request_params)
 
-                    # Log request metadata without full prompt
-                    logger.info(
-                        f"OpenAI API response: status={response.status_code}, "
-                        f"request_id={request_id}, "
-                        f"model={body.get('model')}"
-                    )
+                # Log successful request with latency
+                latency_ms = (time.time() - start_time) * 1000
+                logger.info(
+                    f"OpenAI API response: status=success, "
+                    f"request_id={request_id}, "
+                    f"model={request_params.get('model')}, "
+                    f"latency_ms={latency_ms:.2f}"
+                )
 
-                    # Check for retryable status codes
-                    if response.status_code in RETRY_STATUS_CODES:
-                        error_msg = f"Server error {response.status_code}"
-                        logger.warning(
-                            f"Retryable error on attempt {attempt + 1}: {error_msg}, "
-                            f"request_id={request_id}"
-                        )
-                        if attempt < self.max_retries - 1:
-                            backoff = RETRY_BACKOFF_BASE**attempt
-                            logger.info(f"Backing off {backoff}s before retry")
-                            time.sleep(backoff)
-                            continue
-                        else:
-                            raise LlmApiError(
-                                f"API request failed after {self.max_retries} attempts: {error_msg}"
-                            )
+                return response
 
-                    # Raise for other HTTP errors
-                    response.raise_for_status()
+            except RateLimitError as e:
+                last_exception = e
+                logger.warning(
+                    f"Rate limit error on attempt {attempt + 1}: {str(e)}, "
+                    f"request_id={request_id}"
+                )
+                if attempt < self.max_retries - 1:
+                    backoff = RETRY_BACKOFF_BASE**attempt
+                    logger.info(f"Backing off {backoff}s before retry")
+                    time.sleep(backoff)
+                    continue
 
-                    # Parse and return response
-                    response_data: dict[str, Any] = response.json()
-                    return response_data
-
-            except httpx.TimeoutException as e:
+            except APITimeoutError as e:
                 last_exception = e
                 logger.warning(
                     f"Timeout on attempt {attempt + 1}/{self.max_retries} "
@@ -268,18 +225,21 @@ class OpenAiResponsesClient(LlmClient):
                     time.sleep(backoff)
                     continue
 
-            except httpx.HTTPStatusError as e:
+            except APIError as e:
                 last_exception = e
+                # Check if it's a retryable server error (5xx)
+                status_code = getattr(e, "status_code", None)
                 logger.error(
-                    f"HTTP error on attempt {attempt + 1}: status={e.response.status_code}, "
-                    f"request_id={request_id}"
+                    f"API error on attempt {attempt + 1}: status={status_code}, "
+                    f"request_id={request_id}, error={str(e)}"
                 )
+
                 # Don't retry on client errors (4xx)
-                if 400 <= e.response.status_code < 500:
+                if status_code and 400 <= status_code < 500:
                     raise LlmApiError(
-                        f"Client error from OpenAI API: {e.response.status_code} - "
-                        f"{e.response.text[:200]}"
+                        f"Client error from OpenAI API: {status_code} - {str(e)}"
                     ) from e
+
                 # Retry on server errors if attempts remain
                 if attempt < self.max_retries - 1:
                     backoff = RETRY_BACKOFF_BASE**attempt
@@ -292,22 +252,28 @@ class OpenAiResponsesClient(LlmClient):
                     f"Unexpected error on attempt {attempt + 1} for request_id={request_id}: {e}",
                     exc_info=True,
                 )
-                # Do not retry on unexpected exceptions, as they likely indicate a bug.
-                # Fail fast instead.
+                # Do not retry on unexpected exceptions
                 raise LlmApiError(f"Unexpected error during API request: {e}") from e
 
         # All retries exhausted
-        error_msg = f"API request failed after {self.max_retries} attempts"
+        latency_ms = (time.time() - start_time) * 1000
+        error_msg = (
+            f"API request failed after {self.max_retries} attempts (latency: {latency_ms:.2f}ms)"
+        )
         if last_exception:
             error_msg += f": {last_exception}"
+        logger.error(
+            f"All retries exhausted for request_id={request_id}, "
+            f"latency_ms={latency_ms:.2f}, error={error_msg}"
+        )
         raise LlmApiError(error_msg) from last_exception
 
-    def _parse_response(self, api_response: dict[str, Any], request_id: str) -> LlmResponseEnvelope:
+    def _parse_response(self, api_response: ChatCompletion, request_id: str) -> LlmResponseEnvelope:
         """
         Parse OpenAI API response into LlmResponseEnvelope.
 
         Args:
-            api_response: Raw API response dictionary
+            api_response: ChatCompletion response object from SDK
             request_id: Request ID for correlation
 
         Returns:
@@ -317,40 +283,33 @@ class OpenAiResponsesClient(LlmClient):
             LlmApiError: If response cannot be parsed
         """
         try:
-            # Extract output content from response
-            # According to Responses API structure: output -> messages -> content
-            output = api_response.get("output", [])
-            if not output:
-                raise LlmApiError("Response contains no output")
+            # Extract content from response
+            # Chat Completions API returns: choices[0].message.content
+            if not api_response.choices:
+                raise LlmApiError("Response contains no choices")
 
-            # Get the first message from output
-            first_message = output[0] if isinstance(output, list) else output
-            content_items = first_message.get("content", [])
+            first_choice = api_response.choices[0]
+            if not first_choice.message or not first_choice.message.content:
+                raise LlmApiError("Response choice contains no message content")
 
-            if not content_items:
-                raise LlmApiError("Response message contains no content")
-
-            # Extract text from first content item
-            first_content = content_items[0] if isinstance(content_items, list) else content_items
-            content_text = first_content.get("text", "")
-
-            if not content_text:
-                raise LlmApiError("Response content contains no text")
+            content_text = first_choice.message.content
 
             # Extract usage information
-            usage_data = api_response.get("usage", {})
             usage = {
-                "prompt_tokens": usage_data.get("input_tokens", 0),
-                "completion_tokens": usage_data.get("output_tokens", 0),
-                "total_tokens": usage_data.get("input_tokens", 0)
-                + usage_data.get("output_tokens", 0),
+                "prompt_tokens": api_response.usage.prompt_tokens if api_response.usage else 0,
+                "completion_tokens": (
+                    api_response.usage.completion_tokens if api_response.usage else 0
+                ),
+                "total_tokens": api_response.usage.total_tokens if api_response.usage else 0,
             }
 
             # Build metadata
             metadata = {
-                "response_id": api_response.get("id"),
-                "created_at": api_response.get("created_at"),
-                "status": api_response.get("status"),
+                "response_id": api_response.id,
+                "created": api_response.created,
+                "model": api_response.model,
+                "finish_reason": first_choice.finish_reason,
+                "provider": "openai",
             }
 
             # Create response envelope
@@ -358,7 +317,7 @@ class OpenAiResponsesClient(LlmClient):
                 request_id=request_id,
                 status="success",
                 content=content_text,
-                model=self.model,
+                model=api_response.model,
                 usage=usage,
                 metadata=metadata,
             )
@@ -371,7 +330,7 @@ class OpenAiResponsesClient(LlmClient):
 
     def generate_response(self, payload: LlmRequestEnvelope) -> LlmResponseEnvelope:
         """
-        Generate a response from OpenAI Responses API.
+        Generate a response from OpenAI Chat Completions API.
 
         Args:
             payload: Request envelope containing all necessary data for the LLM call
@@ -383,41 +342,54 @@ class OpenAiResponsesClient(LlmClient):
             LlmConfigurationError: If the client is not properly configured
             LlmApiError: If the API call fails
         """
+        start_time = time.time()
+
         logger.info(
             f"Generating OpenAI response for request_id={payload.request_id}, "
-            f"model={self.model}"
+            f"model={self.model}, provider=openai"
         )
 
         try:
-            # Build headers and request body
-            headers = self._build_headers()
-            body = self._build_request_body(payload)
+            # Build request parameters
+            request_params = self._build_request_params(payload)
 
             # Log request metadata (without full content)
             logger.info(
-                f"Request metadata: model={body.get('model')}, "
+                f"Request metadata: model={request_params.get('model')}, "
                 f"request_id={payload.request_id}, "
-                f"max_output_tokens={body.get('max_output_tokens', 'default')}"
+                f"max_tokens={request_params.get('max_tokens', 'default')}, "
+                f"provider=openai"
             )
 
             # Make request with retry logic
-            api_response = self._make_request_with_retry(headers, body, payload.request_id)
+            api_response = self._make_request_with_retry(request_params, payload.request_id)
 
             # Parse and return response
             response_envelope = self._parse_response(api_response, payload.request_id)
 
+            # Calculate and log latency
+            latency_ms = (time.time() - start_time) * 1000
             logger.info(
                 f"Successfully generated response for request_id={payload.request_id}, "
-                f"tokens={response_envelope.usage.get('total_tokens') if response_envelope.usage else 'unknown'}"
+                f"tokens={response_envelope.usage.get('total_tokens') if response_envelope.usage else 'unknown'}, "
+                f"latency_ms={latency_ms:.2f}, "
+                f"provider=openai, "
+                f"model={self.model}"
             )
+
+            # Add latency to metadata
+            if response_envelope.metadata:
+                response_envelope.metadata["latency_ms"] = latency_ms
 
             return response_envelope
 
         except (LlmConfigurationError, LlmApiError):
             raise
         except Exception as e:
+            latency_ms = (time.time() - start_time) * 1000
             logger.error(
-                f"Unexpected error generating response for request_id={payload.request_id}: {e}",
+                f"Unexpected error generating response for request_id={payload.request_id}: {e}, "
+                f"latency_ms={latency_ms:.2f}",
                 exc_info=True,
             )
             raise LlmApiError(f"Failed to generate response: {e}") from e

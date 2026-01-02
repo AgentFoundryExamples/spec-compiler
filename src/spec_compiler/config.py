@@ -68,6 +68,35 @@ class Settings(BaseSettings):
         default="claude-3-5-sonnet-20241022",
         description="Anthropic Claude model to use for compilations",
     )
+    
+    # SDK-specific configuration options
+    openai_api_base: str | None = Field(
+        default=None,
+        description="Optional custom base URL for OpenAI API (e.g., for proxies or custom endpoints)",
+    )
+    openai_organization: str | None = Field(
+        default=None,
+        description="Optional OpenAI organization ID",
+    )
+    openai_project: str | None = Field(
+        default=None,
+        description="Optional OpenAI project ID",
+    )
+    claude_api_base: str | None = Field(
+        default=None,
+        description="Optional custom base URL for Anthropic API",
+    )
+    llm_timeout: float = Field(
+        default=120.0,
+        description="Timeout in seconds for LLM API requests",
+        gt=0,
+    )
+    llm_max_retries: int = Field(
+        default=3,
+        description="Maximum number of retry attempts for failed LLM requests",
+        ge=0,
+    )
+    
     system_prompt_path: str | None = Field(
         default=None,
         description="Path to system prompt file. If not set, uses default prompt.",
