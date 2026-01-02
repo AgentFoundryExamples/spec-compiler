@@ -235,6 +235,26 @@
       }
     },
     {
+      "id": "src/spec_compiler/services/anthropic_llm_client.py",
+      "path": "src/spec_compiler/services/anthropic_llm_client.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "json",
+          "logging",
+          "time",
+          "typing.Any"
+        ],
+        "third-party": [
+          "anthropic.APIError",
+          "anthropic.APITimeoutError",
+          "anthropic.Anthropic",
+          "anthropic.RateLimitError",
+          "anthropic.types.Message"
+        ]
+      }
+    },
+    {
       "id": "src/spec_compiler/services/downstream_sender.py",
       "path": "src/spec_compiler/services/downstream_sender.py",
       "type": "file",
@@ -361,6 +381,26 @@
         ],
         "third-party": [
           "fastapi.testclient.TestClient",
+          "pytest"
+        ]
+      }
+    },
+    {
+      "id": "tests/test_anthropic_llm_client.py",
+      "path": "tests/test_anthropic_llm_client.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "unittest.mock.Mock",
+          "unittest.mock.patch"
+        ],
+        "third-party": [
+          "anthropic.APIError",
+          "anthropic.APITimeoutError",
+          "anthropic.RateLimitError",
+          "anthropic.types.Message",
+          "anthropic.types.Usage",
+          "anthropic.types.content_block.ContentBlock",
           "pytest"
         ]
       }
@@ -815,6 +855,18 @@
       "target": "src/spec_compiler/services/plan_scheduler_publisher.py"
     },
     {
+      "source": "src/spec_compiler/services/anthropic_llm_client.py",
+      "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "src/spec_compiler/services/anthropic_llm_client.py",
+      "target": "src/spec_compiler/models/llm.py"
+    },
+    {
+      "source": "src/spec_compiler/services/anthropic_llm_client.py",
+      "target": "src/spec_compiler/services/llm_client.py"
+    },
+    {
       "source": "src/spec_compiler/services/downstream_sender.py",
       "target": "src/spec_compiler/models/llm.py"
     },
@@ -855,6 +907,10 @@
       "target": "src/spec_compiler/services/openai_responses.py"
     },
     {
+      "source": "src/spec_compiler/services/llm_client.py",
+      "target": "src/spec_compiler/services/anthropic_llm_client.py"
+    },
+    {
       "source": "src/spec_compiler/services/openai_responses.py",
       "target": "src/spec_compiler/config.py"
     },
@@ -885,6 +941,18 @@
     {
       "source": "tests/conftest.py",
       "target": "src/spec_compiler/models/__init__.py"
+    },
+    {
+      "source": "tests/test_anthropic_llm_client.py",
+      "target": "src/spec_compiler/models/llm.py"
+    },
+    {
+      "source": "tests/test_anthropic_llm_client.py",
+      "target": "src/spec_compiler/services/anthropic_llm_client.py"
+    },
+    {
+      "source": "tests/test_anthropic_llm_client.py",
+      "target": "src/spec_compiler/services/llm_client.py"
     },
     {
       "source": "tests/test_compile_endpoint.py",
@@ -1029,6 +1097,10 @@
     {
       "source": "tests/test_services_llm.py",
       "target": "src/spec_compiler/services/openai_responses.py"
+    },
+    {
+      "source": "tests/test_services_llm.py",
+      "target": "src/spec_compiler/services/anthropic_llm_client.py"
     }
   ],
   "external_dependencies_summary": {
@@ -1063,6 +1135,13 @@
       "uuid"
     ],
     "third-party": [
+      "anthropic.APIError",
+      "anthropic.APITimeoutError",
+      "anthropic.Anthropic",
+      "anthropic.RateLimitError",
+      "anthropic.types.Message",
+      "anthropic.types.Usage",
+      "anthropic.types.content_block.ContentBlock",
       "fastapi.APIRouter",
       "fastapi.FastAPI",
       "fastapi.HTTPException",
@@ -1092,6 +1171,6 @@
       "uvicorn"
     ],
     "stdlib_count": 28,
-    "third-party_count": 27
+    "third-party_count": 34
   }
 }

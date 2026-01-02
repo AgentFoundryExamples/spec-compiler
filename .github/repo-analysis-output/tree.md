@@ -36,6 +36,7 @@
       └── plan_status.py
     ├── services
       ├── __init__.py
+      ├── anthropic_llm_client.py
       ├── downstream_sender.py
       ├── github_auth.py
       ├── github_repo.py
@@ -49,6 +50,7 @@
 ├── tests
   ├── __init__.py
   ├── conftest.py
+  ├── test_anthropic_llm_client.py
   ├── test_compile_endpoint.py
   ├── test_compile_endpoint_llm_integration.py
   ├── test_compile_endpoint_repo_context.py

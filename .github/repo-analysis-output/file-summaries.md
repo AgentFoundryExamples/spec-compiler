@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 45
+Total files: 47
 
 ## src/spec_compiler/__init__.py
 **Language:** Python  
@@ -65,8 +65,8 @@ Total files: 45
 **Role:** configuration  
 **Role Justification:** configuration file name 'config'  
 **Summary:** Python configuration file (role: configuration)  
-**Size:** 16.16 KB  
-**LOC:** 323  
+**Size:** 16.65 KB  
+**LOC:** 328  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/logging.py
@@ -150,6 +150,15 @@ Total files: 45
 **LOC:** 57  
 **TODOs/FIXMEs:** 0  
 
+## src/spec_compiler/services/anthropic_llm_client.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Summary:** Python core implementation  
+**Size:** 14.49 KB  
+**LOC:** 284  
+**TODOs/FIXMEs:** 0  
+
 ## src/spec_compiler/services/downstream_sender.py
 **Language:** Python  
 **Role:** implementation  
@@ -182,8 +191,8 @@ Total files: 45
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 7.48 KB  
-**LOC:** 148  
+**Size:** 8.35 KB  
+**LOC:** 169  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/services/llm_input.py
@@ -229,6 +238,15 @@ Total files: 45
 **Summary:** Python test implementation (role: test)  
 **Size:** 6.69 KB  
 **LOC:** 136  
+**TODOs/FIXMEs:** 0  
+
+## tests/test_anthropic_llm_client.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 15.52 KB  
+**LOC:** 288  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_compile_endpoint.py
@@ -407,6 +425,6 @@ Total files: 45
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 20.98 KB  
-**LOC:** 394  
+**Size:** 23.19 KB  
+**LOC:** 432  
 **TODOs/FIXMEs:** 0  

@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 45,
+  "total_files": 47,
   "files": [
     {
       "schema_version": "2.0",
@@ -95,8 +95,8 @@
       "summary": "Python configuration file (role: configuration)",
       "summary_text": "Python configuration file (role: configuration)",
       "metrics": {
-        "size_bytes": 16544,
-        "loc": 323,
+        "size_bytes": 17047,
+        "loc": 328,
         "todo_count": 0
       }
     },
@@ -228,6 +228,20 @@
     },
     {
       "schema_version": "2.0",
+      "path": "src/spec_compiler/services/anthropic_llm_client.py",
+      "language": "Python",
+      "role": "implementation",
+      "role_justification": "general implementation file (default classification)",
+      "summary": "Python core implementation",
+      "summary_text": "Python core implementation",
+      "metrics": {
+        "size_bytes": 14836,
+        "loc": 284,
+        "todo_count": 0
+      }
+    },
+    {
+      "schema_version": "2.0",
       "path": "src/spec_compiler/services/downstream_sender.py",
       "language": "Python",
       "role": "implementation",
@@ -277,8 +291,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 7660,
-        "loc": 148,
+        "size_bytes": 8552,
+        "loc": 169,
         "todo_count": 0
       }
     },
@@ -349,6 +363,20 @@
       "metrics": {
         "size_bytes": 6850,
         "loc": 136,
+        "todo_count": 0
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "tests/test_anthropic_llm_client.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "summary": "Python test file (role: test)",
+      "summary_text": "Python test file (role: test)",
+      "metrics": {
+        "size_bytes": 15889,
+        "loc": 288,
         "todo_count": 0
       }
     },
@@ -627,8 +655,8 @@
       "summary": "Python test file (role: test)",
       "summary_text": "Python test file (role: test)",
       "metrics": {
-        "size_bytes": 21486,
-        "loc": 394,
+        "size_bytes": 23744,
+        "loc": 432,
         "todo_count": 0
       }
     }
