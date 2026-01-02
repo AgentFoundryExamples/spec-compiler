@@ -493,3 +493,240 @@ class TestGitHubAuthToken:
                 )
             errors = exc_info.value.errors()
             assert any(error["loc"] == ("expires_at",) for error in errors)
+
+
+class TestLlmCompiledSpecOutput:
+    """Tests for LlmCompiledSpecOutput model."""
+
+    def test_minimal_valid_output(self) -> None:
+        """Test output with minimal valid structure."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        output = LlmCompiledSpecOutput(
+            version="1.0",
+            issues=[],
+        )
+        assert output.version == "1.0"
+        assert output.issues == []
+
+    def test_output_with_issues(self) -> None:
+        """Test output with issue data."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        issues = [
+            {"id": "ISS-1", "title": "First issue", "body": "Description"},
+            {"id": "ISS-2", "title": "Second issue", "paths": ["file.py"]},
+        ]
+        output = LlmCompiledSpecOutput(
+            version="af/1.1",
+            issues=issues,
+        )
+        assert output.version == "af/1.1"
+        assert len(output.issues) == 2
+        assert output.issues[0]["id"] == "ISS-1"
+        assert output.issues[1]["id"] == "ISS-2"
+
+    def test_parse_sample_v1_1_json(self) -> None:
+        """Test parsing the actual sample.v1_1.json file."""
+        from pathlib import Path
+
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        # Use relative path from repository root
+        repo_root = Path(__file__).parent.parent
+        sample_file = repo_root / "sample.v1_1.json"
+
+        # Read the sample file
+        with open(sample_file) as f:
+            json_str = f.read()
+
+        # Parse using from_json_string which handles schema_version -> version
+        output = LlmCompiledSpecOutput.from_json_string(json_str)
+
+        # Verify structure
+        assert output.version == "af/1.1"
+        assert len(output.issues) == 4
+
+        # Verify first issue has expected keys
+        first_issue = output.issues[0]
+        assert "id" in first_issue
+        assert "title" in first_issue
+        assert "body" in first_issue
+        assert "paths" in first_issue
+        assert first_issue["id"] == "ISS-1"
+
+    def test_version_cannot_be_empty(self) -> None:
+        """Test that empty version raises error."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        with pytest.raises(ValidationError) as exc_info:
+            LlmCompiledSpecOutput(version="", issues=[])
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("version",) for error in errors)
+
+    def test_version_cannot_be_whitespace(self) -> None:
+        """Test that whitespace-only version raises error."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        with pytest.raises(ValidationError) as exc_info:
+            LlmCompiledSpecOutput(version="   ", issues=[])
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("version",) for error in errors)
+
+    def test_version_is_required(self) -> None:
+        """Test that version field is required."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        with pytest.raises(ValidationError) as exc_info:
+            LlmCompiledSpecOutput(issues=[])
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("version",) for error in errors)
+
+    def test_issues_is_required(self) -> None:
+        """Test that issues field is required."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        with pytest.raises(ValidationError) as exc_info:
+            LlmCompiledSpecOutput(version="1.0")
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("issues",) for error in errors)
+
+    def test_issues_must_be_list_of_dicts(self) -> None:
+        """Test that issues must be a list of dictionaries."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        # String in issues should fail
+        with pytest.raises(ValidationError) as exc_info:
+            LlmCompiledSpecOutput(version="1.0", issues=["not a dict"])
+        errors = exc_info.value.errors()
+        # Error will be at ('issues', 0) since it's validating the first item
+        assert any(error["loc"][0] == "issues" for error in errors)
+
+        # Number in issues should fail
+        with pytest.raises(ValidationError) as exc_info:
+            LlmCompiledSpecOutput(version="1.0", issues=[123])
+        errors = exc_info.value.errors()
+        assert any(error["loc"][0] == "issues" for error in errors)
+
+    def test_issues_can_have_flexible_keys(self) -> None:
+        """Test that issues can have any keys as long as they're dicts."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        # Various issue structures should all work
+        flexible_issues = [
+            {"id": "ISS-1", "title": "Standard issue"},
+            {"custom_key": "value", "another_key": 123},
+            {"nested": {"data": "structure"}, "list": [1, 2, 3]},
+            {},  # Even empty dict is valid
+        ]
+
+        output = LlmCompiledSpecOutput(
+            version="1.0",
+            issues=flexible_issues,
+        )
+        assert len(output.issues) == 4
+        assert output.issues[0]["id"] == "ISS-1"
+        assert output.issues[1]["custom_key"] == "value"
+        assert output.issues[2]["nested"]["data"] == "structure"
+        assert output.issues[3] == {}
+
+    def test_from_json_string_with_schema_version(self) -> None:
+        """Test from_json_string handles schema_version key."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        json_str = '{"schema_version": "af/1.1", "issues": [{"id": "ISS-1"}]}'
+        output = LlmCompiledSpecOutput.from_json_string(json_str)
+
+        assert output.version == "af/1.1"
+        assert len(output.issues) == 1
+
+    def test_from_json_string_with_version(self) -> None:
+        """Test from_json_string handles version key."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        json_str = '{"version": "1.0", "issues": []}'
+        output = LlmCompiledSpecOutput.from_json_string(json_str)
+
+        assert output.version == "1.0"
+        assert output.issues == []
+
+    def test_from_json_string_invalid_json(self) -> None:
+        """Test from_json_string with invalid JSON."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        with pytest.raises(ValueError, match="Invalid JSON string"):
+            LlmCompiledSpecOutput.from_json_string("not valid json {")
+
+    def test_from_json_string_non_dict_root(self) -> None:
+        """Test from_json_string with non-dictionary root object."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        # Array root should fail
+        with pytest.raises(ValueError, match="JSON root must be an object"):
+            LlmCompiledSpecOutput.from_json_string('["not", "an", "object"]')
+
+        # String root should fail
+        with pytest.raises(ValueError, match="JSON root must be an object"):
+            LlmCompiledSpecOutput.from_json_string('"just a string"')
+
+        # Number root should fail
+        with pytest.raises(ValueError, match="JSON root must be an object"):
+            LlmCompiledSpecOutput.from_json_string("123")
+
+    def test_from_json_string_missing_version(self) -> None:
+        """Test from_json_string with missing version/schema_version."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        with pytest.raises(ValidationError):
+            LlmCompiledSpecOutput.from_json_string('{"issues": []}')
+
+    def test_from_json_string_missing_issues(self) -> None:
+        """Test from_json_string with missing issues."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        with pytest.raises(ValidationError):
+            LlmCompiledSpecOutput.from_json_string('{"version": "1.0"}')
+
+    def test_model_serialization(self) -> None:
+        """Test that model can be serialized."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        output = LlmCompiledSpecOutput(
+            version="1.0",
+            issues=[
+                {"id": "ISS-1", "title": "Test issue"},
+                {"id": "ISS-2", "data": {"nested": "value"}},
+            ],
+        )
+
+        data = output.model_dump()
+        assert data["version"] == "1.0"
+        assert len(data["issues"]) == 2
+        assert data["issues"][0]["id"] == "ISS-1"
+        assert data["issues"][1]["data"]["nested"] == "value"
+
+    def test_model_roundtrip_serialization(self) -> None:
+        """Test model maintains data integrity through serialization."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        original = LlmCompiledSpecOutput(
+            version="af/1.1",
+            issues=[
+                {
+                    "id": "ISS-1",
+                    "title": "Complex issue",
+                    "paths": ["file1.py", "file2.py"],
+                    "metadata": {"priority": "high"},
+                }
+            ],
+        )
+
+        # Serialize and deserialize
+        data = original.model_dump()
+        restored = LlmCompiledSpecOutput(**data)
+
+        # Verify data integrity
+        assert restored.version == original.version
+        assert restored.issues == original.issues
+        assert restored.issues[0]["id"] == "ISS-1"
+        assert restored.issues[0]["metadata"]["priority"] == "high"

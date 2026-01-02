@@ -20,6 +20,7 @@ and structural placeholders but not yet connected to actual LLM services.
 Also includes GitHub authentication token models for minting workflow.
 """
 
+import json
 from datetime import UTC, datetime
 from typing import Any, Literal
 
@@ -228,3 +229,102 @@ class GitHubAuthToken(BaseModel):
             ) from e
 
         return v
+
+
+class LlmCompiledSpecOutput(BaseModel):
+    """
+    Model for LLM-generated compiled specification output.
+
+    This model validates the output structure produced by LLMs when compiling
+    specifications. It matches the contract defined in sample.v1_1.json where
+    the top-level structure contains a version field and a list of issues.
+
+    The model is flexible regarding the inner structure of each issue, allowing
+    for different keys and formats while validating the required top-level keys.
+
+    Attributes:
+        version: Schema version string (e.g., "af/1.1", "1.0", etc.)
+        issues: List of issue dictionaries with flexible structure
+    """
+
+    version: str = Field(
+        ...,
+        description="Schema version identifier",
+        min_length=1,
+    )
+    issues: list[dict[str, Any]] = Field(
+        ...,
+        description="List of compiled issue specifications",
+    )
+
+    @field_validator("version")
+    @classmethod
+    def validate_version_not_whitespace(cls, v: str) -> str:
+        """
+        Validate that version is not whitespace-only.
+
+        Args:
+            v: Version string to validate
+
+        Returns:
+            The validated version string
+
+        Raises:
+            ValueError: If version is whitespace-only
+        """
+        if not v or not v.strip():
+            raise ValueError("version cannot be empty or whitespace-only")
+        return v
+
+    @field_validator("issues")
+    @classmethod
+    def validate_issues_structure(cls, v: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """
+        Validate that each issue in the list is a valid dictionary.
+
+        Args:
+            v: List of issue dictionaries to validate
+
+        Returns:
+            The validated list of issues
+
+        Raises:
+            ValueError: If any issue is not a dictionary
+        """
+        for idx, issue in enumerate(v):
+            if not isinstance(issue, dict):
+                raise ValueError(
+                    f"Issue at index {idx} must be a dictionary, got {type(issue).__name__}"
+                )
+        return v
+
+    @classmethod
+    def from_json_string(cls, json_str: str) -> "LlmCompiledSpecOutput":
+        """
+        Parse a JSON string into LlmCompiledSpecOutput.
+
+        This method handles both 'schema_version' and 'version' keys in the
+        input JSON, normalizing to 'version' for the model.
+
+        Args:
+            json_str: JSON string to parse
+
+        Returns:
+            LlmCompiledSpecOutput instance
+
+        Raises:
+            ValueError: If JSON is invalid or missing required fields
+        """
+        try:
+            data = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON string: {e}") from e
+
+        if not isinstance(data, dict):
+            raise ValueError("JSON root must be an object")
+
+        # Handle both 'schema_version' and 'version' keys
+        if "schema_version" in data and "version" not in data:
+            data["version"] = data.pop("schema_version")
+
+        return cls(**data)
