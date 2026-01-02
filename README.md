@@ -94,6 +94,106 @@ Run with coverage:
 pytest --cov=src/spec_compiler --cov-report=html
 ```
 
+#### Status Publishing Tests
+
+The repository includes comprehensive test coverage for the plan status publishing system:
+
+**Test Organization:**
+- `tests/test_plan_status_model.py` - PlanStatusMessage model validation, serialization, edge cases (20 tests)
+- `tests/test_plan_scheduler_publisher.py` - PlanSchedulerPublisher configuration, retries, concurrency (25 tests)
+- `tests/test_compile_endpoint_status_publishing.py` - Endpoint integration for status publishing (12 tests)
+- `tests/test_middleware.py` - Middleware error handling with status publishing (22 tests)
+- `tests/test_health_debug_status.py` - Debug endpoint for testing status publishing (4 tests)
+
+**Running Status Publishing Tests:**
+```bash
+# Run all status publishing tests
+PYTHONPATH=src pytest tests/test_plan_status_model.py tests/test_plan_scheduler_publisher.py tests/test_compile_endpoint_status_publishing.py tests/test_middleware.py tests/test_health_debug_status.py -v
+
+# Run tests for a specific area
+PYTHONPATH=src pytest tests/test_plan_scheduler_publisher.py -v
+
+# Run tests with coverage
+PYTHONPATH=src pytest tests/test_plan_scheduler_publisher.py --cov=src/spec_compiler/services/plan_scheduler_publisher --cov-report=html
+```
+
+**Test Coverage Highlights:**
+
+*PlanStatusMessage Model:*
+- Field validation (empty/whitespace/negative values)
+- Timestamp auto-population and custom values
+- Error message truncation and secret sanitization
+- JSON serialization (dict and bytes)
+- Edge cases (zero spec_index, missing fields)
+
+*PlanSchedulerPublisher:*
+- Configuration validation (missing/empty/invalid settings)
+- Successful message publishing with ordering keys
+- Retry logic for transient errors (ServiceUnavailable, DeadlineExceeded)
+- No retry for permanent errors (PermissionDenied)
+- Exponential backoff with jitter
+- Concurrent request handling and thread safety
+- Timeout error capture with correlation IDs
+- Large payload handling
+
+*Compile Endpoint Integration:*
+- `in_progress` status published after validation
+- `succeeded` status published after completion
+- `failed` status published on minting errors, LLM errors, parsing failures
+- Request ID propagation to all status messages
+- Publisher failures don't break compile flow
+- Error responses returned even when publish fails
+- Large error messages truncated
+
+*Middleware Error Handling:*
+- Failed status published when compile requests throw exceptions
+- Plan context extracted from request body for status publishing
+- Publisher failures don't prevent error responses
+- Status publishing exactly once per error
+- Graceful handling of unparseable request bodies
+
+**Test Fixtures and Utilities:**
+
+The `tests/conftest.py` file provides reusable fixtures for status publishing tests:
+
+```python
+# Mock publisher that captures messages
+def test_example(mock_publisher):
+    # Make API call
+    response = client.post("/compile-spec", json=payload)
+    
+    # Verify messages
+    assert mock_publisher.call_count == 2
+    in_progress = mock_publisher.get_messages_by_status("in_progress")
+    succeeded = mock_publisher.get_messages_by_status("succeeded")
+    assert len(in_progress) == 1
+    assert len(succeeded) == 1
+```
+
+Available fixtures:
+- `mock_publisher` - Captures status messages for verification
+- `mock_publisher_disabled` - Simulates publisher not configured
+- `test_client` - FastAPI test client with GitHub/LLM mocks
+- `test_client_with_error_routes` - Test client with error-throwing endpoints
+
+**No Pub/Sub Network Calls:**
+
+All tests use mocked Pub/Sub clients - no network calls are made during testing:
+- `PlanSchedulerPublisher` accepts dependency-injected `client` parameter
+- Tests inject `Mock()` instances instead of real `pubsub_v1.PublisherClient`
+- All publish operations are captured in-memory for assertions
+- Tests run offline without GCP credentials or connectivity
+
+**Troubleshooting Test Failures:**
+
+If status publishing tests fail:
+
+1. **Import Errors**: Ensure all dependencies are installed: `pip install -r requirements.txt`
+2. **Module Not Found**: Set `PYTHONPATH=src` before running pytest
+3. **Mock Not Working**: Check that patches target the correct import path (e.g., `spec_compiler.app.routes.compile.get_publisher`)
+4. **Fixture Cleanup**: Ensure fixtures properly tear down mocks to avoid test pollution
+5. **Concurrency Tests**: Thread safety tests may be timing-sensitive; re-run if sporadic failures occur
+
 ### Code Quality
 
 Format code with Black:
@@ -227,20 +327,53 @@ The compile endpoint publishes status messages at three key points:
 - Invalid credentials path will be reported but won't block startup (falls back to ADC)
 
 **Testing Status Publishing:**
-A debug endpoint is available for testing status publishing in development environments:
+
+The service includes a debug endpoint for manually testing status message publishing:
+
+**Debug Endpoint Usage:**
 ```bash
 # Only works when APP_ENV != "production"
 curl -X POST http://localhost:8080/debug/status
 
-# Response:
+# Success Response (HTTP 200):
 # {
 #   "status": "published",
 #   "message": "Test status message published successfully",
 #   "plan_id": "debug-test-plan",
 #   "spec_index": 0
 # }
+
+# Production Response (HTTP 403):
+# {
+#   "detail": "Debug endpoints are only available in development environments"
+# }
+
+# Publisher Not Configured (HTTP 500):
+# {
+#   "detail": {
+#     "error": "publisher_not_configured",
+#     "message": "...",
+#     "request_id": "..."
+#   }
+# }
+
+# Publish Failed (HTTP 503):
+# {
+#   "detail": {
+#     "error": "publish_failed",
+#     "message": "...",
+#     "request_id": "..."
+#   }
+# }
 ```
-This endpoint is automatically disabled in production for security.
+
+**When to Use:**
+- Verify Pub/Sub configuration before deploying compile endpoint
+- Test credentials and topic permissions
+- Validate message format and routing
+- Troubleshoot publishing issues in development
+
+**Security Note:** This endpoint is automatically disabled in production (`APP_ENV=production`) to prevent accidental test messages in production topics. Always test in development or staging environments.
 
 ##### Other Cloud Configuration
 - **`DOWNSTREAM_LOG_SINK`**: **OPTIONAL**. Downstream log sink for Cloud Logging (e.g., `projects/my-project/logs/app-logs`). Not yet used - reserved for future logging integrations.

@@ -248,3 +248,153 @@ def test_error_handling_middleware_logs_exception_details(
     # This test verifies the logging call was made, actual log output
     # is tested in test_logging.py
     assert response.json()["error"] == "internal_error"
+
+
+# Error Handling with Status Publishing Tests
+
+
+def test_middleware_publishes_failed_status_on_exception(
+    test_client_with_error_routes: TestClient, mock_publisher
+) -> None:
+    """Test that middleware publishes failed status when compile request throws exception."""
+    from unittest.mock import patch
+
+    # Create a special route that throws during compile processing
+    app = test_client_with_error_routes.app
+
+    @app.post("/test-compile-error")
+    async def test_compile_error_route():
+        # Simulate a compile request that failed
+        raise RuntimeError("Simulated compile failure")
+
+    # Make a request that will fail
+    # Note: We can't inject request body easily with test routes, so we'll test
+    # the actual compile endpoint with a mock that throws
+    with patch("spec_compiler.app.routes.compile.create_llm_client") as mock_create:
+        mock_create.side_effect = RuntimeError("LLM client creation failed")
+
+        payload = {
+            "plan_id": "plan-middleware-test",
+            "spec_index": 3,
+            "spec_data": {"test": "data"},
+            "github_owner": "test-owner",
+            "github_repo": "test-repo",
+        }
+
+        response = test_client_with_error_routes.post("/compile-spec", json=payload)
+
+        # Should return error response
+        assert response.status_code == 500
+
+        # Verify failed status was published
+        failed_messages = mock_publisher.get_messages_by_status("failed")
+        assert len(failed_messages) >= 1
+
+        # Verify the failed message has correct plan context
+        failed_msg = failed_messages[-1]  # Get the last failed message
+        assert failed_msg.plan_id == "plan-middleware-test"
+        assert failed_msg.spec_index == 3
+        assert failed_msg.error_code == "unhandled_exception"
+        assert "RuntimeError" in failed_msg.error_message
+
+
+def test_middleware_does_not_block_response_on_publish_failure(
+    test_client_with_error_routes: TestClient, mock_publisher
+) -> None:
+    """Test that publish failures don't prevent error responses."""
+    from unittest.mock import patch
+
+    # Make publisher throw when trying to publish
+    mock_publisher.should_raise = Exception("Pub/Sub is down")
+
+    with patch("spec_compiler.app.routes.compile.create_llm_client") as mock_create:
+        mock_create.side_effect = RuntimeError("LLM failure")
+
+        payload = {
+            "plan_id": "plan-publish-error",
+            "spec_index": 5,
+            "spec_data": {},
+            "github_owner": "owner",
+            "github_repo": "repo",
+        }
+
+        # Should still return error response even though publisher failed
+        response = test_client_with_error_routes.post("/compile-spec", json=payload)
+
+        assert response.status_code == 500
+        assert "request_id" in response.json()
+        # Error goes through middleware since it's unhandled
+        assert response.json()["error"] == "internal_error"
+
+
+def test_middleware_handles_unparseable_request_body(test_client_with_error_routes: TestClient, mock_publisher) -> None:
+    """Test that middleware handles errors when request body can't be parsed."""
+    # Use the test-error endpoint which doesn't have a request body
+    response = test_client_with_error_routes.get("/test-error")
+
+    assert response.status_code == 500
+
+    # No status should be published since we can't extract plan context
+    assert mock_publisher.call_count == 0
+
+
+def test_middleware_extracts_plan_context_from_body(test_client_with_error_routes: TestClient, mock_publisher) -> None:
+    """Test that middleware can extract plan context from compile request body."""
+    from unittest.mock import patch
+
+    with patch("spec_compiler.app.routes.compile.create_llm_client") as mock_create:
+        # Make endpoint throw after body is parsed
+        mock_create.side_effect = RuntimeError("Simulated failure")
+
+        payload = {
+            "plan_id": "plan-context-extract",
+            "spec_index": 7,
+            "spec_data": {"data": "test"},
+            "github_owner": "test-org",
+            "github_repo": "test-project",
+        }
+
+        response = test_client_with_error_routes.post("/compile-spec", json=payload)
+
+        assert response.status_code == 500
+
+        # Verify plan context was extracted and used
+        failed_messages = mock_publisher.get_messages_by_status("failed")
+        assert len(failed_messages) >= 1
+
+        msg = failed_messages[-1]
+        assert msg.plan_id == "plan-context-extract"
+        assert msg.spec_index == 7
+
+
+def test_middleware_status_publishing_idempotent_across_errors(
+    test_client_with_error_routes: TestClient, mock_publisher
+) -> None:
+    """Test that each error publishes exactly one failed status."""
+    from unittest.mock import patch
+
+    with patch("spec_compiler.app.routes.compile.create_llm_client") as mock_create:
+        mock_create.side_effect = RuntimeError("Error")
+
+        payload = {
+            "plan_id": "plan-single-publish",
+            "spec_index": 0,
+            "spec_data": {},
+            "github_owner": "owner",
+            "github_repo": "repo",
+        }
+
+        # First request
+        response1 = test_client_with_error_routes.post("/compile-spec", json=payload)
+        assert response1.status_code == 500
+
+        initial_count = len(mock_publisher.get_messages_by_status("failed"))
+
+        # Second request with same plan
+        response2 = test_client_with_error_routes.post("/compile-spec", json=payload)
+        assert response2.status_code == 500
+
+        # Should have published one more failed status
+        final_count = len(mock_publisher.get_messages_by_status("failed"))
+        assert final_count == initial_count + 1
+
