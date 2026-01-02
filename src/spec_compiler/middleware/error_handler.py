@@ -108,7 +108,9 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             )
 
             # Create safe error message (don't leak internal details)
-            safe_message = f"An internal error occurred. Please contact support with request_id: {request_id}"
+            safe_message = (
+                f"An internal error occurred. Please contact support with request_id: {request_id}"
+            )
 
             # Return structured error response
             error_response = JSONResponse(
@@ -153,7 +155,9 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
 
         # Sanitize: ensure it's safe for logging (remove control characters)
         idempotency_key = "".join(
-            char for char in idempotency_key if char.isprintable() and not char.isspace() or char == " "
+            char
+            for char in idempotency_key
+            if char.isprintable() and not char.isspace() or char == " "
         )
 
         return idempotency_key.strip() or None

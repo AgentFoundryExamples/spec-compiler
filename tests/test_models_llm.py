@@ -21,6 +21,7 @@ import pytest
 from pydantic import ValidationError
 
 from spec_compiler.models.llm import (
+    GitHubAuthToken,
     LlmRequestEnvelope,
     LlmResponseEnvelope,
     RepoContextPayload,
@@ -333,3 +334,129 @@ class TestLlmModelsIntegration:
         assert restored.model == original.model
         assert restored.usage == original.usage
         assert restored.metadata == original.metadata
+
+
+class TestGitHubAuthToken:
+    """Tests for GitHubAuthToken model."""
+
+    def test_minimal_token(self) -> None:
+        """Test token with only required fields."""
+        token = GitHubAuthToken(access_token="gho_test123456789")
+        assert token.access_token == "gho_test123456789"
+        assert token.token_type == "bearer"
+        assert token.expires_at is None
+        assert token.scope is None
+        assert token.created_at is not None
+
+    def test_full_token(self) -> None:
+        """Test token with all fields."""
+        from datetime import datetime
+
+        created = datetime(2026, 1, 1, 12, 0, 0)
+        token = GitHubAuthToken(
+            access_token="gho_fulltoken123",
+            token_type="bearer",
+            expires_at="2026-12-31T23:59:59+00:00",
+            scope="repo,user:email,read:org",
+            created_at=created,
+        )
+        assert token.access_token == "gho_fulltoken123"
+        assert token.token_type == "bearer"
+        assert token.expires_at == "2026-12-31T23:59:59+00:00"
+        assert token.scope == "repo,user:email,read:org"
+        assert token.created_at == created
+
+    def test_non_expiring_token(self) -> None:
+        """Test token without expiration (common for user tokens)."""
+        token = GitHubAuthToken(
+            access_token="gho_noexpiry",
+            expires_at=None,
+        )
+        assert token.access_token == "gho_noexpiry"
+        assert token.expires_at is None
+
+    def test_empty_access_token_raises_error(self) -> None:
+        """Test that empty access token raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            GitHubAuthToken(access_token="")
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("access_token",) for error in errors)
+
+    def test_default_token_type(self) -> None:
+        """Test that token_type defaults to 'bearer'."""
+        token = GitHubAuthToken(access_token="gho_default")
+        assert token.token_type == "bearer"
+
+    def test_custom_token_type(self) -> None:
+        """Test with custom token type."""
+        token = GitHubAuthToken(
+            access_token="ghp_custom",
+            token_type="personal",
+        )
+        assert token.token_type == "personal"
+
+    def test_token_with_scopes(self) -> None:
+        """Test token with OAuth scopes."""
+        token = GitHubAuthToken(
+            access_token="gho_scoped",
+            scope="repo,write:org,admin:repo_hook",
+        )
+        assert token.scope == "repo,write:org,admin:repo_hook"
+
+    def test_token_serialization(self) -> None:
+        """Test that token can be serialized."""
+        from datetime import datetime
+
+        created = datetime(2026, 1, 1, 12, 0, 0)
+        token = GitHubAuthToken(
+            access_token="gho_serialize",
+            token_type="bearer",
+            expires_at="2026-12-31T23:59:59+00:00",
+            scope="repo,user",
+            created_at=created,
+        )
+        data = token.model_dump()
+        assert data["access_token"] == "gho_serialize"
+        assert data["token_type"] == "bearer"
+        assert data["expires_at"] == "2026-12-31T23:59:59+00:00"
+        assert data["scope"] == "repo,user"
+        assert isinstance(data["created_at"], datetime)
+
+    def test_token_deserialization(self) -> None:
+        """Test that token can be deserialized from dict."""
+        from datetime import datetime
+
+        data = {
+            "access_token": "gho_deserialize",
+            "token_type": "bearer",
+            "expires_at": "2026-12-31T23:59:59+00:00",
+            "scope": "repo",
+            "created_at": datetime(2026, 1, 1, 12, 0, 0),
+        }
+        token = GitHubAuthToken(**data)
+        assert token.access_token == "gho_deserialize"
+        assert token.expires_at == "2026-12-31T23:59:59+00:00"
+        assert token.scope == "repo"
+
+    def test_token_roundtrip_serialization(self) -> None:
+        """Test that token maintains data integrity through serialization."""
+        from datetime import datetime
+
+        original = GitHubAuthToken(
+            access_token="gho_roundtrip",
+            token_type="bearer",
+            expires_at="2026-06-15T12:00:00+00:00",
+            scope="repo,user:email",
+            created_at=datetime(2026, 1, 1),
+        )
+
+        # Serialize and deserialize
+        data = original.model_dump()
+        restored = GitHubAuthToken(**data)
+
+        # Verify data integrity
+        assert restored.access_token == original.access_token
+        assert restored.token_type == original.token_type
+        assert restored.expires_at == original.expires_at
+        assert restored.scope == original.scope
+        assert restored.created_at == original.created_at

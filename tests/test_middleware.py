@@ -167,7 +167,9 @@ def test_error_handling_middleware_truncates_long_idempotency_key(test_client: T
     assert len(echoed_key) <= 255
 
 
-def test_error_handling_middleware_sanitizes_unicode_idempotency_key(test_client: TestClient) -> None:
+def test_error_handling_middleware_sanitizes_unicode_idempotency_key(
+    test_client: TestClient,
+) -> None:
     """Test that unicode/special characters in Idempotency-Key are sanitized."""
     # Key with control characters (avoid unicode emoji since httpx headers must be ASCII)
     unicode_key = "test-key-\x00\x01-control"
@@ -246,4 +248,3 @@ def test_error_handling_middleware_logs_exception_details(
     # This test verifies the logging call was made, actual log output
     # is tested in test_logging.py
     assert response.json()["error"] == "internal_error"
-

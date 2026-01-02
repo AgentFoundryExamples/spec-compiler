@@ -84,6 +84,22 @@ class Settings(BaseSettings):
         gt=0,
     )
 
+    # GitHub API Configuration
+    github_api_base_url: str = Field(
+        default="https://api.github.com",
+        description="Base URL for GitHub API",
+    )
+
+    # GitHub Token Minting Service Configuration
+    minting_service_base_url: str | None = Field(
+        default=None,
+        description="Base URL for GitHub token minting service (Cloud Run service URL)",
+    )
+    minting_service_auth_header: str | None = Field(
+        default=None,
+        description="Optional authorization header value for minting service (GCP identity token)",
+    )
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins from comma-separated string."""
@@ -102,6 +118,38 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development environment."""
         return self.app_env.lower() == "development"
+
+    def validate_github_config(self) -> dict[str, str | None]:
+        """
+        Validate GitHub configuration and return status.
+
+        Returns:
+            Dictionary with validation results for GitHub API and minting service URLs.
+            Keys: 'github_api_url', 'minting_service_url', 'minting_auth_configured'
+            Values: 'ok', 'missing', 'invalid', or URL/status string
+        """
+        result: dict[str, str | None] = {}
+
+        # Validate GitHub API URL
+        if not self.github_api_base_url or not self.github_api_base_url.strip():
+            result["github_api_url"] = "missing"
+        elif not self.github_api_base_url.startswith(("http://", "https://")):
+            result["github_api_url"] = "invalid"
+        else:
+            result["github_api_url"] = "ok"
+
+        # Validate minting service URL
+        if not self.minting_service_base_url or not self.minting_service_base_url.strip():
+            result["minting_service_url"] = "missing"
+        elif not self.minting_service_base_url.startswith(("http://", "https://")):
+            result["minting_service_url"] = "invalid"
+        else:
+            result["minting_service_url"] = "ok"
+
+        # Check auth header configuration
+        result["minting_auth_configured"] = "yes" if self.minting_service_auth_header else "no"
+
+        return result
 
 
 # Global settings instance

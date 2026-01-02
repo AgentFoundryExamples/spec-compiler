@@ -171,11 +171,95 @@ The following environment variables are available (see `.env.example` for a comp
 #### Request Configuration
 - **`REQUEST_ID_HEADER`**: HTTP header name for request correlation (default: `X-Request-Id`). Used for distributed tracing.
 - **`MAX_REQUEST_BODY_SIZE_BYTES`**: Maximum request body size in bytes (default: `10485760` = 10MB). Requests exceeding this limit will be rejected with HTTP 413.
+- **`MAX_IDEMPOTENCY_KEY_LENGTH`**: Maximum idempotency key length (default: `100`). Keys exceeding this length are truncated for security.
+
+#### GitHub API Configuration
+- **`GITHUB_API_BASE_URL`**: Base URL for GitHub REST API (default: `https://api.github.com`). Override for GitHub Enterprise or testing against mock servers.
+- **`MINTING_SERVICE_BASE_URL`**: Base URL for the GitHub token minting service. This should be the Cloud Run service URL where the minting service is deployed (e.g., `https://github-token-service-xxxxx-uc.a.run.app`). **Required for GitHub API calls**.
+- **`MINTING_SERVICE_AUTH_HEADER`**: Optional authorization header value for authenticating with the minting service. For Cloud Run IAM authentication, this should be a GCP identity token obtained via `gcloud auth print-identity-token` or programmatically via `google.oauth2.id_token.fetch_id_token()`.
 
 **⚠️ Important Notes**:
 - GitHub integration, LLM API calls, and Pub/Sub messaging are **not yet implemented**. The corresponding environment variables are placeholders for future features.
 - Never commit real API keys, tokens, or secrets to version control. Always use `.env` for local secrets (already in `.gitignore`).
 - For production deployments, use your platform's secret management system (e.g., Google Cloud Secret Manager, AWS Secrets Manager).
+
+### GitHub Token Minting Workflow
+
+The service is designed to integrate with a GitHub App token minting service for obtaining user-to-server access tokens. Here's how the workflow is intended to work:
+
+#### Prerequisites
+
+1. **Minting Service Deployment**: Deploy the GitHub App token minting service (defined by `github-app-basic.openapi.json`) to Cloud Run or another container platform.
+2. **OAuth Configuration**: Complete the GitHub App OAuth flow via the minting service's `/github/install` endpoint to obtain and store a user access token.
+3. **IAM Permissions**: Ensure the spec-compiler service has appropriate IAM permissions to invoke the minting service (requires `roles/run.invoker` for Cloud Run).
+
+#### Token Acquisition
+
+When the compile service needs to interact with GitHub (e.g., to fetch repository context), it will:
+
+1. **Request Token**: Call `POST {MINTING_SERVICE_BASE_URL}/api/token` with an optional `force_refresh` parameter.
+2. **Authentication**: Include the `MINTING_SERVICE_AUTH_HEADER` value in the `Authorization: Bearer <token>` header (GCP identity token for Cloud Run IAM auth).
+3. **Receive Token**: The minting service returns a `TokenResponse` with:
+   - `access_token`: GitHub user access token (format: `gho_...`)
+   - `token_type`: Typically `"bearer"`
+   - `expires_at`: ISO-8601 expiration timestamp or `null` for non-expiring tokens
+
+#### Token Response Format
+
+Based on `github-app-basic.openapi.json`, the minting service returns:
+
+```json
+{
+  "access_token": "gho_ExampleToken123...",
+  "token_type": "bearer",
+  "expires_at": "2025-12-31T23:59:59+00:00"  // or null
+}
+```
+
+#### Configuration Validation
+
+The `Settings.validate_github_config()` method can be used to verify GitHub configuration at startup:
+
+```python
+from spec_compiler.config import settings
+
+validation = settings.validate_github_config()
+# Returns: {
+#   'github_api_url': 'ok' | 'missing' | 'invalid',
+#   'minting_service_url': 'ok' | 'missing' | 'invalid',
+#   'minting_auth_configured': 'yes' | 'no'
+# }
+```
+
+#### Data Models
+
+The service defines the following models for GitHub token handling:
+
+- **`GitHubAuthToken`**: Represents a minted GitHub token with metadata (access_token, token_type, expires_at, scope, created_at)
+- **`RepoContextPayload`**: Represents repository context data (tree, dependencies, file_summaries) to be passed to LLM requests
+
+#### Error Handling
+
+- **Missing Configuration**: If `MINTING_SERVICE_BASE_URL` is not configured, GitHub API calls will fail early with a configuration error rather than during request processing.
+- **Invalid URL**: The validation method detects malformed URLs (non-http/https schemes) before attempting requests.
+- **Token Expiry**: The minting service automatically refreshes tokens when they're near expiration (configurable threshold).
+- **Authentication Failure**: If the minting service returns 401/403, check IAM permissions and identity token validity.
+
+#### Operational Assumptions
+
+1. **Stateless Service**: The spec-compiler service does not store tokens. It requests them from the minting service on-demand.
+2. **Token Refresh**: The minting service handles token refresh logic and expiry tracking via Firestore.
+3. **IAM Authentication**: All minting service calls require Cloud Run IAM authentication via GCP identity tokens.
+4. **Single User Context**: The current minting service design supports a single-user OAuth token (not multi-tenant).
+
+#### Future Implementation
+
+When implementing actual GitHub API integration:
+
+1. Call the minting service to obtain a fresh token
+2. Use the token in GitHub API requests via `Authorization: Bearer {access_token}`
+3. Handle token expiry by requesting a new token with `force_refresh=true`
+4. Pass repository context (tree, dependencies, file_summaries) to LLM compilation requests
 
 ## API Endpoints
 
