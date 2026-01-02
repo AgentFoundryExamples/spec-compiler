@@ -554,6 +554,7 @@ async def compile_spec(
             "llm_client_configuration_failed",
             request_id=request_id,
             error=str(e),
+            exc_info=True,  # Log full traceback for debugging
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -578,10 +579,18 @@ async def compile_spec(
         # Get system prompt from configuration
         system_prompt = settings.get_system_prompt()
 
+        # Select model based on provider with explicit error handling
+        if settings.llm_provider == "openai":
+            model = settings.openai_model
+        elif settings.llm_provider == "anthropic":
+            model = settings.claude_model
+        else:
+            raise ValueError(f"Unsupported LLM provider: {settings.llm_provider}")
+
         # Create request envelope
         llm_request = LlmRequestEnvelope(
             request_id=request_id,
-            model=settings.openai_model if settings.llm_provider == "openai" else settings.claude_model,
+            model=model,
             system_prompt=SystemPromptConfig(
                 template=system_prompt,
                 max_tokens=4096,
@@ -603,7 +612,6 @@ async def compile_spec(
             repo_context_tree_count=len(repo_context.tree),
             repo_context_dependencies_count=len(repo_context.dependencies),
             repo_context_file_summaries_count=len(repo_context.file_summaries),
-            spec_data_size=len(json.dumps(compile_request.spec_data)),
         )
 
     except Exception as e:
@@ -612,6 +620,7 @@ async def compile_spec(
             request_id=request_id,
             error=str(e),
             error_type=type(e).__name__,
+            exc_info=True,  # Log full traceback for debugging
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -651,6 +660,7 @@ async def compile_spec(
             error=str(e),
             plan_id=compile_request.plan_id,
             spec_index=compile_request.spec_index,
+            exc_info=True,  # Log full traceback for debugging
         )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -668,6 +678,7 @@ async def compile_spec(
             request_id=request_id,
             error=str(e),
             error_type=type(e).__name__,
+            exc_info=True,  # Log full traceback for debugging
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -682,10 +693,20 @@ async def compile_spec(
 
     # Parse and validate LLM response as compiled spec output
     try:
+        # Check for empty response content
+        if not llm_response.content:
+            logger.error(
+                "llm_response_empty",
+                request_id=request_id,
+                plan_id=compile_request.plan_id,
+                spec_index=compile_request.spec_index,
+            )
+            raise ValueError("LLM response content is empty")
+
         logger.info(
             "parsing_llm_response",
             request_id=request_id,
-            content_preview=llm_response.content[:200] if llm_response.content else "",
+            content_length=len(llm_response.content),
         )
 
         compiled_spec = LlmCompiledSpecOutput.from_json_string(llm_response.content)
@@ -717,7 +738,8 @@ async def compile_spec(
             request_id=request_id,
             error=str(e),
             error_type=type(e).__name__,
-            content_preview=llm_response.content[:500] if llm_response.content else "",
+            content_length=len(llm_response.content) if llm_response.content else 0,
+            exc_info=True,  # Log full traceback for debugging
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

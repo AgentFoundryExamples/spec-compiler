@@ -357,6 +357,36 @@ def test_compile_with_empty_issues_array(test_client: TestClient) -> None:
         assert data["status"] == "accepted"
 
 
+def test_compile_with_empty_llm_response_content(test_client: TestClient) -> None:
+    """Test that empty LLM response content is caught and handled."""
+    payload = {
+        "plan_id": "plan-empty-content",
+        "spec_index": 0,
+        "spec_data": {"type": "feature"},
+        "github_owner": "test-owner",
+        "github_repo": "test-repo",
+    }
+
+    with patch("spec_compiler.services.llm_client.StubLlmClient") as mock_stub_class:
+        mock_instance = MagicMock()
+        mock_stub_class.return_value = mock_instance
+
+        # Return response with empty content
+        empty_response = LlmResponseEnvelope(
+            request_id="test-request-id",
+            status="success",
+            content="",
+            model="stub-model",
+        )
+        mock_instance.generate_response.return_value = empty_response
+
+        response = test_client.post("/compile-spec", json=payload)
+
+        assert response.status_code == 500
+        data = response.json()
+        assert data["detail"]["error"] == "Invalid LLM response format"
+
+
 def test_compile_logs_compiled_spec_sample(test_client: TestClient, caplog) -> None:
     """Test that compiled spec sample is logged at debug level."""
     caplog.set_level(logging.DEBUG)
@@ -439,3 +469,24 @@ def test_compile_includes_repo_context_in_llm_request(test_client: TestClient) -
         assert hasattr(captured_request.repo_context, "tree")
         assert hasattr(captured_request.repo_context, "dependencies")
         assert hasattr(captured_request.repo_context, "file_summaries")
+
+
+def test_compile_with_unsupported_provider(test_client: TestClient) -> None:
+    """Test that unsupported LLM provider triggers appropriate error."""
+    payload = {
+        "plan_id": "plan-unsupported-provider",
+        "spec_index": 0,
+        "spec_data": {"type": "feature"},
+        "github_owner": "test-owner",
+        "github_repo": "test-repo",
+    }
+
+    # Mock settings to use an unsupported provider
+    with patch("spec_compiler.config.settings.llm_provider", "unsupported_provider"):
+        response = test_client.post("/compile-spec", json=payload)
+
+        assert response.status_code == 500
+        data = response.json()
+        assert "detail" in data
+        assert isinstance(data["detail"], dict)
+        assert data["detail"]["error"] == "Failed to build LLM request"
