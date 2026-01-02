@@ -44,6 +44,7 @@
   ├── __init__.py
   ├── conftest.py
   ├── test_compile_endpoint.py
+  ├── test_compile_endpoint_repo_context.py
   ├── test_config.py
   ├── test_github_auth.py
   ├── test_github_repo.py

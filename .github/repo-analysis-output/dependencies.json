@@ -52,7 +52,8 @@
         "stdlib": [
           "json",
           "re",
-          "typing.Annotated"
+          "typing.Annotated",
+          "typing.Any"
         ],
         "third-party": [
           "fastapi.APIRouter",
@@ -251,7 +252,10 @@
       "path": "tests/conftest.py",
       "type": "file",
       "external_dependencies": {
-        "stdlib": [],
+        "stdlib": [
+          "unittest.mock.MagicMock",
+          "unittest.mock.patch"
+        ],
         "third-party": [
           "fastapi.testclient.TestClient",
           "pytest"
@@ -270,6 +274,22 @@
         ],
         "third-party": [
           "fastapi.testclient.TestClient"
+        ]
+      }
+    },
+    {
+      "id": "tests/test_compile_endpoint_repo_context.py",
+      "path": "tests/test_compile_endpoint_repo_context.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "logging",
+          "unittest.mock.MagicMock",
+          "unittest.mock.patch"
+        ],
+        "third-party": [
+          "fastapi.testclient.TestClient",
+          "pytest"
         ]
       }
     },
@@ -449,6 +469,14 @@
       "target": "src/spec_compiler/models/compile.py"
     },
     {
+      "source": "src/spec_compiler/app/routes/compile.py",
+      "target": "src/spec_compiler/services/github_auth.py"
+    },
+    {
+      "source": "src/spec_compiler/app/routes/compile.py",
+      "target": "src/spec_compiler/services/github_repo.py"
+    },
+    {
       "source": "src/spec_compiler/app/routes/health.py",
       "target": "src/spec_compiler/logging.py"
     },
@@ -509,6 +537,10 @@
       "target": "src/spec_compiler/app/main.py"
     },
     {
+      "source": "tests/conftest.py",
+      "target": "src/spec_compiler/models/__init__.py"
+    },
+    {
       "source": "tests/test_compile_endpoint.py",
       "target": "src/spec_compiler/config.py"
     },
@@ -519,6 +551,22 @@
     {
       "source": "tests/test_compile_endpoint.py",
       "target": "src/spec_compiler/models/compile.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_repo_context.py",
+      "target": "src/spec_compiler/models/__init__.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_repo_context.py",
+      "target": "src/spec_compiler/services/github_auth.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_repo_context.py",
+      "target": "src/spec_compiler/services/github_repo.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_repo_context.py",
+      "target": "src/spec_compiler/app/routes/compile.py"
     },
     {
       "source": "tests/test_config.py",

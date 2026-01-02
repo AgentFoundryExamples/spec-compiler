@@ -202,6 +202,10 @@
         },
         {
           "type": "file",
+          "name": "test_compile_endpoint_repo_context.py"
+        },
+        {
+          "type": "file",
           "name": "test_config.py"
         },
         {

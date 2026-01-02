@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 29
+Total files: 30
 
 ## src/spec_compiler/__init__.py
 **Language:** Python  
@@ -47,8 +47,8 @@ Total files: 29
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 8.79 KB  
-**LOC:** 187  
+**Size:** 18.76 KB  
+**LOC:** 452  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/app/routes/health.py
@@ -173,8 +173,8 @@ Total files: 29
 **Role:** test  
 **Role Justification:** located in 'tests' directory  
 **Summary:** Python test implementation (role: test)  
-**Size:** 1.98 KB  
-**LOC:** 45  
+**Size:** 3.88 KB  
+**LOC:** 75  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_compile_endpoint.py
@@ -184,6 +184,15 @@ Total files: 29
 **Summary:** Python test file (role: test)  
 **Size:** 18.79 KB  
 **LOC:** 405  
+**TODOs/FIXMEs:** 0  
+
+## tests/test_compile_endpoint_repo_context.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 14.93 KB  
+**LOC:** 328  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_config.py

@@ -8,8 +8,8 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 ## Statistics
 
-- **Total files**: 29
-- **Intra-repo dependencies**: 39
+- **Total files**: 30
+- **Intra-repo dependencies**: 46
 - **External stdlib dependencies**: 18
 - **External third-party dependencies**: 24
 
@@ -66,21 +66,22 @@ Total: 24 unique packages
 
 ## Most Depended Upon Files (Intra-Repo)
 
+- `src/spec_compiler/models/__init__.py` (8 dependents)
 - `src/spec_compiler/config.py` (8 dependents)
-- `src/spec_compiler/models/__init__.py` (6 dependents)
 - `src/spec_compiler/logging.py` (6 dependents)
 - `src/spec_compiler/models/compile.py` (4 dependents)
+- `src/spec_compiler/services/github_auth.py` (4 dependents)
+- `src/spec_compiler/services/github_repo.py` (4 dependents)
 - `src/spec_compiler/models/llm.py` (3 dependents)
+- `src/spec_compiler/app/routes/compile.py` (2 dependents)
 - `src/spec_compiler/middleware/error_handler.py` (2 dependents)
 - `src/spec_compiler/middleware/request_id.py` (2 dependents)
-- `src/spec_compiler/services/github_auth.py` (2 dependents)
-- `src/spec_compiler/services/github_repo.py` (2 dependents)
-- `src/spec_compiler/app/routes/compile.py` (1 dependents)
 
 ## Files with Most Dependencies (Intra-Repo)
 
 - `src/spec_compiler/app/main.py` (6 dependencies)
-- `src/spec_compiler/app/routes/compile.py` (4 dependencies)
+- `src/spec_compiler/app/routes/compile.py` (6 dependencies)
+- `tests/test_compile_endpoint_repo_context.py` (4 dependencies)
 - `src/spec_compiler/services/github_auth.py` (3 dependencies)
 - `tests/test_compile_endpoint.py` (3 dependencies)
 - `tests/test_models_helpers.py` (3 dependencies)
@@ -88,4 +89,3 @@ Total: 24 unique packages
 - `src/spec_compiler/models/__init__.py` (2 dependencies)
 - `src/spec_compiler/services/__init__.py` (2 dependencies)
 - `src/spec_compiler/services/github_repo.py` (2 dependencies)
-- `tests/test_github_auth.py` (2 dependencies)

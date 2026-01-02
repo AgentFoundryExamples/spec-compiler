@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 29,
+  "total_files": 30,
   "files": [
     {
       "schema_version": "2.0",
@@ -67,8 +67,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 8998,
-        "loc": 187,
+        "size_bytes": 19211,
+        "loc": 452,
         "todo_count": 0
       }
     },
@@ -263,8 +263,8 @@
       "summary": "Python test implementation (role: test)",
       "summary_text": "Python test implementation (role: test)",
       "metrics": {
-        "size_bytes": 2031,
-        "loc": 45,
+        "size_bytes": 3974,
+        "loc": 75,
         "todo_count": 0
       }
     },
@@ -279,6 +279,20 @@
       "metrics": {
         "size_bytes": 19243,
         "loc": 405,
+        "todo_count": 0
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "tests/test_compile_endpoint_repo_context.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "summary": "Python test file (role: test)",
+      "summary_text": "Python test file (role: test)",
+      "metrics": {
+        "size_bytes": 15290,
+        "loc": 328,
         "todo_count": 0
       }
     },
