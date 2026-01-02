@@ -21,6 +21,7 @@ This implementation targets the Messages API (API version 2023-06-01 or newer) a
 specified in LLMs.md, which is the recommended long-term API for Claude Sonnet/Opus 4+ models.
 """
 
+import json
 import logging
 import time
 from typing import Any
@@ -31,7 +32,6 @@ from anthropic.types import Message
 from spec_compiler.config import settings
 from spec_compiler.models.llm import LlmRequestEnvelope, LlmResponseEnvelope
 from spec_compiler.services.llm_client import LlmApiError, LlmClient, LlmConfigurationError
-from spec_compiler.services.llm_input import LlmInputComposer
 
 logger = logging.getLogger(__name__)
 
@@ -100,9 +100,6 @@ class ClaudeLlmClient(LlmClient):
         Returns:
             Dictionary representing the API request parameters
         """
-        # Compose user content using the input composer
-        composer = LlmInputComposer()
-
         # Prepare repository context data
         tree_json = payload.repo_context.tree if payload.repo_context else []
         dependencies_json = payload.repo_context.dependencies if payload.repo_context else []
@@ -111,16 +108,23 @@ class ClaudeLlmClient(LlmClient):
         # Get system prompt from settings or payload
         system_prompt = payload.system_prompt.template or settings.get_system_prompt()
 
-        # Compose the user content
-        # Note: For Anthropic, system prompt goes in the 'system' parameter,
-        # but we also include it in user content for structured reference
-        user_content = composer.compose_user_content(
-            system_prompt=system_prompt,
-            tree_json=tree_json,
-            dependencies_json=dependencies_json,
-            file_summaries_json=file_summaries_json,
-            spec_data=payload.metadata.get("spec_data", {}),
-        )
+        # Build user content without system prompt for Anthropic
+        # (system prompt is sent separately via 'system' parameter)
+        # Compose only the repository context and spec data sections
+        sections = [
+            "=== REPOSITORY TREE ===",
+            json.dumps(tree_json, indent=2),
+            "",
+            "=== DEPENDENCIES ===",
+            json.dumps(dependencies_json, indent=2),
+            "",
+            "=== FILE SUMMARIES ===",
+            json.dumps(file_summaries_json, indent=2),
+            "",
+            "=== SPECIFICATION DATA ===",
+            json.dumps(payload.metadata.get("spec_data", {}), indent=2),
+        ]
+        user_content = "\n".join(sections)
 
         # Build the request payload according to Anthropic Messages API structure
         # Messages API uses:
@@ -187,8 +191,15 @@ class ClaudeLlmClient(LlmClient):
                     f"request_id={request_id}"
                 )
                 if attempt < self.max_retries - 1:
-                    backoff = RETRY_BACKOFF_BASE**attempt
-                    logger.info(f"Backing off {backoff}s before retry")
+                    # Use retry_after from API if available, otherwise use exponential backoff
+                    retry_after = getattr(e, "retry_after", None)
+                    if retry_after is not None:
+                        backoff = retry_after
+                        logger.info(f"Following API 'retry_after' header, backing off {backoff}s")
+                    else:
+                        backoff = RETRY_BACKOFF_BASE**attempt
+                        logger.info(f"Backing off {backoff}s before retry")
+
                     time.sleep(backoff)
                     continue
 
@@ -267,12 +278,13 @@ class ClaudeLlmClient(LlmClient):
             if not api_response.content:
                 raise LlmApiError("Response contains no content")
 
-            # Get the first text block
-            text_content = ""
-            for content_block in api_response.content:
-                if hasattr(content_block, "text"):
-                    text_content = content_block.text
-                    break
+            # Concatenate text from all text blocks
+            text_parts = [
+                block.text
+                for block in api_response.content
+                if hasattr(block, "text") and block.text
+            ]
+            text_content = "".join(text_parts)
 
             if not text_content:
                 raise LlmApiError("Response content contains no text")
