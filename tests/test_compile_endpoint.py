@@ -466,22 +466,21 @@ def test_compile_request_logs_llm_response_envelope(test_client: TestClient, cap
     # Verify the envelope structure is logged with correct fields
     # Find the log record that contains LLM metadata
     llm_log_records = [
-        r for r in caplog.records
-        if "Generated stubbed LLM response envelope" in r.message
+        r for r in caplog.records if "Generated stubbed LLM response envelope" in r.message
     ]
     assert len(llm_log_records) > 0
-    
+
     # Check that the log record has the expected structured fields
     llm_record = llm_log_records[0]
     # The logger should have bound context with llm_status and llm_metadata
     # structlog stores these in the record's message or as attributes
-    assert hasattr(llm_record, 'message')
+    assert hasattr(llm_record, "message")
 
 
 def test_compile_request_validates_llm_envelope_structure(test_client: TestClient) -> None:
     """Test that the stubbed LLM envelope has the correct structure."""
     from spec_compiler.models import create_llm_response_stub
-    
+
     # Create a stub envelope like the endpoint does
     request_id = "550e8400-e29b-41d4-a716-446655440000"
     llm_response = create_llm_response_stub(
@@ -493,7 +492,7 @@ def test_compile_request_validates_llm_envelope_structure(test_client: TestClien
             "details": "LLM call not yet implemented",
         },
     )
-    
+
     # Verify the envelope structure matches documentation
     assert llm_response.request_id == request_id
     assert llm_response.status == "pending"

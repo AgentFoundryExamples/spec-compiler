@@ -16,11 +16,14 @@ LLM envelope models and configurations.
 
 Skeletal models for future LLM integration. These are used for typing
 and structural placeholders but not yet connected to actual LLM services.
+
+Also includes GitHub authentication token models for minting workflow.
 """
 
+from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class SystemPromptConfig(BaseModel):
@@ -159,3 +162,69 @@ class LlmResponseEnvelope(BaseModel):
         default_factory=dict,
         description="Additional metadata",
     )
+
+
+class GitHubAuthToken(BaseModel):
+    """
+    GitHub authentication token model for minting workflow.
+
+    Represents a GitHub user-to-server access token obtained from
+    the token minting service, including token metadata and expiry.
+
+    Attributes:
+        access_token: The GitHub access token string
+        token_type: Type of token (typically "bearer")
+        expires_at: Optional expiration timestamp (ISO-8601 format)
+        scope: Optional comma-separated list of granted scopes
+        created_at: Timestamp when token was minted
+    """
+
+    access_token: str = Field(
+        ...,
+        description="GitHub access token",
+        min_length=1,
+    )
+    token_type: str = Field(
+        default="bearer",
+        description="Token type (typically 'bearer')",
+    )
+    expires_at: str | None = Field(
+        default=None,
+        description="Token expiration time in ISO-8601 format, or null for non-expiring tokens",
+    )
+    scope: str | None = Field(
+        default=None,
+        description="Comma-separated list of granted OAuth scopes",
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        description="Timestamp when token was created/minted",
+    )
+
+    @field_validator("expires_at")
+    @classmethod
+    def validate_expires_at(cls, v: str | None) -> str | None:
+        """
+        Validate that expires_at is either None or a valid ISO-8601 timestamp.
+
+        Args:
+            v: The expires_at value to validate
+
+        Returns:
+            The validated expires_at value
+
+        Raises:
+            ValueError: If expires_at is not None and not a valid ISO-8601 timestamp
+        """
+        if v is None:
+            return v
+
+        # Try to parse as ISO-8601 to validate format
+        try:
+            datetime.fromisoformat(v.replace("Z", "+00:00"))
+        except (ValueError, AttributeError) as e:
+            raise ValueError(
+                f"expires_at must be a valid ISO-8601 timestamp or null, got: {v}"
+            ) from e
+
+        return v

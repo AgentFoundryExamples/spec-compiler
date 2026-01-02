@@ -121,3 +121,102 @@ def test_case_insensitive_env():
     with patch.dict(os.environ, {"app_env": "staging"}, clear=True):
         settings = Settings()
         assert settings.app_env == "staging"
+
+
+def test_github_api_base_url_default():
+    """Test that GitHub API base URL has a sensible default."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        assert settings.github_api_base_url == "https://api.github.com"
+
+
+def test_github_api_base_url_from_env():
+    """Test that GitHub API base URL can be overridden."""
+    with patch.dict(
+        os.environ, {"GITHUB_API_BASE_URL": "https://github.example.com/api"}, clear=True
+    ):
+        settings = Settings()
+        assert settings.github_api_base_url == "https://github.example.com/api"
+
+
+def test_minting_service_base_url_default():
+    """Test that minting service base URL defaults to None."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        assert settings.minting_service_base_url is None
+
+
+def test_minting_service_base_url_from_env():
+    """Test that minting service base URL can be configured."""
+    url = "https://token-service-xxxxx-uc.a.run.app"
+    with patch.dict(os.environ, {"MINTING_SERVICE_BASE_URL": url}, clear=True):
+        settings = Settings()
+        assert settings.minting_service_base_url == url
+
+
+def test_minting_service_auth_header_default():
+    """Test that minting service auth header defaults to None."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        assert settings.minting_service_auth_header is None
+
+
+def test_minting_service_auth_header_from_env():
+    """Test that minting service auth header can be configured."""
+    with patch.dict(os.environ, {"MINTING_SERVICE_AUTH_HEADER": "Bearer token123"}, clear=True):
+        settings = Settings()
+        assert settings.minting_service_auth_header == "Bearer token123"
+
+
+def test_validate_github_config_all_valid():
+    """Test GitHub config validation with all valid settings."""
+    env = {
+        "GITHUB_API_BASE_URL": "https://api.github.com",
+        "MINTING_SERVICE_BASE_URL": "https://token-service.run.app",
+        "MINTING_SERVICE_AUTH_HEADER": "Bearer token",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_github_config()
+        assert result["github_api_url"] == "ok"
+        assert result["minting_service_url"] == "ok"
+        assert result["minting_auth_configured"] == "yes"
+
+
+def test_validate_github_config_missing_minting_url():
+    """Test GitHub config validation with missing minting service URL."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        result = settings.validate_github_config()
+        assert result["github_api_url"] == "ok"  # Has default
+        assert result["minting_service_url"] == "missing"
+        assert result["minting_auth_configured"] == "no"
+
+
+def test_validate_github_config_invalid_github_url():
+    """Test GitHub config validation with invalid GitHub URL."""
+    with patch.dict(os.environ, {"GITHUB_API_BASE_URL": "ftp://invalid.com"}, clear=True):
+        settings = Settings()
+        result = settings.validate_github_config()
+        assert result["github_api_url"] == "invalid"
+
+
+def test_validate_github_config_invalid_minting_url():
+    """Test GitHub config validation with invalid minting service URL."""
+    with patch.dict(os.environ, {"MINTING_SERVICE_BASE_URL": "not-a-url"}, clear=True):
+        settings = Settings()
+        result = settings.validate_github_config()
+        assert result["minting_service_url"] == "invalid"
+
+
+def test_validate_github_config_empty_strings():
+    """Test GitHub config validation with empty string URLs."""
+    env = {
+        "GITHUB_API_BASE_URL": "   ",
+        "MINTING_SERVICE_BASE_URL": "",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_github_config()
+        assert result["github_api_url"] == "missing"
+        assert result["minting_service_url"] == "missing"
