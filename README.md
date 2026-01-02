@@ -489,7 +489,7 @@ When a compile request is received, the service:
 
 **Token Minting Failures:**
 - **500 Internal Server Error**: Minting service not configured (`MINTING_SERVICE_BASE_URL` missing)
-- **502 Bad Gateway**: Minting service returned a 4xx error (client error)
+- **502 Bad Gateway**: Minting service returned a 4xx error (client error, auth issues, etc.)
 - **503 Service Unavailable**: Minting service returned a 5xx error (temporary failure)
 
 Error responses include structured JSON with `error`, `request_id`, `plan_id`, `spec_index`, and `message` fields.

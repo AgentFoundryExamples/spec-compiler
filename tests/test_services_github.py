@@ -65,9 +65,7 @@ class TestGitHubServicesIntegration:
         """Test complete workflow: mint token, fetch files, parse JSON."""
         # Mock file content
         json_content = {"key": "value", "data": [1, 2, 3]}
-        encoded_content = base64.b64encode(
-            json.dumps(json_content).encode("utf-8")
-        ).decode("ascii")
+        encoded_content = base64.b64encode(json.dumps(json_content).encode("utf-8")).decode("ascii")
 
         with patch("httpx.Client") as mock_client_class:
             mock_client = MagicMock()
@@ -176,7 +174,7 @@ class TestGitHubServicesIntegration:
                         "encoding": "base64",
                     }
                     return response
-                else:
+                elif "file-summaries.json" in url:
                     # Return valid JSON for file-summaries.json
                     response = MagicMock()
                     response.status_code = 200
@@ -189,6 +187,9 @@ class TestGitHubServicesIntegration:
                         "encoding": "base64",
                     }
                     return response
+                else:
+                    # Fail on any unexpected URL
+                    raise ValueError(f"Unexpected URL requested in mock: {url}")
 
             mock_client.get.side_effect = mock_get_response
 
@@ -343,7 +344,7 @@ class TestDeterministicBehavior:
         """Verify that tests don't make actual network calls."""
         # Without mocking, this should fail with connection error
         repo_client = GitHubRepoClient(
-            github_api_base_url="https://api.github.com",
+            github_api_base_url="https://api.test.invalid",
         )
         with pytest.raises((httpx.ConnectError, GitHubFileError)):
             # This will fail because GitHub API is not mocked here
