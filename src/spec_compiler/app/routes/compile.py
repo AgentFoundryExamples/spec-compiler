@@ -19,6 +19,7 @@ Provides the main compile endpoint for processing specifications.
 
 import json
 import re
+import time
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
@@ -33,6 +34,11 @@ from spec_compiler.models import (
 )
 from spec_compiler.models.compile import CompileRequest, CompileResponse
 from spec_compiler.models.plan_status import PlanStatusMessage
+from spec_compiler.services.downstream_sender import (
+    DownstreamSenderError,
+    DownstreamValidationError,
+    get_downstream_sender,
+)
 from spec_compiler.services.github_auth import GitHubAuthClient, MintingError
 from spec_compiler.services.github_repo import (
     GitHubFileError,
@@ -44,6 +50,7 @@ from spec_compiler.services.github_repo import (
 )
 from spec_compiler.services.llm_client import (
     LlmApiError,
+    LlmClient,
     LlmConfigurationError,
     create_llm_client,
 )
@@ -53,6 +60,35 @@ from spec_compiler.services.plan_scheduler_publisher import (
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+def get_provider_model_info(llm_client: LlmClient) -> tuple[str, str]:
+    """
+    Extract provider and model information from an LLM client instance.
+
+    Args:
+        llm_client: LLM client instance
+
+    Returns:
+        Tuple of (provider, model) strings
+    """
+    client_type = type(llm_client).__name__
+    
+    # Extract provider from client type
+    if "stub" in client_type.lower():
+        provider = "stub"
+        model = getattr(llm_client, "model", "unknown")
+    elif "openai" in client_type.lower():
+        provider = "openai"
+        model = getattr(llm_client, "model", settings.openai_model)
+    elif "claude" in client_type.lower() or "anthropic" in client_type.lower():
+        provider = "anthropic"
+        model = getattr(llm_client, "model", settings.claude_model)
+    else:
+        provider = "unknown"
+        model = "unknown"
+    
+    return provider, model
 
 
 def publish_status_safe(
@@ -305,6 +341,698 @@ def fetch_repo_context(
     )
 
 
+def stage_validate_request(
+    request: Request,
+    idempotency_key: str | None,
+) -> tuple[str, CompileRequest, str | None]:
+    """
+    Stage 1: Validate incoming compile request.
+
+    Args:
+        request: FastAPI request object
+        idempotency_key: Optional idempotency key
+
+    Returns:
+        Tuple of (request_id, compile_request, safe_idempotency_key)
+
+    Raises:
+        HTTPException: On validation failure or size limit exceeded
+    """
+    # Get request_id from middleware
+    request_id = getattr(request.state, "request_id", None)
+    if not request_id:
+        from spec_compiler.models import generate_request_id
+
+        request_id = generate_request_id()
+
+    logger.info(
+        "stage_validate_request_start",
+        request_id=request_id,
+        stage="validate",
+    )
+
+    # Check body size limit BEFORE parsing
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            body_size = int(content_length)
+            if body_size > settings.max_request_body_size_bytes:
+                logger.warning(
+                    "Request body size exceeds limit",
+                    request_id=request_id,
+                    body_size=body_size,
+                    max_size=settings.max_request_body_size_bytes,
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"Request body exceeds maximum size limit of {settings.max_request_body_size_bytes} bytes",
+                )
+        except ValueError:
+            pass
+
+    # Sanitize idempotency key
+    safe_idempotency_key = None
+    if idempotency_key:
+        sanitized = re.sub(r"[^a-zA-Z0-9\-_]", "", idempotency_key)
+        safe_idempotency_key = (
+            sanitized[: settings.max_idempotency_key_length] if sanitized else None
+        )
+
+    logger.info(
+        "stage_validate_request_complete",
+        request_id=request_id,
+        stage="validate",
+    )
+
+    return request_id, None, safe_idempotency_key  # type: ignore[return-value]
+
+
+def stage_mint_token(
+    compile_request: CompileRequest,
+    request_id: str,
+) -> str:
+    """
+    Stage 2: Mint GitHub access token.
+
+    Args:
+        compile_request: Validated compile request
+        request_id: Request correlation ID
+
+    Returns:
+        GitHub access token string
+
+    Raises:
+        HTTPException: On token minting failure
+    """
+    logger.info(
+        "stage_mint_token_start",
+        request_id=request_id,
+        stage="mint_token",
+        owner=compile_request.github_owner,
+        repo=compile_request.github_repo,
+    )
+
+    auth_client = GitHubAuthClient()
+
+    try:
+        github_token = auth_client.mint_user_to_server_token(
+            owner=compile_request.github_owner,
+            repo=compile_request.github_repo,
+        )
+
+        logger.info(
+            "stage_mint_token_complete",
+            request_id=request_id,
+            stage="mint_token",
+            token_type=github_token.token_type,
+            has_expiry=github_token.expires_at is not None,
+        )
+
+        return github_token.access_token
+
+    except MintingError as e:
+        logger.error(
+            "stage_mint_token_failed",
+            request_id=request_id,
+            stage="mint_token",
+            error=str(e),
+            status_code=e.status_code,
+            context=e.context,
+        )
+
+        # Publish failed status before returning error
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="minting_error",
+            error_message=f"Token minting service error: {str(e)[:1000]}",
+        )
+
+        # Map errors to appropriate HTTP status
+        if "not configured" in str(e).lower():
+            http_status = status.HTTP_500_INTERNAL_SERVER_ERROR
+            error_message = "Token minting service not configured"
+        elif e.status_code and e.status_code >= 500:
+            http_status = status.HTTP_503_SERVICE_UNAVAILABLE
+            error_message = "Token minting service temporarily unavailable"
+        else:
+            http_status = status.HTTP_502_BAD_GATEWAY
+            error_message = "Token minting service error"
+
+        raise HTTPException(
+            status_code=http_status,
+            detail={
+                "error": error_message,
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "Unable to authenticate with GitHub. Please retry or contact support.",
+            },
+        ) from None
+
+
+def stage_fetch_repo_context(
+    compile_request: CompileRequest,
+    token: str,
+    request_id: str,
+) -> RepoContextPayload:
+    """
+    Stage 3: Fetch repository context from GitHub.
+
+    Args:
+        compile_request: Validated compile request
+        token: GitHub access token
+        request_id: Request correlation ID
+
+    Returns:
+        Repository context payload with tree, dependencies, and file summaries
+    """
+    logger.info(
+        "stage_fetch_repo_context_start",
+        request_id=request_id,
+        stage="fetch_repo_context",
+        owner=compile_request.github_owner,
+        repo=compile_request.github_repo,
+    )
+
+    try:
+        repo_context = fetch_repo_context(
+            owner=compile_request.github_owner,
+            repo=compile_request.github_repo,
+            token=token,
+            request_id=request_id,
+        )
+
+        logger.info(
+            "stage_fetch_repo_context_complete",
+            request_id=request_id,
+            stage="fetch_repo_context",
+            tree_count=len(repo_context.tree),
+            dependencies_count=len(repo_context.dependencies),
+            file_summaries_count=len(repo_context.file_summaries),
+        )
+
+        return repo_context
+
+    except Exception as e:
+        logger.error(
+            "stage_fetch_repo_context_error",
+            request_id=request_id,
+            stage="fetch_repo_context",
+            error=str(e),
+            error_type=type(e).__name__,
+            using_fallback=True,
+        )
+
+        # Use fallback data to allow compilation to proceed
+        return RepoContextPayload(
+            tree=create_fallback_tree(),
+            dependencies=create_fallback_dependencies(),
+            file_summaries=create_fallback_file_summaries(),
+        )
+
+
+def stage_create_llm_client(
+    compile_request: CompileRequest,
+    request_id: str,
+) -> LlmClient:
+    """
+    Stage 4: Create and configure LLM client.
+
+    Args:
+        compile_request: Validated compile request
+        request_id: Request correlation ID
+
+    Returns:
+        Configured LLM client instance
+
+    Raises:
+        HTTPException: On LLM configuration error
+    """
+    logger.info(
+        "stage_create_llm_client_start",
+        request_id=request_id,
+        stage="create_llm_client",
+        provider=settings.llm_provider,
+        stub_mode=settings.llm_stub_mode,
+    )
+
+    try:
+        llm_client = create_llm_client()
+        
+        # Extract provider/model info
+        provider, model = get_provider_model_info(llm_client)
+        
+        logger.info(
+            "llm_client_created",
+            request_id=request_id,
+            client_type=type(llm_client).__name__,
+        )
+        
+        logger.info(
+            "stage_create_llm_client_complete",
+            request_id=request_id,
+            stage="create_llm_client",
+            client_type=type(llm_client).__name__,
+            provider=provider,
+            model=model,
+        )
+
+        return llm_client
+
+    except LlmConfigurationError as e:
+        logger.error(
+            "stage_create_llm_client_failed",
+            request_id=request_id,
+            stage="create_llm_client",
+            error=str(e),
+            exc_info=True,
+        )
+
+        # Publish failed status before returning error
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="llm_configuration_error",
+            error_message=f"LLM service configuration error: {str(e)[:1000]}",
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "LLM service not configured",
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "LLM service configuration error. Please contact support.",
+            },
+        ) from None
+
+
+def stage_call_llm(
+    llm_client: LlmClient,
+    compile_request: CompileRequest,
+    repo_context: RepoContextPayload,
+    request_id: str,
+) -> tuple[LlmCompiledSpecOutput, dict[str, Any]]:
+    """
+    Stage 5: Build LLM request and call LLM service with latency tracking.
+
+    Args:
+        llm_client: Configured LLM client
+        compile_request: Validated compile request
+        repo_context: Repository context payload
+        request_id: Request correlation ID
+
+    Returns:
+        Tuple of (compiled_spec, llm_metrics) where llm_metrics contains
+        latency, provider, and model information
+
+    Raises:
+        HTTPException: On LLM request build or API error
+    """
+    logger.info(
+        "stage_call_llm_start",
+        request_id=request_id,
+        stage="call_llm",
+    )
+
+    # Build LLM request envelope
+    try:
+        system_prompt = settings.get_system_prompt()
+
+        # Select model based on provider
+        if settings.llm_provider == "openai":
+            model = settings.openai_model
+        elif settings.llm_provider == "anthropic":
+            model = settings.claude_model
+        else:
+            raise ValueError(
+                f"Unsupported LLM provider: {settings.llm_provider}. "
+                f"Supported providers: openai, anthropic"
+            )
+
+        llm_request = LlmRequestEnvelope(
+            request_id=request_id,
+            model=model,
+            system_prompt=SystemPromptConfig(
+                template=system_prompt,
+                max_tokens=4096,
+            ),
+            repo_context=repo_context,
+            metadata={
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "github_owner": compile_request.github_owner,
+                "github_repo": compile_request.github_repo,
+                "spec_data": compile_request.spec_data,
+            },
+        )
+
+        logger.info(
+            "llm_request_envelope_built",
+            request_id=request_id,
+            model=llm_request.model,
+        )
+
+    except Exception as e:
+        logger.error(
+            "llm_request_envelope_build_failed",
+            request_id=request_id,
+            stage="call_llm",
+            error=str(e),
+            error_type=type(e).__name__,
+            exc_info=True,
+        )
+
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="llm_request_build_error",
+            error_message=f"Failed to build LLM request: {str(e)[:1000]}",
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "Failed to build LLM request",
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "Internal error building request. Please retry or contact support.",
+            },
+        ) from None
+
+    # Call LLM service with latency tracking
+    provider, model_used = get_provider_model_info(llm_client)
+    llm_start_time = time.time()
+    
+    try:
+        logger.info(
+            "calling_llm_service",
+            request_id=request_id,
+            provider=provider,
+            model=model_used,
+            start_timestamp=llm_start_time,
+        )
+
+        llm_response = llm_client.generate_response(llm_request)
+        
+        llm_end_time = time.time()
+        llm_duration = llm_end_time - llm_start_time
+
+        logger.info(
+            "llm_service_response_received",
+            request_id=request_id,
+            provider=provider,
+            model=llm_response.model or model_used,
+            status=llm_response.status,
+            usage_tokens=llm_response.usage.get("total_tokens", 0) if llm_response.usage else 0,
+            content_length=len(llm_response.content),
+            start_timestamp=llm_start_time,
+            end_timestamp=llm_end_time,
+            duration_seconds=llm_duration,
+        )
+
+        # Store metrics
+        llm_metrics = {
+            "provider": provider,
+            "model": llm_response.model or model_used,
+            "start_timestamp": llm_start_time,
+            "end_timestamp": llm_end_time,
+            "duration_seconds": llm_duration,
+            "usage": llm_response.usage,
+        }
+
+    except LlmApiError as e:
+        llm_end_time = time.time()
+        llm_duration = llm_end_time - llm_start_time
+        
+        logger.error(
+            "llm_service_api_error",
+            request_id=request_id,
+            provider=provider,
+            model=model_used,
+            error=str(e),
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            start_timestamp=llm_start_time,
+            end_timestamp=llm_end_time,
+            duration_seconds=llm_duration,
+            exc_info=True,
+        )
+
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="llm_api_error",
+            error_message=f"LLM service API error: {str(e)[:1000]}",
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "LLM service error",
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "LLM service error. Please retry.",
+            },
+        ) from None
+        
+    except Exception as e:
+        llm_end_time = time.time()
+        llm_duration = llm_end_time - llm_start_time
+        
+        logger.error(
+            "llm_service_unexpected_error",
+            request_id=request_id,
+            provider=provider,
+            model=model_used,
+            error=str(e),
+            error_type=type(e).__name__,
+            start_timestamp=llm_start_time,
+            end_timestamp=llm_end_time,
+            duration_seconds=llm_duration,
+            exc_info=True,
+        )
+
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="llm_service_unexpected_error",
+            error_message=f"Unexpected LLM service error: {str(e)[:1000]}",
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "Unexpected LLM service error",
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "Internal error calling LLM service. Please contact support.",
+            },
+        ) from None
+
+    # Parse and validate LLM response
+    try:
+        if not llm_response.content:
+            logger.error(
+                "llm_response_empty",
+                request_id=request_id,
+                plan_id=compile_request.plan_id,
+                spec_index=compile_request.spec_index,
+            )
+            raise ValueError("LLM response content is empty")
+
+        logger.info(
+            "parsing_llm_response",
+            request_id=request_id,
+            content_length=len(llm_response.content),
+        )
+
+        compiled_spec = LlmCompiledSpecOutput.from_json_string(llm_response.content)
+
+        logger.info(
+            "llm_response_parsed_successfully",
+            request_id=request_id,
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            version=compiled_spec.version,
+            issues_count=len(compiled_spec.issues),
+        )
+        
+        logger.info(
+            "stage_call_llm_complete",
+            request_id=request_id,
+            stage="call_llm",
+            version=compiled_spec.version,
+            issues_count=len(compiled_spec.issues),
+            provider=provider,
+            model=llm_response.model or model_used,
+            duration_seconds=llm_duration,
+        )
+
+        return compiled_spec, llm_metrics
+
+    except (ValueError, json.JSONDecodeError) as e:
+        logger.error(
+            "llm_response_parsing_failed",
+            request_id=request_id,
+            stage="call_llm",
+            error=str(e),
+            error_type=type(e).__name__,
+            content_length=len(llm_response.content) if llm_response.content else 0,
+            exc_info=True,
+        )
+
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="llm_response_parse_error",
+            error_message=f"Invalid LLM response format: {str(e)[:1000]}",
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "Invalid LLM response format",
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "LLM returned invalid response format. Please retry or contact support.",
+            },
+        ) from None
+
+
+def stage_send_downstream(
+    compiled_spec: LlmCompiledSpecOutput,
+    compile_request: CompileRequest,
+    request_id: str,
+) -> None:
+    """
+    Stage 6: Send compiled spec to downstream consumer.
+
+    Args:
+        compiled_spec: Parsed compiled specification
+        compile_request: Original compile request
+        request_id: Request correlation ID
+
+    Raises:
+        HTTPException: On downstream send error
+    """
+    logger.info(
+        "stage_send_downstream_start",
+        request_id=request_id,
+        stage="send_downstream",
+        plan_id=compile_request.plan_id,
+        spec_index=compile_request.spec_index,
+    )
+
+    sender = get_downstream_sender()
+    
+    if sender is None:
+        logger.warning(
+            "stage_send_downstream_skipped",
+            request_id=request_id,
+            stage="send_downstream",
+            reason="sender_not_configured",
+        )
+        return
+
+    try:
+        context = {
+            "plan_id": compile_request.plan_id,
+            "spec_index": compile_request.spec_index,
+            "request_id": request_id,
+            "github_owner": compile_request.github_owner,
+            "github_repo": compile_request.github_repo,
+        }
+
+        sender.send_compiled_spec(compiled_spec, context)
+
+        logger.info(
+            "stage_send_downstream_complete",
+            request_id=request_id,
+            stage="send_downstream",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            spec_version=compiled_spec.version,
+            issues_count=len(compiled_spec.issues),
+        )
+
+    except (DownstreamSenderError, DownstreamValidationError) as e:
+        logger.error(
+            "stage_send_downstream_failed",
+            request_id=request_id,
+            stage="send_downstream",
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="downstream_sender_error",
+            error_message=f"Downstream sender error: {str(e)[:1000]}",
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "error": "Downstream sender error",
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "Failed to send compiled spec downstream. Please retry.",
+            },
+        ) from None
+
+    except Exception as e:
+        logger.error(
+            "stage_send_downstream_unexpected_error",
+            request_id=request_id,
+            stage="send_downstream",
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="downstream_unexpected_error",
+            error_message=f"Unexpected downstream error: {str(e)[:1000]}",
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "Unexpected downstream error",
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "Internal error sending downstream. Please contact support.",
+            },
+        ) from None
+
+
 @router.post(
     "/compile-spec",
     status_code=status.HTTP_202_ACCEPTED,
@@ -359,18 +1087,16 @@ async def compile_spec(
     """
     Compile a specification with LLM integration.
 
-    Accepts a compile request, validates the payload, fetches repository context,
-    invokes the configured LLM provider (or stub) to generate a compiled spec,
-    parses and validates the result, and returns a 202 Accepted response.
-
-    The workflow includes:
-    1. Minting GitHub token for repository access
-    2. Fetching repository analysis files (tree.json, dependencies.json, file-summaries.json)
-    3. Creating LLM client based on configuration (stub or real provider)
-    4. Building LLM request envelope with system prompt, repo context, and spec data
-    5. Calling LLM service to generate compiled specification
-    6. Parsing and validating the LLM response as LlmCompiledSpecOutput
-    7. Logging the compiled spec and returning success response
+    Executes a staged pipeline for processing specifications:
+    1. Validate request and check size limits
+    2. Publish in-progress status
+    3. Mint GitHub access token
+    4. Fetch repository context
+    5. Create LLM client
+    6. Call LLM with latency tracking
+    7. Send compiled spec downstream
+    8. Publish succeeded status
+    9. Return HTTP response
 
     Args:
         request: FastAPI request object (for accessing request_id and body)
@@ -380,40 +1106,10 @@ async def compile_spec(
         CompileResponse with request tracking information
 
     Raises:
-        HTTPException: 413 if request body exceeds size limit
-        HTTPException: 422 if validation fails (handled by Pydantic)
-        HTTPException: 500 if LLM configuration error or internal error
-        HTTPException: 502 if token minting service error (4xx)
-        HTTPException: 503 if token minting service error (5xx) or LLM API error
+        HTTPException: Various status codes based on failure stage
     """
-    # Get request_id from middleware
-    request_id = getattr(request.state, "request_id", None)
-    if not request_id:
-        # Fallback if middleware didn't set it (shouldn't happen)
-        from spec_compiler.models import generate_request_id
-
-        request_id = generate_request_id()
-
-    # Check body size limit BEFORE parsing to prevent memory exhaustion
-    # This check happens before FastAPI/Pydantic parses the JSON body
-    content_length = request.headers.get("content-length")
-    if content_length:
-        try:
-            body_size = int(content_length)
-            if body_size > settings.max_request_body_size_bytes:
-                logger.warning(
-                    "Request body size exceeds limit",
-                    request_id=request_id,
-                    body_size=body_size,
-                    max_size=settings.max_request_body_size_bytes,
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                    detail=f"Request body exceeds maximum size limit of {settings.max_request_body_size_bytes} bytes",
-                )
-        except ValueError:
-            # Invalid content-length header, let FastAPI handle it
-            pass
+    # Stage 1: Validate request
+    request_id, _, safe_idempotency_key = stage_validate_request(request, idempotency_key)
 
     # Read and parse body manually after size check
     body_bytes = await request.body()
@@ -429,14 +1125,10 @@ async def compile_spec(
     try:
         compile_request = CompileRequest.model_validate(body_dict)
     except Exception as e:
-        # Preserve Pydantic's validation error format
         from pydantic import ValidationError
 
         if isinstance(e, ValidationError):
-            # Convert Pydantic errors to JSON-serializable format
-            # Use the errors() method which returns a list of dicts
             errors = e.errors()
-            # Ensure all error details are JSON serializable
             serializable_errors = []
             for error in errors:
                 serializable_error: dict[str, Any] = {
@@ -447,13 +1139,11 @@ async def compile_spec(
                 if "input" in error:
                     serializable_error["input"] = error["input"]
                 if "ctx" in error:
-                    # Ensure ctx is serializable
                     try:
                         json.dumps(error["ctx"])
                         ctx_value: Any = error["ctx"]
                         serializable_error["ctx"] = ctx_value
                     except (TypeError, ValueError):
-                        # Skip non-serializable ctx
                         pass
                 serializable_errors.append(serializable_error)
 
@@ -462,22 +1152,10 @@ async def compile_spec(
                 detail=serializable_errors,
             ) from None
         else:
-            # For other exceptions, wrap in simple format
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=str(e),
             ) from None
-
-    # Sanitize idempotency key for logging (prevent log injection attacks)
-    # Only allow alphanumeric characters, hyphens, and underscores
-    safe_idempotency_key = None
-    if idempotency_key:
-        # Validate pattern: alphanumeric, hyphens, underscores only
-        sanitized = re.sub(r"[^a-zA-Z0-9\-_]", "", idempotency_key)
-        # Truncate to max length
-        safe_idempotency_key = (
-            sanitized[: settings.max_idempotency_key_length] if sanitized else None
-        )
 
     # Log receipt of compile request
     logger.info(
@@ -492,7 +1170,13 @@ async def compile_spec(
         spec_data_size=len(json.dumps(compile_request.spec_data)),
     )
 
-    # Publish in_progress status after validation
+    # Stage 2: Publish in_progress status
+    logger.info(
+        "stage_publish_in_progress",
+        request_id=request_id,
+        stage="publish_in_progress",
+    )
+    
     publish_status_safe(
         status="in_progress",
         plan_id=compile_request.plan_id,
@@ -500,403 +1184,30 @@ async def compile_spec(
         request_id=request_id,
     )
 
-    # Initialize GitHub clients
-    auth_client = GitHubAuthClient()
+    # Stage 3: Mint GitHub token
+    token_str = stage_mint_token(compile_request, request_id)
 
-    # Mint GitHub token for repository access
-    try:
-        logger.info(
-            "minting_token_start",
-            request_id=request_id,
-            owner=compile_request.github_owner,
-            repo=compile_request.github_repo,
-        )
+    # Stage 4: Fetch repository context
+    repo_context = stage_fetch_repo_context(compile_request, token_str, request_id)
 
-        github_token = auth_client.mint_user_to_server_token(
-            owner=compile_request.github_owner,
-            repo=compile_request.github_repo,
-        )
+    # Stage 5: Create LLM client
+    llm_client = stage_create_llm_client(compile_request, request_id)
 
-        logger.info(
-            "minting_token_success",
-            request_id=request_id,
-            owner=compile_request.github_owner,
-            repo=compile_request.github_repo,
-            token_type=github_token.token_type,
-            has_expiry=github_token.expires_at is not None,
-        )
+    # Stage 6: Call LLM service with latency tracking
+    compiled_spec, llm_metrics = stage_call_llm(
+        llm_client, compile_request, repo_context, request_id
+    )
 
-        token_str = github_token.access_token
+    # Stage 7: Send downstream
+    stage_send_downstream(compiled_spec, compile_request, request_id)
 
-    except MintingError as e:
-        logger.error(
-            "minting_token_failed",
-            request_id=request_id,
-            owner=compile_request.github_owner,
-            repo=compile_request.github_repo,
-            error=str(e),
-            status_code=e.status_code,
-            context=e.context,
-        )
-
-        # Publish failed status before returning error
-        publish_status_safe(
-            status="failed",
-            plan_id=compile_request.plan_id,
-            spec_index=compile_request.spec_index,
-            request_id=request_id,
-            error_code="minting_error",
-            error_message=f"Token minting service error: {str(e)[:1000]}",
-        )
-
-        # Map minting errors to appropriate HTTP status codes
-        # Use 502 Bad Gateway for service communication failures
-        # Use 503 Service Unavailable for temporary failures
-        # Use 500 Internal Server Error for configuration issues
-        if "not configured" in str(e).lower():
-            http_status = status.HTTP_500_INTERNAL_SERVER_ERROR
-            error_message = "Token minting service not configured"
-        elif e.status_code and e.status_code >= 500:
-            http_status = status.HTTP_503_SERVICE_UNAVAILABLE
-            error_message = "Token minting service temporarily unavailable"
-        else:
-            # Catches 4xx errors from minting service and other connection issues
-            http_status = status.HTTP_502_BAD_GATEWAY
-            error_message = "Token minting service error"
-
-        # Return structured error response with valid JSON
-        raise HTTPException(
-            status_code=http_status,
-            detail={
-                "error": error_message,
-                "request_id": request_id,
-                "plan_id": compile_request.plan_id,
-                "spec_index": compile_request.spec_index,
-                "message": "Unable to authenticate with GitHub. Please retry or contact support.",
-            },
-        ) from None
-
-    # Fetch repository context
-    try:
-        logger.info(
-            "fetching_repo_context_start",
-            request_id=request_id,
-            owner=compile_request.github_owner,
-            repo=compile_request.github_repo,
-        )
-
-        repo_context = fetch_repo_context(
-            owner=compile_request.github_owner,
-            repo=compile_request.github_repo,
-            token=token_str,
-            request_id=request_id,
-        )
-
-        logger.info(
-            "fetching_repo_context_success",
-            request_id=request_id,
-            owner=compile_request.github_owner,
-            repo=compile_request.github_repo,
-            tree_count=len(repo_context.tree),
-            dependencies_count=len(repo_context.dependencies),
-            file_summaries_count=len(repo_context.file_summaries),
-        )
-
-    except Exception as e:
-        # Log unexpected errors but don't fail the request
-        # Use fallback payload to allow compilation to proceed
-        logger.error(
-            "fetching_repo_context_unexpected_error",
-            request_id=request_id,
-            owner=compile_request.github_owner,
-            repo=compile_request.github_repo,
-            error=str(e),
-            error_type=type(e).__name__,
-            using_fallback=True,
-        )
-
-        repo_context = RepoContextPayload(
-            tree=create_fallback_tree(),
-            dependencies=create_fallback_dependencies(),
-            file_summaries=create_fallback_file_summaries(),
-        )
-
-    # Create LLM client based on configuration (stub or real provider)
-    try:
-        logger.info(
-            "creating_llm_client",
-            request_id=request_id,
-            provider=settings.llm_provider,
-            stub_mode=settings.llm_stub_mode,
-        )
-        llm_client = create_llm_client()
-        logger.info(
-            "llm_client_created",
-            request_id=request_id,
-            client_type=type(llm_client).__name__,
-        )
-    except LlmConfigurationError as e:
-        logger.error(
-            "llm_client_configuration_failed",
-            request_id=request_id,
-            error=str(e),
-            exc_info=True,  # Log full traceback for debugging
-        )
-
-        # Publish failed status before returning error
-        publish_status_safe(
-            status="failed",
-            plan_id=compile_request.plan_id,
-            spec_index=compile_request.spec_index,
-            request_id=request_id,
-            error_code="llm_configuration_error",
-            error_message=f"LLM service configuration error: {str(e)[:1000]}",
-        )
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "LLM service not configured",
-                "request_id": request_id,
-                "plan_id": compile_request.plan_id,
-                "spec_index": compile_request.spec_index,
-                "message": "LLM service configuration error. Please contact support.",
-            },
-        ) from None
-
-    # Build LLM request envelope with repo context and spec data
-    try:
-        logger.info(
-            "building_llm_request_envelope",
-            request_id=request_id,
-            plan_id=compile_request.plan_id,
-            spec_index=compile_request.spec_index,
-        )
-
-        # Get system prompt from configuration
-        system_prompt = settings.get_system_prompt()
-
-        # Select model based on provider with explicit error handling
-        if settings.llm_provider == "openai":
-            model = settings.openai_model
-        elif settings.llm_provider == "anthropic":
-            model = settings.claude_model
-        else:
-            raise ValueError(
-                f"Unsupported LLM provider: {settings.llm_provider}. "
-                f"Supported providers: openai, anthropic"
-            )
-
-        # Create request envelope
-        llm_request = LlmRequestEnvelope(
-            request_id=request_id,
-            model=model,
-            system_prompt=SystemPromptConfig(
-                template=system_prompt,
-                max_tokens=4096,
-            ),
-            repo_context=repo_context,
-            metadata={
-                "plan_id": compile_request.plan_id,
-                "spec_index": compile_request.spec_index,
-                "github_owner": compile_request.github_owner,
-                "github_repo": compile_request.github_repo,
-                "spec_data": compile_request.spec_data,
-            },
-        )
-
-        logger.info(
-            "llm_request_envelope_built",
-            request_id=request_id,
-            model=llm_request.model,
-            repo_context_tree_count=len(repo_context.tree),
-            repo_context_dependencies_count=len(repo_context.dependencies),
-            repo_context_file_summaries_count=len(repo_context.file_summaries),
-        )
-
-    except Exception as e:
-        logger.error(
-            "llm_request_envelope_build_failed",
-            request_id=request_id,
-            error=str(e),
-            error_type=type(e).__name__,
-            exc_info=True,  # Log full traceback for debugging
-        )
-
-        # Publish failed status before returning error
-        publish_status_safe(
-            status="failed",
-            plan_id=compile_request.plan_id,
-            spec_index=compile_request.spec_index,
-            request_id=request_id,
-            error_code="llm_request_build_error",
-            error_message=f"Failed to build LLM request: {str(e)[:1000]}",
-        )
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "Failed to build LLM request",
-                "request_id": request_id,
-                "plan_id": compile_request.plan_id,
-                "spec_index": compile_request.spec_index,
-                "message": "Internal error building request. Please retry or contact support.",
-            },
-        ) from None
-
-    # Call LLM service to generate compiled spec
-    try:
-        logger.info(
-            "calling_llm_service",
-            request_id=request_id,
-            provider=settings.llm_provider,
-            model=llm_request.model,
-        )
-
-        llm_response = llm_client.generate_response(llm_request)
-
-        logger.info(
-            "llm_service_response_received",
-            request_id=request_id,
-            status=llm_response.status,
-            model=llm_response.model,
-            usage_tokens=llm_response.usage.get("total_tokens", 0) if llm_response.usage else 0,
-            content_length=len(llm_response.content),
-        )
-
-    except LlmApiError as e:
-        logger.error(
-            "llm_service_api_error",
-            request_id=request_id,
-            error=str(e),
-            plan_id=compile_request.plan_id,
-            spec_index=compile_request.spec_index,
-            exc_info=True,  # Log full traceback for debugging
-        )
-
-        # Publish failed status before returning error
-        publish_status_safe(
-            status="failed",
-            plan_id=compile_request.plan_id,
-            spec_index=compile_request.spec_index,
-            request_id=request_id,
-            error_code="llm_api_error",
-            error_message=f"LLM service API error: {str(e)[:1000]}",
-        )
-
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={
-                "error": "LLM service error",
-                "request_id": request_id,
-                "plan_id": compile_request.plan_id,
-                "spec_index": compile_request.spec_index,
-                "message": "LLM service temporarily unavailable. Please retry.",
-            },
-        ) from None
-    except Exception as e:
-        logger.error(
-            "llm_service_unexpected_error",
-            request_id=request_id,
-            error=str(e),
-            error_type=type(e).__name__,
-            exc_info=True,  # Log full traceback for debugging
-        )
-
-        # Publish failed status before returning error
-        publish_status_safe(
-            status="failed",
-            plan_id=compile_request.plan_id,
-            spec_index=compile_request.spec_index,
-            request_id=request_id,
-            error_code="llm_service_unexpected_error",
-            error_message=f"Unexpected LLM service error: {str(e)[:1000]}",
-        )
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "Unexpected LLM service error",
-                "request_id": request_id,
-                "plan_id": compile_request.plan_id,
-                "spec_index": compile_request.spec_index,
-                "message": "Internal error calling LLM service. Please contact support.",
-            },
-        ) from None
-
-    # Parse and validate LLM response as compiled spec output
-    try:
-        # Check for empty response content
-        if not llm_response.content:
-            logger.error(
-                "llm_response_empty",
-                request_id=request_id,
-                plan_id=compile_request.plan_id,
-                spec_index=compile_request.spec_index,
-            )
-            raise ValueError("LLM response content is empty")
-
-        logger.info(
-            "parsing_llm_response",
-            request_id=request_id,
-            content_length=len(llm_response.content),
-        )
-
-        compiled_spec = LlmCompiledSpecOutput.from_json_string(llm_response.content)
-
-        logger.info(
-            "llm_response_parsed_successfully",
-            request_id=request_id,
-            plan_id=compile_request.plan_id,
-            spec_index=compile_request.spec_index,
-            version=compiled_spec.version,
-            issues_count=len(compiled_spec.issues),
-        )
-
-        # Log compiled spec at debug level (first issue only for brevity)
-        if compiled_spec.issues:
-            first_issue = compiled_spec.issues[0]
-            logger.debug(
-                "compiled_spec_sample",
-                request_id=request_id,
-                version=compiled_spec.version,
-                first_issue_id=first_issue.get("id", "unknown"),
-                first_issue_title=first_issue.get("title", "")[:100],
-                total_issues=len(compiled_spec.issues),
-            )
-
-    except (ValueError, json.JSONDecodeError) as e:
-        logger.error(
-            "llm_response_parsing_failed",
-            request_id=request_id,
-            error=str(e),
-            error_type=type(e).__name__,
-            content_length=len(llm_response.content) if llm_response.content else 0,
-            exc_info=True,  # Log full traceback for debugging
-        )
-
-        # Publish failed status before returning error
-        publish_status_safe(
-            status="failed",
-            plan_id=compile_request.plan_id,
-            spec_index=compile_request.spec_index,
-            request_id=request_id,
-            error_code="llm_response_parse_error",
-            error_message=f"Invalid LLM response format: {str(e)[:1000]}",
-        )
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "Invalid LLM response format",
-                "request_id": request_id,
-                "plan_id": compile_request.plan_id,
-                "spec_index": compile_request.spec_index,
-                "message": "LLM returned invalid response format. Please retry or contact support.",
-            },
-        ) from None
-
-    # Publish succeeded status after successful completion
+    # Stage 8: Publish succeeded status
+    logger.info(
+        "stage_publish_succeeded",
+        request_id=request_id,
+        stage="publish_succeeded",
+    )
+    
     publish_status_safe(
         status="succeeded",
         plan_id=compile_request.plan_id,
@@ -904,7 +1215,7 @@ async def compile_spec(
         request_id=request_id,
     )
 
-    # Create and return success response
+    # Stage 9: Return HTTP response
     response = CompileResponse(
         request_id=request_id,
         plan_id=compile_request.plan_id,
@@ -920,6 +1231,9 @@ async def compile_spec(
         spec_index=compile_request.spec_index,
         compiled_version=compiled_spec.version,
         compiled_issues_count=len(compiled_spec.issues),
+        llm_provider=llm_metrics["provider"],
+        llm_model=llm_metrics["model"],
+        llm_duration_seconds=llm_metrics["duration_seconds"],
     )
 
     return response
