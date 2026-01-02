@@ -218,8 +218,8 @@ Total files: 43
 **Role:** test  
 **Role Justification:** located in 'tests' directory  
 **Summary:** Python test implementation (role: test)  
-**Size:** 4.10 KB  
-**LOC:** 81  
+**Size:** 6.77 KB  
+**LOC:** 137  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_compile_endpoint.py
@@ -326,8 +326,8 @@ Total files: 43
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 9.14 KB  
-**LOC:** 143  
+**Size:** 14.26 KB  
+**LOC:** 230  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_models_compile.py
@@ -362,8 +362,8 @@ Total files: 43
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 16.69 KB  
-**LOC:** 343  
+**Size:** 22.69 KB  
+**LOC:** 472  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_plan_status_model.py

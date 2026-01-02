@@ -340,7 +340,9 @@
       "type": "file",
       "external_dependencies": {
         "stdlib": [
+          "typing.Any",
           "unittest.mock.MagicMock",
+          "unittest.mock.Mock",
           "unittest.mock.patch"
         ],
         "third-party": [
@@ -528,6 +530,7 @@
       "external_dependencies": {
         "stdlib": [
           "logging",
+          "unittest.mock.patch",
           "uuid"
         ],
         "third-party": [
@@ -579,8 +582,11 @@
       "type": "file",
       "external_dependencies": {
         "stdlib": [
+          "json",
           "os",
+          "queue.Queue",
           "tempfile",
+          "threading",
           "unittest.mock.Mock",
           "unittest.mock.patch"
         ],
@@ -995,6 +1001,7 @@
       "logging",
       "os",
       "pathlib.Path",
+      "queue.Queue",
       "random",
       "re",
       "sys",
@@ -1039,7 +1046,7 @@
       "structlog.types.Processor",
       "uvicorn"
     ],
-    "stdlib_count": 27,
+    "stdlib_count": 28,
     "third-party_count": 27
   }
 }
