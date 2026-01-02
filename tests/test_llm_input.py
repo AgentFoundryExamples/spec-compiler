@@ -240,35 +240,6 @@ class TestLlmInputComposer:
         with pytest.raises(ValueError, match="spec_data cannot be None"):
             composer.compose_structured_content("prompt", {}, {}, {}, None)
 
-    def test_validate_repo_context_success(self) -> None:
-        """Test successful validation of repo context."""
-        composer = LlmInputComposer()
-
-        # Should not raise any errors
-        composer.validate_repo_context({}, [], {})
-        composer.validate_repo_context({"tree": []}, {"deps": []}, {"summaries": []})
-
-    def test_validate_repo_context_none_tree(self) -> None:
-        """Test validation fails with None tree_json."""
-        composer = LlmInputComposer()
-
-        with pytest.raises(ValueError, match="tree_json cannot be None"):
-            composer.validate_repo_context(None, {}, {})
-
-    def test_validate_repo_context_none_dependencies(self) -> None:
-        """Test validation fails with None dependencies_json."""
-        composer = LlmInputComposer()
-
-        with pytest.raises(ValueError, match="dependencies_json cannot be None"):
-            composer.validate_repo_context({}, None, {})
-
-    def test_validate_repo_context_none_summaries(self) -> None:
-        """Test validation fails with None file_summaries_json."""
-        composer = LlmInputComposer()
-
-        with pytest.raises(ValueError, match="file_summaries_json cannot be None"):
-            composer.validate_repo_context({}, {}, None)
-
 
 class TestComposeLlmRequestPayload:
     """Tests for compose_llm_request_payload convenience function."""

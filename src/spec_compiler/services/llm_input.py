@@ -37,6 +37,42 @@ class LlmInputComposer:
     """
 
     @staticmethod
+    def _validate_inputs(
+        system_prompt: str,
+        tree_json: dict[str, Any] | list[Any],
+        dependencies_json: dict[str, Any] | list[Any],
+        file_summaries_json: dict[str, Any] | list[Any],
+        spec_data: dict[str, Any] | list[Any],
+    ) -> None:
+        """
+        Validate required inputs for composition methods.
+
+        Args:
+            system_prompt: System prompt text describing the task
+            tree_json: Repository file tree structure
+            dependencies_json: Repository dependencies
+            file_summaries_json: File summaries for context
+            spec_data: Request specification data to be compiled
+
+        Raises:
+            ValueError: If any required input is missing or empty
+        """
+        if not system_prompt or not system_prompt.strip():
+            raise ValueError("system_prompt cannot be empty or whitespace-only")
+
+        if tree_json is None:
+            raise ValueError("tree_json cannot be None")
+
+        if dependencies_json is None:
+            raise ValueError("dependencies_json cannot be None")
+
+        if file_summaries_json is None:
+            raise ValueError("file_summaries_json cannot be None")
+
+        if spec_data is None:
+            raise ValueError("spec_data cannot be None")
+
+    @staticmethod
     def compose_user_content(
         system_prompt: str,
         tree_json: dict[str, Any] | list[Any],
@@ -65,20 +101,9 @@ class LlmInputComposer:
             ValueError: If any required input is missing or empty
         """
         # Validate required inputs
-        if not system_prompt or not system_prompt.strip():
-            raise ValueError("system_prompt cannot be empty or whitespace-only")
-
-        if tree_json is None:
-            raise ValueError("tree_json cannot be None")
-
-        if dependencies_json is None:
-            raise ValueError("dependencies_json cannot be None")
-
-        if file_summaries_json is None:
-            raise ValueError("file_summaries_json cannot be None")
-
-        if spec_data is None:
-            raise ValueError("spec_data cannot be None")
+        LlmInputComposer._validate_inputs(
+            system_prompt, tree_json, dependencies_json, file_summaries_json, spec_data
+        )
 
         # Build the composed content with labeled sections
         sections = [
@@ -129,20 +154,9 @@ class LlmInputComposer:
             ValueError: If any required input is missing or empty
         """
         # Validate required inputs
-        if not system_prompt or not system_prompt.strip():
-            raise ValueError("system_prompt cannot be empty or whitespace-only")
-
-        if tree_json is None:
-            raise ValueError("tree_json cannot be None")
-
-        if dependencies_json is None:
-            raise ValueError("dependencies_json cannot be None")
-
-        if file_summaries_json is None:
-            raise ValueError("file_summaries_json cannot be None")
-
-        if spec_data is None:
-            raise ValueError("spec_data cannot be None")
+        LlmInputComposer._validate_inputs(
+            system_prompt, tree_json, dependencies_json, file_summaries_json, spec_data
+        )
 
         return {
             "system_prompt": system_prompt.strip(),
@@ -151,35 +165,6 @@ class LlmInputComposer:
             "file_summaries": file_summaries_json,
             "specification_data": spec_data,
         }
-
-    @staticmethod
-    def validate_repo_context(
-        tree_json: dict[str, Any] | list[Any],
-        dependencies_json: dict[str, Any] | list[Any],
-        file_summaries_json: dict[str, Any] | list[Any],
-    ) -> None:
-        """
-        Validate repository context inputs.
-
-        Ensures that repository context data is provided and not None.
-        Empty lists or dicts are allowed, but None values will raise errors.
-
-        Args:
-            tree_json: Repository file tree structure
-            dependencies_json: Repository dependencies
-            file_summaries_json: File summaries for context
-
-        Raises:
-            ValueError: If any repository context input is None
-        """
-        if tree_json is None:
-            raise ValueError("tree_json cannot be None")
-
-        if dependencies_json is None:
-            raise ValueError("dependencies_json cannot be None")
-
-        if file_summaries_json is None:
-            raise ValueError("file_summaries_json cannot be None")
 
 
 def compose_llm_request_payload(

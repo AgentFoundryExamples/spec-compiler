@@ -20,6 +20,7 @@ and structural placeholders but not yet connected to actual LLM services.
 Also includes GitHub authentication token models for minting workflow.
 """
 
+import json
 from datetime import UTC, datetime
 from typing import Any, Literal
 
@@ -314,12 +315,13 @@ class LlmCompiledSpecOutput(BaseModel):
         Raises:
             ValueError: If JSON is invalid or missing required fields
         """
-        import json
-
         try:
             data = json.loads(json_str)
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON string: {e}") from e
+
+        if not isinstance(data, dict):
+            raise ValueError("JSON root must be an object")
 
         # Handle both 'schema_version' and 'version' keys
         if "schema_version" in data and "version" not in data:

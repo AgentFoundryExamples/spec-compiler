@@ -528,10 +528,16 @@ class TestLlmCompiledSpecOutput:
 
     def test_parse_sample_v1_1_json(self) -> None:
         """Test parsing the actual sample.v1_1.json file."""
+        from pathlib import Path
+
         from spec_compiler.models.llm import LlmCompiledSpecOutput
 
+        # Use relative path from repository root
+        repo_root = Path(__file__).parent.parent
+        sample_file = repo_root / "sample.v1_1.json"
+
         # Read the sample file
-        with open("/home/runner/work/spec-compiler/spec-compiler/sample.v1_1.json") as f:
+        with open(sample_file) as f:
             json_str = f.read()
 
         # Parse using from_json_string which handles schema_version -> version
@@ -650,6 +656,22 @@ class TestLlmCompiledSpecOutput:
 
         with pytest.raises(ValueError, match="Invalid JSON string"):
             LlmCompiledSpecOutput.from_json_string("not valid json {")
+
+    def test_from_json_string_non_dict_root(self) -> None:
+        """Test from_json_string with non-dictionary root object."""
+        from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+        # Array root should fail
+        with pytest.raises(ValueError, match="JSON root must be an object"):
+            LlmCompiledSpecOutput.from_json_string('["not", "an", "object"]')
+
+        # String root should fail
+        with pytest.raises(ValueError, match="JSON root must be an object"):
+            LlmCompiledSpecOutput.from_json_string('"just a string"')
+
+        # Number root should fail
+        with pytest.raises(ValueError, match="JSON root must be an object"):
+            LlmCompiledSpecOutput.from_json_string("123")
 
     def test_from_json_string_missing_version(self) -> None:
         """Test from_json_string with missing version/schema_version."""
