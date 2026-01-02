@@ -460,3 +460,36 @@ class TestGitHubAuthToken:
         assert restored.expires_at == original.expires_at
         assert restored.scope == original.scope
         assert restored.created_at == original.created_at
+
+    def test_expires_at_iso8601_validation(self) -> None:
+        """Test that expires_at validates ISO-8601 format."""
+        # Valid ISO-8601 formats should work
+        valid_formats = [
+            "2026-12-31T23:59:59+00:00",
+            "2026-12-31T23:59:59Z",
+            "2026-06-15T12:00:00+00:00",
+            "2025-01-01T00:00:00Z",
+            "2026-12-31",  # Date-only is valid ISO-8601
+        ]
+        for expires_at in valid_formats:
+            token = GitHubAuthToken(
+                access_token="gho_valid",
+                expires_at=expires_at,
+            )
+            assert token.expires_at == expires_at
+
+    def test_expires_at_invalid_format_raises_error(self) -> None:
+        """Test that invalid ISO-8601 format raises validation error."""
+        invalid_formats = [
+            "not-a-date",
+            "12/31/2026",  # Wrong format
+            "invalid-timestamp",
+        ]
+        for invalid_expires_at in invalid_formats:
+            with pytest.raises(ValidationError) as exc_info:
+                GitHubAuthToken(
+                    access_token="gho_invalid",
+                    expires_at=invalid_expires_at,
+                )
+            errors = exc_info.value.errors()
+            assert any(error["loc"] == ("expires_at",) for error in errors)

@@ -23,7 +23,7 @@ Also includes GitHub authentication token models for minting workflow.
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class SystemPromptConfig(BaseModel):
@@ -200,3 +200,31 @@ class GitHubAuthToken(BaseModel):
         default_factory=lambda: datetime.now(UTC),
         description="Timestamp when token was created/minted",
     )
+
+    @field_validator("expires_at")
+    @classmethod
+    def validate_expires_at(cls, v: str | None) -> str | None:
+        """
+        Validate that expires_at is either None or a valid ISO-8601 timestamp.
+
+        Args:
+            v: The expires_at value to validate
+
+        Returns:
+            The validated expires_at value
+
+        Raises:
+            ValueError: If expires_at is not None and not a valid ISO-8601 timestamp
+        """
+        if v is None:
+            return v
+
+        # Try to parse as ISO-8601 to validate format
+        try:
+            datetime.fromisoformat(v.replace("Z", "+00:00"))
+        except (ValueError, AttributeError) as e:
+            raise ValueError(
+                f"expires_at must be a valid ISO-8601 timestamp or null, got: {v}"
+            ) from e
+
+        return v

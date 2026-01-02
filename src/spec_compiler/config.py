@@ -131,7 +131,7 @@ class Settings(BaseSettings):
         result: dict[str, str | None] = {}
 
         # Validate GitHub API URL
-        if not self.github_api_base_url or not self.github_api_base_url.strip():
+        if not self.github_api_base_url.strip():
             result["github_api_url"] = "missing"
         elif not self.github_api_base_url.startswith(("http://", "https://")):
             result["github_api_url"] = "invalid"
