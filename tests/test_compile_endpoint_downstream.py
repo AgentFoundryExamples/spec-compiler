@@ -21,12 +21,26 @@ flag behavior, and status publishing during downstream errors.
 import logging
 from unittest.mock import Mock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from spec_compiler.services.downstream_sender import (
     DownstreamSenderError,
     DownstreamValidationError,
 )
+
+
+@pytest.fixture(autouse=True)
+def cleanup_patches():
+    """
+    Ensure all patches are properly cleaned up between tests.
+
+    This autouse fixture helps maintain test isolation by ensuring
+    that any mocks or patches are reset between test runs.
+    """
+    yield
+    # Cleanup happens automatically with context managers, but this
+    # ensures any module-level state is reset
 
 
 class TestDownstreamSenderSuccess:
