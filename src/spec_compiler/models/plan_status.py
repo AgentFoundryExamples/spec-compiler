@@ -18,6 +18,8 @@ Defines the PlanStatusMessage model that conforms to the schema documented
 in plan-scheduler.openapi.json for publishing plan status updates.
 """
 
+import json
+import re
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -149,9 +151,6 @@ class PlanStatusMessage(BaseModel):
 
         # Basic sanitization: remove potential API keys or tokens
         # Pattern: strings that look like API keys (long alphanumeric strings)
-        import re
-
-        # Remove potential secrets (simple heuristic for common patterns)
         # This is a basic approach; more sophisticated sanitization can be added
         sanitized = re.sub(
             r'\b[A-Za-z0-9_-]{32,}\b',
@@ -180,5 +179,4 @@ class PlanStatusMessage(BaseModel):
         Returns:
             UTF-8 encoded JSON bytes
         """
-        import json
         return json.dumps(self.to_json_dict()).encode("utf-8")

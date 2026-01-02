@@ -25,6 +25,7 @@ from pathlib import Path
 import structlog
 from google.api_core import exceptions as gcp_exceptions
 from google.cloud import pubsub_v1  # type: ignore[import-untyped]
+from google.oauth2 import service_account
 
 from spec_compiler.models.plan_status import PlanStatusMessage
 
@@ -208,8 +209,6 @@ class PlanSchedulerPublisher:
                     credentials_path=credentials_path,
                 )
                 # Use credentials from file
-                from google.oauth2 import service_account
-
                 credentials = service_account.Credentials.from_service_account_file(
                     str(cred_path)
                 )
