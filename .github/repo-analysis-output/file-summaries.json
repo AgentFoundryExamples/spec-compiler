@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 36,
+  "total_files": 37,
   "files": [
     {
       "schema_version": "2.0",
@@ -67,8 +67,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 19211,
-        "loc": 452,
+        "size_bytes": 27253,
+        "loc": 648,
         "todo_count": 0
       }
     },
@@ -305,8 +305,8 @@
       "summary": "Python test implementation (role: test)",
       "summary_text": "Python test implementation (role: test)",
       "metrics": {
-        "size_bytes": 3955,
-        "loc": 79,
+        "size_bytes": 4197,
+        "loc": 81,
         "todo_count": 0
       }
     },
@@ -319,8 +319,22 @@
       "summary": "Python test file (role: test)",
       "summary_text": "Python test file (role: test)",
       "metrics": {
-        "size_bytes": 19243,
-        "loc": 405,
+        "size_bytes": 19230,
+        "loc": 407,
+        "todo_count": 0
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "tests/test_compile_endpoint_llm_integration.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "summary": "Python test file (role: test)",
+      "summary_text": "Python test file (role: test)",
+      "metrics": {
+        "size_bytes": 18510,
+        "loc": 369,
         "todo_count": 0
       }
     },

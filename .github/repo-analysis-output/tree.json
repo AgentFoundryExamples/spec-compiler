@@ -214,6 +214,10 @@
         },
         {
           "type": "file",
+          "name": "test_compile_endpoint_llm_integration.py"
+        },
+        {
+          "type": "file",
           "name": "test_compile_endpoint_repo_context.py"
         },
         {

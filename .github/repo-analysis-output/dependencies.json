@@ -325,6 +325,23 @@
       }
     },
     {
+      "id": "tests/test_compile_endpoint_llm_integration.py",
+      "path": "tests/test_compile_endpoint_llm_integration.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "json",
+          "logging",
+          "unittest.mock.MagicMock",
+          "unittest.mock.patch"
+        ],
+        "third-party": [
+          "fastapi.testclient.TestClient",
+          "pytest"
+        ]
+      }
+    },
+    {
       "id": "tests/test_compile_endpoint_repo_context.py",
       "path": "tests/test_compile_endpoint_repo_context.py",
       "type": "file",
@@ -576,6 +593,10 @@
       "target": "src/spec_compiler/services/github_repo.py"
     },
     {
+      "source": "src/spec_compiler/app/routes/compile.py",
+      "target": "src/spec_compiler/services/llm_client.py"
+    },
+    {
       "source": "src/spec_compiler/app/routes/health.py",
       "target": "src/spec_compiler/logging.py"
     },
@@ -686,6 +707,22 @@
     {
       "source": "tests/test_compile_endpoint.py",
       "target": "src/spec_compiler/models/compile.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_llm_integration.py",
+      "target": "src/spec_compiler/models/__init__.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_llm_integration.py",
+      "target": "src/spec_compiler/services/llm_client.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_llm_integration.py",
+      "target": "src/spec_compiler/app/main.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_llm_integration.py",
+      "target": "src/spec_compiler/config.py"
     },
     {
       "source": "tests/test_compile_endpoint_repo_context.py",
