@@ -16,6 +16,23 @@ OpenAI Responses API client implementation.
 
 Provides a client for the OpenAI Responses API with support for GPT-5+
 models, structured output, retry logic, and proper error handling.
+
+NOTE: This implementation targets the NEW OpenAI Responses API endpoint
+(/v1/responses), which is the recommended long-term API for GPT-5+ models
+as specified in LLMs.md. This is distinct from the legacy Chat Completions
+API (/v1/chat/completions) and follows the latest API structure documented
+at https://platform.openai.com/docs/models/gpt-5 (as of 2024-2025).
+
+The Responses API uses a different request structure:
+- Endpoint: POST /v1/responses (not /v1/chat/completions)
+- Request fields: 'input' (not 'messages'), 'instructions' (not system message)
+- Input format: Array with role/content objects containing 'input_text' type
+- Response format: 'output' field with content array (not 'choices')
+
+This follows the guidance from LLMs.md which explicitly states:
+"Target API should be the Responses API since it is the recommended most
+long term compatible option. The GPT 5 series models are supportive of the
+responses API."
 """
 
 import logging
@@ -32,6 +49,9 @@ from spec_compiler.services.llm_input import LlmInputComposer
 logger = logging.getLogger(__name__)
 
 # OpenAI API configuration
+# NOTE: The Responses API endpoint (/v1/responses) is the NEW recommended
+# endpoint for GPT-5+ models. This is distinct from the legacy Chat Completions
+# API (/v1/chat/completions). See module docstring for details.
 OPENAI_API_BASE_URL = "https://api.openai.com/v1"
 RESPONSES_ENDPOINT = f"{OPENAI_API_BASE_URL}/responses"
 
@@ -141,6 +161,12 @@ class OpenAiResponsesClient(LlmClient):
         )
 
         # Build the request body according to Responses API structure
+        # NOTE: This structure follows the NEW Responses API format (GPT-5+):
+        # - 'input': Array of messages (not 'messages' like Chat Completions API)
+        # - 'instructions': System-level guidance (not a system message in 'messages')
+        # - 'content': Array with 'input_text' type objects (not plain strings)
+        # - 'response_format': Structured output specification
+        # See: https://platform.openai.com/docs/models/gpt-5 and module docstring
         request_body: dict[str, Any] = {
             "model": self.model,
             "input": [
