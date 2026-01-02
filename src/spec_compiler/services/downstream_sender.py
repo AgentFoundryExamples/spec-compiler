@@ -29,13 +29,26 @@ logger = structlog.get_logger(__name__)
 
 
 class DownstreamSenderError(Exception):
-    """Base exception for downstream sender errors."""
+    """
+    Base exception for downstream sender errors.
+
+    Raised when general downstream sending operations fail, such as
+    network errors, timeout errors, or unexpected failures during
+    the send operation.
+    """
 
     pass
 
 
 class DownstreamValidationError(DownstreamSenderError):
-    """Raised when context validation fails before sending."""
+    """
+    Raised when context validation fails before sending.
+
+    This exception is raised when required context fields are missing,
+    empty, or contain invalid values (e.g., negative spec_index,
+    whitespace-only plan_id). Validation errors prevent the send
+    operation from proceeding and must be fixed by the caller.
+    """
 
     pass
 
