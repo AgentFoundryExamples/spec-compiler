@@ -65,8 +65,8 @@ Total files: 31
 **Role:** configuration  
 **Role Justification:** configuration file name 'config'  
 **Summary:** Python configuration file (role: configuration)  
-**Size:** 5.43 KB  
-**LOC:** 100  
+**Size:** 14.16 KB  
+**LOC:** 280  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/logging.py
@@ -200,8 +200,8 @@ Total files: 31
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 8.01 KB  
-**LOC:** 163  
+**Size:** 22.50 KB  
+**LOC:** 474  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_github_auth.py

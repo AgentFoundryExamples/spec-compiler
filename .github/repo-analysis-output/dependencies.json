@@ -81,9 +81,14 @@
       "path": "src/spec_compiler/config.py",
       "type": "file",
       "external_dependencies": {
-        "stdlib": [],
+        "stdlib": [
+          "logging",
+          "pathlib.Path",
+          "threading.Lock"
+        ],
         "third-party": [
           "pydantic.Field",
+          "pydantic.field_validator",
           "pydantic_settings.BaseSettings",
           "pydantic_settings.SettingsConfigDict"
         ]
@@ -300,9 +305,14 @@
       "external_dependencies": {
         "stdlib": [
           "os",
+          "pathlib.Path",
+          "threading",
           "unittest.mock.patch"
         ],
-        "third-party": []
+        "third-party": [
+          "pydantic.ValidationError",
+          "pytest"
+        ]
       }
     },
     {
@@ -646,8 +656,11 @@
       "json",
       "logging",
       "os",
+      "pathlib.Path",
       "re",
       "sys",
+      "threading",
+      "threading.Lock",
       "typing.Annotated",
       "typing.Any",
       "typing.Literal",
@@ -681,7 +694,7 @@
       "structlog.types.Processor",
       "uvicorn"
     ],
-    "stdlib_count": 18,
+    "stdlib_count": 21,
     "third-party_count": 24
   }
 }

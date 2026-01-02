@@ -10,14 +10,14 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 - **Total files**: 31
 - **Intra-repo dependencies**: 48
-- **External stdlib dependencies**: 18
+- **External stdlib dependencies**: 21
 - **External third-party dependencies**: 24
 
 ## External Dependencies
 
 ### Standard Library / Core Modules
 
-Total: 18 unique modules
+Total: 21 unique modules
 
 - `base64`
 - `collections.abc.AsyncGenerator`
@@ -29,14 +29,17 @@ Total: 18 unique modules
 - `json`
 - `logging`
 - `os`
+- `pathlib.Path`
 - `re`
 - `sys`
+- `threading`
+- `threading.Lock`
 - `typing.Annotated`
 - `typing.Any`
 - `typing.Literal`
 - `unittest.mock.MagicMock`
 - `unittest.mock.patch`
-- `uuid`
+- ... and 1 more (see JSON for full list)
 
 ### Third-Party Packages
 
