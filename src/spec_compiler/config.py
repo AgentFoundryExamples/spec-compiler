@@ -138,6 +138,16 @@ class Settings(BaseSettings):
         description="Optional authorization header value for minting service (GCP identity token)",
     )
 
+    # Downstream Sender Configuration
+    downstream_target_uri: str | None = Field(
+        default=None,
+        description="Placeholder URI for downstream target (e.g., topic, queue, or API endpoint)",
+    )
+    skip_downstream_send: bool = Field(
+        default=False,
+        description="Skip downstream send and log skip reason instead",
+    )
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins from comma-separated string."""
