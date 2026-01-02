@@ -72,7 +72,9 @@
       "external_dependencies": {
         "stdlib": [],
         "third-party": [
-          "fastapi.APIRouter"
+          "fastapi.APIRouter",
+          "fastapi.HTTPException",
+          "fastapi.status"
         ]
       }
     },
@@ -126,6 +128,7 @@
       "type": "file",
       "external_dependencies": {
         "stdlib": [
+          "json",
           "uuid"
         ],
         "third-party": [
@@ -395,6 +398,21 @@
       }
     },
     {
+      "id": "tests/test_compile_endpoint_status_publishing.py",
+      "path": "tests/test_compile_endpoint_status_publishing.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "unittest.mock.Mock",
+          "unittest.mock.patch"
+        ],
+        "third-party": [
+          "fastapi.testclient.TestClient",
+          "pytest"
+        ]
+      }
+    },
+    {
       "id": "tests/test_config.py",
       "path": "tests/test_config.py",
       "type": "file",
@@ -453,6 +471,21 @@
       "external_dependencies": {
         "stdlib": [
           "uuid"
+        ],
+        "third-party": [
+          "fastapi.testclient.TestClient",
+          "pytest"
+        ]
+      }
+    },
+    {
+      "id": "tests/test_health_debug_status.py",
+      "path": "tests/test_health_debug_status.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "unittest.mock.Mock",
+          "unittest.mock.patch"
         ],
         "third-party": [
           "fastapi.testclient.TestClient",
@@ -656,6 +689,10 @@
     },
     {
       "source": "src/spec_compiler/app/routes/compile.py",
+      "target": "src/spec_compiler/models/plan_status.py"
+    },
+    {
+      "source": "src/spec_compiler/app/routes/compile.py",
       "target": "src/spec_compiler/services/github_auth.py"
     },
     {
@@ -667,8 +704,24 @@
       "target": "src/spec_compiler/services/llm_client.py"
     },
     {
+      "source": "src/spec_compiler/app/routes/compile.py",
+      "target": "src/spec_compiler/services/plan_scheduler_publisher.py"
+    },
+    {
+      "source": "src/spec_compiler/app/routes/health.py",
+      "target": "src/spec_compiler/config.py"
+    },
+    {
       "source": "src/spec_compiler/app/routes/health.py",
       "target": "src/spec_compiler/logging.py"
+    },
+    {
+      "source": "src/spec_compiler/app/routes/health.py",
+      "target": "src/spec_compiler/models/plan_status.py"
+    },
+    {
+      "source": "src/spec_compiler/app/routes/health.py",
+      "target": "src/spec_compiler/services/plan_scheduler_publisher.py"
     },
     {
       "source": "src/spec_compiler/logging.py",
@@ -681,6 +734,14 @@
     {
       "source": "src/spec_compiler/middleware/__init__.py",
       "target": "src/spec_compiler/middleware/request_id.py"
+    },
+    {
+      "source": "src/spec_compiler/middleware/error_handler.py",
+      "target": "src/spec_compiler/models/plan_status.py"
+    },
+    {
+      "source": "src/spec_compiler/middleware/error_handler.py",
+      "target": "src/spec_compiler/services/plan_scheduler_publisher.py"
     },
     {
       "source": "src/spec_compiler/middleware/request_id.py",
@@ -771,6 +832,10 @@
       "target": "src/spec_compiler/models/plan_status.py"
     },
     {
+      "source": "src/spec_compiler/services/plan_scheduler_publisher.py",
+      "target": "src/spec_compiler/config.py"
+    },
+    {
       "source": "tests/conftest.py",
       "target": "src/spec_compiler/app/main.py"
     },
@@ -823,6 +888,14 @@
       "target": "src/spec_compiler/app/routes/compile.py"
     },
     {
+      "source": "tests/test_compile_endpoint_status_publishing.py",
+      "target": "src/spec_compiler/services/github_auth.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_status_publishing.py",
+      "target": "src/spec_compiler/services/llm_client.py"
+    },
+    {
       "source": "tests/test_config.py",
       "target": "src/spec_compiler/config.py"
     },
@@ -837,6 +910,14 @@
     {
       "source": "tests/test_github_repo.py",
       "target": "src/spec_compiler/services/github_repo.py"
+    },
+    {
+      "source": "tests/test_health_debug_status.py",
+      "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "tests/test_health_debug_status.py",
+      "target": "src/spec_compiler/services/plan_scheduler_publisher.py"
     },
     {
       "source": "tests/test_llm_input.py",

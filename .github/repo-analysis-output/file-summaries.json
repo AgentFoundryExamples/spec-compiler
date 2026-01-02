@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 41,
+  "total_files": 43,
   "files": [
     {
       "schema_version": "2.0",
@@ -67,8 +67,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 27253,
-        "loc": 648,
+        "size_bytes": 32149,
+        "loc": 770,
         "todo_count": 0
       }
     },
@@ -81,8 +81,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 1116,
-        "loc": 18,
+        "size_bytes": 4267,
+        "loc": 96,
         "todo_count": 0
       }
     },
@@ -137,8 +137,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 5990,
-        "loc": 106,
+        "size_bytes": 8872,
+        "loc": 164,
         "todo_count": 0
       }
     },
@@ -207,7 +207,7 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 6183,
+        "size_bytes": 6184,
         "loc": 132,
         "todo_count": 0
       }
@@ -263,8 +263,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 7706,
-        "loc": 150,
+        "size_bytes": 7660,
+        "loc": 148,
         "todo_count": 0
       }
     },
@@ -291,8 +291,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 16765,
-        "loc": 299,
+        "size_bytes": 16745,
+        "loc": 297,
         "todo_count": 0
       }
     },
@@ -305,8 +305,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 17121,
-        "loc": 333,
+        "size_bytes": 18993,
+        "loc": 370,
         "todo_count": 0
       }
     },
@@ -347,8 +347,8 @@
       "summary": "Python test file (role: test)",
       "summary_text": "Python test file (role: test)",
       "metrics": {
-        "size_bytes": 19230,
-        "loc": 407,
+        "size_bytes": 19216,
+        "loc": 405,
         "todo_count": 0
       }
     },
@@ -361,8 +361,8 @@
       "summary": "Python test file (role: test)",
       "summary_text": "Python test file (role: test)",
       "metrics": {
-        "size_bytes": 18510,
-        "loc": 369,
+        "size_bytes": 18491,
+        "loc": 368,
         "todo_count": 0
       }
     },
@@ -382,6 +382,20 @@
     },
     {
       "schema_version": "2.0",
+      "path": "tests/test_compile_endpoint_status_publishing.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "summary": "Python test file (role: test)",
+      "summary_text": "Python test file (role: test)",
+      "metrics": {
+        "size_bytes": 14596,
+        "loc": 297,
+        "todo_count": 0
+      }
+    },
+    {
+      "schema_version": "2.0",
       "path": "tests/test_config.py",
       "language": "Python",
       "role": "test",
@@ -389,7 +403,7 @@
       "summary": "Python test file (role: test)",
       "summary_text": "Python test file (role: test)",
       "metrics": {
-        "size_bytes": 29400,
+        "size_bytes": 29388,
         "loc": 606,
         "todo_count": 0
       }
@@ -433,6 +447,20 @@
       "metrics": {
         "size_bytes": 4248,
         "loc": 71,
+        "todo_count": 0
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "tests/test_health_debug_status.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "summary": "Python test file (role: test)",
+      "summary_text": "Python test file (role: test)",
+      "metrics": {
+        "size_bytes": 4487,
+        "loc": 80,
         "todo_count": 0
       }
     },
@@ -529,8 +557,8 @@
       "summary": "Python test file (role: test)",
       "summary_text": "Python test file (role: test)",
       "metrics": {
-        "size_bytes": 17103,
-        "loc": 345,
+        "size_bytes": 17089,
+        "loc": 343,
         "todo_count": 0
       }
     },
@@ -571,8 +599,8 @@
       "summary": "Python test file (role: test)",
       "summary_text": "Python test file (role: test)",
       "metrics": {
-        "size_bytes": 21468,
-        "loc": 396,
+        "size_bytes": 21486,
+        "loc": 394,
         "todo_count": 0
       }
     }

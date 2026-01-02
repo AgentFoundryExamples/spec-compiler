@@ -51,10 +51,12 @@
   ├── test_compile_endpoint.py
   ├── test_compile_endpoint_llm_integration.py
   ├── test_compile_endpoint_repo_context.py
+  ├── test_compile_endpoint_status_publishing.py
   ├── test_config.py
   ├── test_github_auth.py
   ├── test_github_repo.py
   ├── test_health.py
+  ├── test_health_debug_status.py
   ├── test_llm_input.py
   ├── test_logging.py
   ├── test_middleware.py

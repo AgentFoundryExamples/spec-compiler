@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 41
+Total files: 43
 
 ## src/spec_compiler/__init__.py
 **Language:** Python  
@@ -47,8 +47,8 @@ Total files: 41
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 26.61 KB  
-**LOC:** 648  
+**Size:** 31.40 KB  
+**LOC:** 770  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/app/routes/health.py
@@ -56,8 +56,8 @@ Total files: 41
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 1.09 KB  
-**LOC:** 18  
+**Size:** 4.17 KB  
+**LOC:** 96  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/config.py
@@ -92,8 +92,8 @@ Total files: 41
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 5.85 KB  
-**LOC:** 106  
+**Size:** 8.66 KB  
+**LOC:** 164  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/middleware/request_id.py
@@ -173,8 +173,8 @@ Total files: 41
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 7.53 KB  
-**LOC:** 150  
+**Size:** 7.48 KB  
+**LOC:** 148  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/services/llm_input.py
@@ -191,8 +191,8 @@ Total files: 41
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 16.37 KB  
-**LOC:** 299  
+**Size:** 16.35 KB  
+**LOC:** 297  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/services/plan_scheduler_publisher.py
@@ -200,8 +200,8 @@ Total files: 41
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 16.72 KB  
-**LOC:** 333  
+**Size:** 18.55 KB  
+**LOC:** 370  
 **TODOs/FIXMEs:** 0  
 
 ## tests/__init__.py
@@ -227,8 +227,8 @@ Total files: 41
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 18.78 KB  
-**LOC:** 407  
+**Size:** 18.77 KB  
+**LOC:** 405  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_compile_endpoint_llm_integration.py
@@ -236,8 +236,8 @@ Total files: 41
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 18.08 KB  
-**LOC:** 369  
+**Size:** 18.06 KB  
+**LOC:** 368  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_compile_endpoint_repo_context.py
@@ -249,12 +249,21 @@ Total files: 41
 **LOC:** 334  
 **TODOs/FIXMEs:** 0  
 
+## tests/test_compile_endpoint_status_publishing.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 14.25 KB  
+**LOC:** 297  
+**TODOs/FIXMEs:** 0  
+
 ## tests/test_config.py
 **Language:** Python  
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 28.71 KB  
+**Size:** 28.70 KB  
 **LOC:** 606  
 **TODOs/FIXMEs:** 0  
 
@@ -283,6 +292,15 @@ Total files: 41
 **Summary:** Python test file (role: test)  
 **Size:** 4.15 KB  
 **LOC:** 71  
+**TODOs/FIXMEs:** 0  
+
+## tests/test_health_debug_status.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 4.38 KB  
+**LOC:** 80  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_llm_input.py
@@ -344,8 +362,8 @@ Total files: 41
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 16.70 KB  
-**LOC:** 345  
+**Size:** 16.69 KB  
+**LOC:** 343  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_plan_status_model.py
@@ -371,6 +389,6 @@ Total files: 41
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 20.96 KB  
-**LOC:** 396  
+**Size:** 20.98 KB  
+**LOC:** 394  
 **TODOs/FIXMEs:** 0  

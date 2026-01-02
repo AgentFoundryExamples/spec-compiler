@@ -230,6 +230,10 @@
         },
         {
           "type": "file",
+          "name": "test_compile_endpoint_status_publishing.py"
+        },
+        {
+          "type": "file",
           "name": "test_config.py"
         },
         {
@@ -243,6 +247,10 @@
         {
           "type": "file",
           "name": "test_health.py"
+        },
+        {
+          "type": "file",
+          "name": "test_health_debug_status.py"
         },
         {
           "type": "file",

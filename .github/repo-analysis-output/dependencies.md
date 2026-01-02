@@ -8,8 +8,8 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 ## Statistics
 
-- **Total files**: 41
-- **Intra-repo dependencies**: 72
+- **Total files**: 43
+- **Intra-repo dependencies**: 84
 - **External stdlib dependencies**: 27
 - **External third-party dependencies**: 27
 
@@ -69,26 +69,26 @@ Total: 27 unique packages
 
 ## Most Depended Upon Files (Intra-Repo)
 
-- `src/spec_compiler/config.py` (11 dependents)
+- `src/spec_compiler/config.py` (14 dependents)
 - `src/spec_compiler/models/__init__.py` (9 dependents)
+- `src/spec_compiler/models/plan_status.py` (7 dependents)
 - `src/spec_compiler/logging.py` (6 dependents)
+- `src/spec_compiler/services/github_auth.py` (6 dependents)
+- `src/spec_compiler/services/llm_client.py` (6 dependents)
+- `src/spec_compiler/services/plan_scheduler_publisher.py` (6 dependents)
 - `src/spec_compiler/models/llm.py` (6 dependents)
-- `src/spec_compiler/services/github_auth.py` (5 dependents)
 - `src/spec_compiler/services/github_repo.py` (5 dependents)
-- `src/spec_compiler/services/llm_client.py` (5 dependents)
 - `src/spec_compiler/models/compile.py` (4 dependents)
-- `src/spec_compiler/models/plan_status.py` (4 dependents)
-- `src/spec_compiler/services/openai_responses.py` (3 dependents)
 
 ## Files with Most Dependencies (Intra-Repo)
 
-- `src/spec_compiler/app/routes/compile.py` (7 dependencies)
+- `src/spec_compiler/app/routes/compile.py` (9 dependencies)
 - `src/spec_compiler/app/main.py` (6 dependencies)
 - `src/spec_compiler/services/__init__.py` (5 dependencies)
+- `src/spec_compiler/app/routes/health.py` (4 dependencies)
 - `src/spec_compiler/services/openai_responses.py` (4 dependencies)
 - `tests/test_compile_endpoint_llm_integration.py` (4 dependencies)
 - `tests/test_compile_endpoint_repo_context.py` (4 dependencies)
 - `src/spec_compiler/models/__init__.py` (3 dependencies)
 - `src/spec_compiler/services/github_auth.py` (3 dependencies)
 - `src/spec_compiler/services/llm_client.py` (3 dependencies)
-- `tests/test_compile_endpoint.py` (3 dependencies)
