@@ -58,7 +58,7 @@ RESPONSES_ENDPOINT = f"{OPENAI_API_BASE_URL}/responses"
 # Retry configuration
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_TIMEOUT_SECONDS = 120.0
-RETRY_STATUS_CODES = {500, 502, 503, 504}  # Retry on server errors
+RETRY_STATUS_CODES = {429, 500, 502, 503, 504}  # Retry on rate limits and server errors
 RETRY_BACKOFF_BASE = 2.0  # Exponential backoff base
 
 
@@ -152,6 +152,13 @@ class OpenAiResponsesClient(LlmClient):
         system_prompt = payload.system_prompt.template or settings.get_system_prompt()
 
         # Compose the user content
+        # NOTE: The system prompt is included in the user_content composition
+        # AND passed separately in the 'instructions' field. This is intentional:
+        # - The 'instructions' field provides high-level guidance to the model
+        # - The user_content includes the system prompt as a labeled section
+        #   for structured context that the model can reference
+        # This dual approach ensures the system prompt is both processed by
+        # the model's instruction-following mechanism and available as context.
         user_content = composer.compose_user_content(
             system_prompt=system_prompt,
             tree_json=tree_json,
@@ -285,10 +292,9 @@ class OpenAiResponsesClient(LlmClient):
                     f"Unexpected error on attempt {attempt + 1} for request_id={request_id}: {e}",
                     exc_info=True,
                 )
-                if attempt < self.max_retries - 1:
-                    backoff = RETRY_BACKOFF_BASE ** attempt
-                    time.sleep(backoff)
-                    continue
+                # Do not retry on unexpected exceptions, as they likely indicate a bug.
+                # Fail fast instead.
+                raise LlmApiError(f"Unexpected error during API request: {e}") from e
 
         # All retries exhausted
         error_msg = f"API request failed after {self.max_retries} attempts"

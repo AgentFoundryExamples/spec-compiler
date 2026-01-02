@@ -94,16 +94,28 @@ class StubLlmClient(LlmClient):
 
     def _get_default_sample_path(self) -> str:
         """
-        Get the default path to sample.v1_1.json file.
+        Get the default path to sample.v1_1.json file by finding the repo root.
 
         Returns:
             Absolute path to sample.v1_1.json
+
+        Raises:
+            FileNotFoundError: If the repository root cannot be determined.
         """
-        # Assume sample file is in repository root, relative to this file
-        current_file = Path(__file__)
-        repo_root = current_file.parent.parent.parent.parent
-        sample_path = repo_root / "sample.v1_1.json"
-        return str(sample_path.resolve())
+        current_path = Path(__file__).resolve()
+        # Traverse up to find a root marker, e.g., .git directory or pyproject.toml
+        for parent in current_path.parents:
+            if (parent / ".git").exists() or (parent / "pyproject.toml").exists():
+                repo_root = parent
+                sample_path = repo_root / "sample.v1_1.json"
+                if sample_path.exists():
+                    return str(sample_path)
+                else:
+                    raise FileNotFoundError(
+                        f"sample.v1_1.json not found in repo root: {repo_root}"
+                    )
+
+        raise FileNotFoundError("Could not determine repository root to find sample.v1_1.json.")
 
     def generate_response(self, payload: LlmRequestEnvelope) -> LlmResponseEnvelope:
         """
