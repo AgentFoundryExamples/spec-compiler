@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 47,
+  "total_files": 48,
   "files": [
     {
       "schema_version": "2.0",
@@ -67,8 +67,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 32121,
-        "loc": 769,
+        "size_bytes": 40654,
+        "loc": 1080,
         "todo_count": 0
       }
     },
@@ -419,6 +419,20 @@
       "metrics": {
         "size_bytes": 15385,
         "loc": 334,
+        "todo_count": 0
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "tests/test_compile_endpoint_staged_flow.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "summary": "Python test file (role: test)",
+      "summary_text": "Python test file (role: test)",
+      "metrics": {
+        "size_bytes": 11339,
+        "loc": 223,
         "todo_count": 0
       }
     },

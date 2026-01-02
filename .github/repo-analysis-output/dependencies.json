@@ -52,6 +52,7 @@
         "stdlib": [
           "json",
           "re",
+          "time",
           "typing.Annotated",
           "typing.Any"
         ],
@@ -454,6 +455,22 @@
       }
     },
     {
+      "id": "tests/test_compile_endpoint_staged_flow.py",
+      "path": "tests/test_compile_endpoint_staged_flow.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "logging",
+          "unittest.mock.Mock",
+          "unittest.mock.patch"
+        ],
+        "third-party": [
+          "fastapi.testclient.TestClient",
+          "pytest"
+        ]
+      }
+    },
+    {
       "id": "tests/test_compile_endpoint_status_publishing.py",
       "path": "tests/test_compile_endpoint_status_publishing.py",
       "type": "file",
@@ -761,6 +778,10 @@
     {
       "source": "src/spec_compiler/app/routes/compile.py",
       "target": "src/spec_compiler/models/plan_status.py"
+    },
+    {
+      "source": "src/spec_compiler/app/routes/compile.py",
+      "target": "src/spec_compiler/services/downstream_sender.py"
     },
     {
       "source": "src/spec_compiler/app/routes/compile.py",

@@ -54,6 +54,7 @@
   ├── test_compile_endpoint.py
   ├── test_compile_endpoint_llm_integration.py
   ├── test_compile_endpoint_repo_context.py
+  ├── test_compile_endpoint_staged_flow.py
   ├── test_compile_endpoint_status_publishing.py
   ├── test_config.py
   ├── test_downstream_sender.py

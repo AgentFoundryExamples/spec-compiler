@@ -8,8 +8,8 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 ## Statistics
 
-- **Total files**: 47
-- **Intra-repo dependencies**: 97
+- **Total files**: 48
+- **Intra-repo dependencies**: 98
 - **External stdlib dependencies**: 28
 - **External third-party dependencies**: 34
 
@@ -82,7 +82,7 @@ Total: 34 unique packages
 
 ## Files with Most Dependencies (Intra-Repo)
 
-- `src/spec_compiler/app/routes/compile.py` (9 dependencies)
+- `src/spec_compiler/app/routes/compile.py` (10 dependencies)
 - `src/spec_compiler/app/main.py` (6 dependencies)
 - `src/spec_compiler/services/__init__.py` (6 dependencies)
 - `src/spec_compiler/app/routes/health.py` (4 dependencies)

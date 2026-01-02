@@ -242,6 +242,10 @@
         },
         {
           "type": "file",
+          "name": "test_compile_endpoint_staged_flow.py"
+        },
+        {
+          "type": "file",
           "name": "test_compile_endpoint_status_publishing.py"
         },
         {
