@@ -192,6 +192,7 @@
         "stdlib": [
           "datetime.UTC",
           "datetime.datetime",
+          "json",
           "typing.Any",
           "typing.Literal"
         ],
@@ -241,6 +242,18 @@
         "third-party": [
           "httpx"
         ]
+      }
+    },
+    {
+      "id": "src/spec_compiler/services/llm_input.py",
+      "path": "src/spec_compiler/services/llm_input.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "json",
+          "typing.Any"
+        ],
+        "third-party": []
       }
     },
     {
@@ -365,6 +378,17 @@
       }
     },
     {
+      "id": "tests/test_llm_input.py",
+      "path": "tests/test_llm_input.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": [
+          "pytest"
+        ]
+      }
+    },
+    {
       "id": "tests/test_logging.py",
       "path": "tests/test_logging.py",
       "type": "file",
@@ -424,7 +448,8 @@
       "type": "file",
       "external_dependencies": {
         "stdlib": [
-          "datetime.datetime"
+          "datetime.datetime",
+          "pathlib.Path"
         ],
         "third-party": [
           "pydantic.ValidationError",
@@ -610,6 +635,10 @@
     {
       "source": "tests/test_github_repo.py",
       "target": "src/spec_compiler/services/github_repo.py"
+    },
+    {
+      "source": "tests/test_llm_input.py",
+      "target": "src/spec_compiler/services/llm_input.py"
     },
     {
       "source": "tests/test_logging.py",

@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 31
+Total files: 33
 
 ## src/spec_compiler/__init__.py
 **Language:** Python  
@@ -110,8 +110,8 @@ Total files: 31
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
 **Summary:** Python module initialization (role: module-init)  
-**Size:** 2.11 KB  
-**LOC:** 54  
+**Size:** 2.17 KB  
+**LOC:** 56  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/models/compile.py
@@ -128,8 +128,8 @@ Total files: 31
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 6.85 KB  
-**LOC:** 181  
+**Size:** 9.86 KB  
+**LOC:** 258  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/services/__init__.py
@@ -159,6 +159,15 @@ Total files: 31
 **LOC:** 390  
 **TODOs/FIXMEs:** 0  
 
+## src/spec_compiler/services/llm_input.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Summary:** Python core implementation  
+**Size:** 7.45 KB  
+**LOC:** 167  
+**TODOs/FIXMEs:** 1  
+
 ## tests/__init__.py
 **Language:** Python  
 **Role:** test  
@@ -173,8 +182,8 @@ Total files: 31
 **Role:** test  
 **Role Justification:** located in 'tests' directory  
 **Summary:** Python test implementation (role: test)  
-**Size:** 3.88 KB  
-**LOC:** 75  
+**Size:** 3.86 KB  
+**LOC:** 79  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_compile_endpoint.py
@@ -191,8 +200,8 @@ Total files: 31
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 14.93 KB  
-**LOC:** 328  
+**Size:** 15.02 KB  
+**LOC:** 334  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_config.py
@@ -229,6 +238,15 @@ Total files: 31
 **Summary:** Python test file (role: test)  
 **Size:** 4.15 KB  
 **LOC:** 71  
+**TODOs/FIXMEs:** 0  
+
+## tests/test_llm_input.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 13.70 KB  
+**LOC:** 319  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_logging.py
@@ -272,8 +290,8 @@ Total files: 31
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 18.44 KB  
-**LOC:** 412  
+**Size:** 27.57 KB  
+**LOC:** 585  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_services_github.py

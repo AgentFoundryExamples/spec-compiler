@@ -8,8 +8,8 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 ## Statistics
 
-- **Total files**: 31
-- **Intra-repo dependencies**: 48
+- **Total files**: 33
+- **Intra-repo dependencies**: 49
 - **External stdlib dependencies**: 21
 - **External third-party dependencies**: 24
 

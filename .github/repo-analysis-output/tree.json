@@ -165,6 +165,10 @@
                 {
                   "type": "file",
                   "name": "github_repo.py"
+                },
+                {
+                  "type": "file",
+                  "name": "llm_input.py"
                 }
               ]
             },
@@ -219,6 +223,10 @@
         {
           "type": "file",
           "name": "test_health.py"
+        },
+        {
+          "type": "file",
+          "name": "test_llm_input.py"
         },
         {
           "type": "file",
