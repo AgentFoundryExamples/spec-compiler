@@ -25,11 +25,216 @@ from fastapi import APIRouter, Header, HTTPException, Request, status
 
 from spec_compiler.config import settings
 from spec_compiler.logging import get_logger
-from spec_compiler.models import create_llm_response_stub
+from spec_compiler.models import RepoContextPayload, create_llm_response_stub
 from spec_compiler.models.compile import CompileRequest, CompileResponse
+from spec_compiler.services.github_auth import GitHubAuthClient, MintingError
+from spec_compiler.services.github_repo import (
+    GitHubFileError,
+    GitHubRepoClient,
+    InvalidJSONError,
+    create_fallback_dependencies,
+    create_fallback_file_summaries,
+    create_fallback_tree,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+def fetch_repo_context(
+    owner: str,
+    repo: str,
+    token: str,
+    request_id: str,
+) -> RepoContextPayload:
+    """
+    Fetch repository context from GitHub analysis files.
+
+    Attempts to fetch tree.json, dependencies.json, and file-summaries.json
+    from .github/repo-analysis-output/. Falls back to placeholder data
+    for any missing or malformed files.
+
+    Args:
+        owner: GitHub repository owner
+        repo: GitHub repository name
+        token: GitHub access token
+        request_id: Request ID for logging
+
+    Returns:
+        RepoContextPayload with tree, dependencies, and file_summaries
+    """
+    repo_client = GitHubRepoClient()
+    base_path = ".github/repo-analysis-output"
+
+    # Initialize with fallback values
+    tree_data = None
+    dependencies_data = None
+    file_summaries_data = None
+
+    # Fetch tree.json
+    try:
+        tree_data = repo_client.get_json_file(
+            owner=owner,
+            repo=repo,
+            path=f"{base_path}/tree.json",
+            token=token,
+        )
+        logger.info(
+            "repo_context_tree_success",
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            tree_entries=len(tree_data.get("tree", [])) if isinstance(tree_data, dict) else 0,
+        )
+    except GitHubFileError as e:
+        logger.warning(
+            "repo_context_tree_error",
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            error=str(e),
+            status_code=e.status_code,
+            using_fallback=True,
+        )
+        tree_data = {"tree": create_fallback_tree()}
+    except InvalidJSONError as e:
+        logger.warning(
+            "repo_context_tree_invalid_json",
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            error=str(e),
+            using_fallback=True,
+        )
+        tree_data = {"tree": create_fallback_tree()}
+
+    # Fetch dependencies.json
+    try:
+        dependencies_data = repo_client.get_json_file(
+            owner=owner,
+            repo=repo,
+            path=f"{base_path}/dependencies.json",
+            token=token,
+        )
+        logger.info(
+            "repo_context_dependencies_success",
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            dependency_count=len(dependencies_data.get("dependencies", []))
+            if isinstance(dependencies_data, dict)
+            else 0,
+        )
+    except GitHubFileError as e:
+        logger.warning(
+            "repo_context_dependencies_error",
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            error=str(e),
+            status_code=e.status_code,
+            using_fallback=True,
+        )
+        dependencies_data = {"dependencies": create_fallback_dependencies()}
+    except InvalidJSONError as e:
+        logger.warning(
+            "repo_context_dependencies_invalid_json",
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            error=str(e),
+            using_fallback=True,
+        )
+        dependencies_data = {"dependencies": create_fallback_dependencies()}
+
+    # Fetch file-summaries.json
+    try:
+        file_summaries_data = repo_client.get_json_file(
+            owner=owner,
+            repo=repo,
+            path=f"{base_path}/file-summaries.json",
+            token=token,
+        )
+        logger.info(
+            "repo_context_file_summaries_success",
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            summary_count=len(file_summaries_data.get("summaries", []))
+            if isinstance(file_summaries_data, dict)
+            else 0,
+        )
+    except GitHubFileError as e:
+        logger.warning(
+            "repo_context_file_summaries_error",
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            error=str(e),
+            status_code=e.status_code,
+            using_fallback=True,
+        )
+        file_summaries_data = {"summaries": create_fallback_file_summaries()}
+    except InvalidJSONError as e:
+        logger.warning(
+            "repo_context_file_summaries_invalid_json",
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            error=str(e),
+            using_fallback=True,
+        )
+        file_summaries_data = {"summaries": create_fallback_file_summaries()}
+
+    # Extract data with safe defaults
+    tree = tree_data.get("tree", create_fallback_tree()) if tree_data else create_fallback_tree()
+    dependencies = (
+        dependencies_data.get("dependencies", create_fallback_dependencies())
+        if dependencies_data
+        else create_fallback_dependencies()
+    )
+    file_summaries = (
+        file_summaries_data.get("summaries", create_fallback_file_summaries())
+        if file_summaries_data
+        else create_fallback_file_summaries()
+    )
+
+    # Ensure values are lists
+    if not isinstance(tree, list):
+        logger.warning(
+            "repo_context_tree_not_list",
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            actual_type=type(tree).__name__,
+        )
+        tree = create_fallback_tree()
+
+    if not isinstance(dependencies, list):
+        logger.warning(
+            "repo_context_dependencies_not_list",
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            actual_type=type(dependencies).__name__,
+        )
+        dependencies = create_fallback_dependencies()
+
+    if not isinstance(file_summaries, list):
+        logger.warning(
+            "repo_context_file_summaries_not_list",
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            actual_type=type(file_summaries).__name__,
+        )
+        file_summaries = create_fallback_file_summaries()
+
+    return RepoContextPayload(
+        tree=tree,
+        dependencies=dependencies,
+        file_summaries=file_summaries,
+    )
 
 
 @router.post(
@@ -206,10 +411,129 @@ async def compile_spec(
         spec_data_size=len(json.dumps(compile_request.spec_data)),
     )
 
+    # Initialize GitHub clients
+    auth_client = GitHubAuthClient()
+
+    # Mint GitHub token for repository access
+    try:
+        logger.info(
+            "minting_token_start",
+            request_id=request_id,
+            owner=compile_request.github_owner,
+            repo=compile_request.github_repo,
+        )
+
+        github_token = auth_client.mint_user_to_server_token(
+            owner=compile_request.github_owner,
+            repo=compile_request.github_repo,
+        )
+
+        logger.info(
+            "minting_token_success",
+            request_id=request_id,
+            owner=compile_request.github_owner,
+            repo=compile_request.github_repo,
+            token_type=github_token.token_type,
+            has_expiry=github_token.expires_at is not None,
+        )
+
+        token_str = github_token.access_token
+
+    except MintingError as e:
+        logger.error(
+            "minting_token_failed",
+            request_id=request_id,
+            owner=compile_request.github_owner,
+            repo=compile_request.github_repo,
+            error=str(e),
+            status_code=e.status_code,
+            context=e.context,
+        )
+
+        # Map minting errors to appropriate HTTP status codes
+        # Use 502 Bad Gateway for service communication failures
+        # Use 503 Service Unavailable for temporary failures
+        # Use 500 Internal Server Error for configuration issues
+        if e.status_code is not None:
+            # If we have an HTTP status from the minting service, use it to determine mapping
+            if e.status_code >= 500:
+                http_status = status.HTTP_503_SERVICE_UNAVAILABLE
+                error_message = "Token minting service temporarily unavailable"
+            elif e.status_code >= 400:
+                http_status = status.HTTP_502_BAD_GATEWAY
+                error_message = "Token minting service error"
+            else:
+                http_status = status.HTTP_500_INTERNAL_SERVER_ERROR
+                error_message = "Unexpected token minting error"
+        elif "not configured" in str(e).lower():
+            http_status = status.HTTP_500_INTERNAL_SERVER_ERROR
+            error_message = "Token minting service not configured"
+        else:
+            http_status = status.HTTP_502_BAD_GATEWAY
+            error_message = "Token minting service error"
+
+        # Return structured error response with valid JSON
+        raise HTTPException(
+            status_code=http_status,
+            detail={
+                "error": error_message,
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "Unable to authenticate with GitHub. Please retry or contact support.",
+            },
+        )
+
+    # Fetch repository context
+    try:
+        logger.info(
+            "fetching_repo_context_start",
+            request_id=request_id,
+            owner=compile_request.github_owner,
+            repo=compile_request.github_repo,
+        )
+
+        repo_context = fetch_repo_context(
+            owner=compile_request.github_owner,
+            repo=compile_request.github_repo,
+            token=token_str,
+            request_id=request_id,
+        )
+
+        logger.info(
+            "fetching_repo_context_success",
+            request_id=request_id,
+            owner=compile_request.github_owner,
+            repo=compile_request.github_repo,
+            tree_count=len(repo_context.tree),
+            dependencies_count=len(repo_context.dependencies),
+            file_summaries_count=len(repo_context.file_summaries),
+        )
+
+    except Exception as e:
+        # Log unexpected errors but don't fail the request
+        # Use fallback payload to allow compilation to proceed
+        logger.error(
+            "fetching_repo_context_unexpected_error",
+            request_id=request_id,
+            owner=compile_request.github_owner,
+            repo=compile_request.github_repo,
+            error=str(e),
+            error_type=type(e).__name__,
+            using_fallback=True,
+        )
+
+        repo_context = RepoContextPayload(
+            tree=create_fallback_tree(),
+            dependencies=create_fallback_dependencies(),
+            file_summaries=create_fallback_file_summaries(),
+        )
+
     # Generate placeholder LLM response envelope
     # NOTE: This is intentionally created but not returned/used. It simulates
     # the future workflow where we would dispatch to LLM services. The envelope
     # is logged to validate the data structure and demonstrate the intended flow.
+    # Now includes repo_context in metadata for future LLM integration.
     llm_response = create_llm_response_stub(
         request_id=request_id,
         status="pending",
@@ -217,6 +541,10 @@ async def compile_spec(
         metadata={
             "status": "stubbed",
             "details": "LLM call not yet implemented",
+            "repo_context_available": True,
+            "repo_context_tree_count": len(repo_context.tree),
+            "repo_context_dependencies_count": len(repo_context.dependencies),
+            "repo_context_file_summaries_count": len(repo_context.file_summaries),
         },
     )
 
