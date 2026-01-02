@@ -487,10 +487,24 @@ The following environment variables are available (see `.env.example` for a comp
 
 #### LLM Configuration
 - **`LLM_PROVIDER`**: Which LLM provider to use for spec compilation (default: `openai`). Valid values:
-  - `openai`: Use OpenAI GPT models (requires `OPENAI_API_KEY`)
-  - `anthropic`: Use Anthropic Claude models (requires `CLAUDE_API_KEY`)
-- **`OPENAI_MODEL`**: OpenAI model name when using OpenAI provider (default: `gpt-5.1`). Recommended models: `gpt-5.1` (uses Responses API, see [LLMs.md](LLMs.md) for details).
-- **`CLAUDE_MODEL`**: Anthropic Claude model name when using Anthropic provider (default: `claude-3-5-sonnet-20241022`). This is the latest Claude 3.5 Sonnet model (uses Messages API, see [LLMs.md](LLMs.md) for details).
+  - `openai`: Use OpenAI GPT-5 models via Responses API (requires `OPENAI_API_KEY`)
+  - `anthropic`: Use Anthropic Claude models via official `anthropic` SDK (requires `CLAUDE_API_KEY`)
+- **`OPENAI_MODEL`**: OpenAI model name when using OpenAI provider (default: `gpt-5.1`). Recommended: `gpt-5.1` (uses Responses API `/v1/responses`, see [LLMs.md](LLMs.md)).
+- **`CLAUDE_MODEL`**: Anthropic Claude model name when using Anthropic provider (default: `claude-3-5-sonnet-20241022`). This is Claude 3.5 Sonnet (uses official Anthropic SDK with Messages API, see [LLMs.md](LLMs.md)).
+
+##### OpenAI Configuration (Optional)
+- **`OPENAI_API_BASE`**: Custom base URL for OpenAI API (default: `https://api.openai.com/v1`). Useful for proxies or custom endpoints.
+- **`OPENAI_ORGANIZATION`**: OpenAI organization ID (format: `org-xxxxxxxxxxxxxx`). For users belonging to multiple organizations, specify which organization to bill.
+- **`OPENAI_PROJECT`**: OpenAI project ID (format: `proj_xxxxxxxxxxxxxx`). For organization members, specify which project API requests should be attributed to.
+
+##### Anthropic SDK Configuration (Optional)
+- **`CLAUDE_API_BASE`**: Custom base URL for Anthropic API (default: `https://api.anthropic.com`). Useful for proxies or custom endpoints.
+
+##### SDK Retry and Timeout Configuration
+- **`LLM_TIMEOUT`**: Timeout in seconds for LLM API requests (default: `120.0`). Applies to both OpenAI and Anthropic. Increase for slow networks or models with long generation times.
+- **`LLM_MAX_RETRIES`**: Maximum retry attempts for failed LLM requests (default: `3`). Retries apply to rate limits, timeouts, and 5xx server errors. 4xx client errors are not retried.
+
+##### Other LLM Configuration
 - **`SYSTEM_PROMPT_PATH`**: Optional path to a file containing the system prompt for LLM requests. Can be absolute (e.g., `/app/prompts/system.txt`) or relative to the working directory (e.g., `./prompts/system.txt`). If not set or file is unreadable, a default prompt is used. Large prompt files are cached after first load for performance.
 - **`LLM_STUB_MODE`**: Enable stub mode to bypass actual LLM API calls (default: `false`). When `true`, returns stubbed responses without calling external APIs. Useful for:
   - Local development without API keys
@@ -499,10 +513,22 @@ The following environment variables are available (see `.env.example` for a comp
   - Note: Requires restart to change (not hot-reloadable)
 
 **LLM Provider Selection:**
-- Set `LLM_PROVIDER=openai` to use OpenAI GPT models
-- Set `LLM_PROVIDER=anthropic` to use Anthropic Claude models
+- Set `LLM_PROVIDER=openai` to use OpenAI GPT-5 models via Responses API
+- Set `LLM_PROVIDER=anthropic` to use Anthropic Claude models via official SDK
+- OpenAI uses direct HTTP calls to Responses API (SDK support pending)
+- Anthropic uses official `anthropic` Python SDK
 - Invalid provider values will cause startup failure with an error message
 - The service validates provider/model configuration at startup and logs warnings for missing API keys
+
+**Implementation Notes:**
+- **OpenAI**: Uses `httpx` to call Responses API directly (`/v1/responses`)
+  - Official SDK doesn't support Responses API yet (as of January 2026)
+  - Manual HTTP implementation ensures we use the recommended long-term API
+  - Custom retry logic with exponential backoff
+- **Anthropic**: Uses official `anthropic` SDK
+  - Full SDK support with automatic retries
+  - Type-safe request/response handling
+  - Built-in rate limit detection
 
 **System Prompt Configuration:**
 - If `SYSTEM_PROMPT_PATH` is set but the file is missing or unreadable, the service will log a warning and fall back to the default prompt
@@ -747,20 +773,110 @@ Restart the service after changing providers.
 
 **Provider-Specific Notes**:
 
-- **OpenAI Integration**: Uses Responses API with `gpt-5.1` model (see [LLMs.md](LLMs.md))
+- **OpenAI Integration**: Uses Responses API (`POST /v1/responses`) for `gpt-5.1` model (see [LLMs.md](LLMs.md))
   - API Key Format: `sk-...`
-  - SDK: `openai` Python package
+  - API Endpoint: `https://api.openai.com/v1/responses`
+  - Request Format: `{"model": "gpt-5.1", "input": [...], "instructions": "...", "max_output_tokens": N}`
+  - Response Format: `{"id": "...", "output": [...], "usage": {...}}`
+  - Implementation: Direct HTTP calls via `httpx` (SDK doesn't support Responses API yet)
   - Real API calls require `OPENAI_API_KEY` when `LLM_STUB_MODE=false`
+  - Supports organization/project IDs, timeouts, and custom retry logic
 
-- **Anthropic Claude Integration**: Uses Messages API with `claude-3-5-sonnet-20241022` (see [LLMs.md](LLMs.md))
+- **Anthropic Claude Integration**: Uses official `anthropic` Python SDK with Messages API for `claude-3-5-sonnet-20241022` (see [LLMs.md](LLMs.md))
   - API Key Format: `sk-ant-...`
-  - SDK: `anthropic` Python package
+  - SDK: `anthropic==0.75.0` (official Anthropic Python package)
+  - API Method: `client.messages.create()` (Messages API)
+  - Model: Claude 3.5 Sonnet (latest as of 2024-10-22)
   - Real API calls require `CLAUDE_API_KEY` when `LLM_STUB_MODE=false`
+  - Supports custom base URLs, timeouts, and retries
+
+- **API Choice Rationale**:
+  - OpenAI Responses API is the recommended long-term API for GPT-5+ (launched August 2025)
+  - Replaces older Chat Completions and Assistant APIs
+  - Provides better streaming, tool calling, and conversation management
+  - SDK support pending - using httpx until official SDK updated
 
 - **Stub Mode**: Works identically for both providers
   - Returns same sample data regardless of provider setting
   - Simulates provider/model metadata in response
   - Useful for testing provider-switching logic without API calls
+
+#### Troubleshooting LLM API Issues
+
+**OpenAI Responses API Issues:**
+
+1. **"API key not configured" error**
+   - Symptom: Service fails to start or compile requests return HTTP 500
+   - Fix: Set `OPENAI_API_KEY` environment variable with valid API key
+   - Verify: Check `.env` file or environment has `OPENAI_API_KEY=sk-...`
+
+2. **"Invalid API key" or 401 errors**
+   - Symptom: API requests fail with authentication errors
+   - Fix: Verify API key is valid and not revoked
+   - Test: `curl https://api.openai.com/v1/responses -H "Authorization: Bearer YOUR_KEY" -H "Content-Type: application/json" -d '{"model":"gpt-5.1","input":[{"role":"user","content":"test"}],"instructions":"test"}'`
+
+3. **Rate limit errors (429)**
+   - Symptom: Frequent rate limit errors in logs
+   - Fix: Increase `LLM_TIMEOUT` or reduce request frequency
+   - Note: Service automatically retries with exponential backoff (controlled by `LLM_MAX_RETRIES`)
+
+4. **Timeout errors**
+   - Symptom: Requests fail with "Request timed out" after `LLM_TIMEOUT` seconds
+   - Fix: Increase `LLM_TIMEOUT` (default: 120s) for slow networks or large requests
+   - Example: `LLM_TIMEOUT=300.0` for 5-minute timeout
+
+5. **Custom endpoint issues**
+   - Symptom: Requests fail when using `OPENAI_API_BASE`
+   - Fix: Ensure base URL is correct (e.g., `https://api.openai.com/v1` or proxy URL)
+   - Note: Do not include trailing slash
+
+**Anthropic SDK Issues:**
+
+1. **"API key not configured" error**
+   - Symptom: Service fails when `LLM_PROVIDER=anthropic`
+   - Fix: Set `CLAUDE_API_KEY` environment variable
+   - Verify: Check `.env` file has `CLAUDE_API_KEY=sk-ant-...`
+
+2. **Model not found or unsupported**
+   - Symptom: API errors about model availability
+   - Fix: Verify model name is correct (default: `claude-3-5-sonnet-20241022`)
+   - Check: [Anthropic model documentation](https://docs.anthropic.com/claude/docs/models-overview)
+
+3. **Content filtering or moderation errors**
+   - Symptom: API returns errors about content policy violations
+   - Fix: Review system prompt and input content for policy compliance
+   - Note: Claude has content moderation that may reject certain prompts
+
+**General SDK Troubleshooting:**
+
+1. **Check SDK versions**
+   ```bash
+   pip show openai anthropic
+   # Should show: openai==1.58.1, anthropic==0.75.0
+   ```
+
+2. **Enable debug logging**
+   ```bash
+   LOG_LEVEL=DEBUG
+   # Restart service to see detailed SDK request/response logs
+   ```
+
+3. **Test with stub mode**
+   ```bash
+   LLM_STUB_MODE=true
+   # Bypasses real API calls for testing configuration
+   ```
+
+4. **Verify network connectivity**
+   ```bash
+   curl https://api.openai.com/v1/models
+   curl https://api.anthropic.com/v1/messages
+   ```
+
+5. **Check retry configuration**
+   - Default retries: 3 attempts
+   - Increase for unreliable networks: `LLM_MAX_RETRIES=5`
+   - Disable retries for debugging: `LLM_MAX_RETRIES=0`
 
 #### Downstream Integration Behavior
 
