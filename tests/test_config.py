@@ -781,6 +781,27 @@ def test_validate_pubsub_config_credentials_empty_file(tmp_path):
         assert result["credentials"] == "empty_file"
 
 
+def test_validate_pubsub_config_credentials_permission_error(tmp_path):
+    """Test Pub/Sub config validation with permission or OSError on credentials path."""
+    from pathlib import Path as PathClass
+    
+    creds_file = tmp_path / "credentials.json"
+    creds_file.write_text('{"type": "service_account"}')
+
+    env = {
+        "GCP_PROJECT_ID": "my-project",
+        "PUBSUB_TOPIC_PLAN_STATUS": "plan-status",
+        "PUBSUB_CREDENTIALS_PATH": str(creds_file),
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        
+        # Mock is_file to raise OSError (simulates race condition or permission issue)
+        with patch.object(PathClass, "is_file", side_effect=OSError("Permission denied")):
+            result = settings.validate_pubsub_config()
+            assert result["credentials"] == "invalid_path_or_permission_error"
+
+
 def test_validate_pubsub_config_no_credentials_uses_default():
     """Test Pub/Sub config validation without credentials path uses ADC."""
     env = {

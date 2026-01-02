@@ -283,15 +283,16 @@ class Settings(BaseSettings):
 
         # Validate credentials path if configured
         if self.pubsub_credentials_path:
-            cred_path = Path(self.pubsub_credentials_path)
-            if not cred_path.exists():
-                result["credentials"] = "file_not_found"
-            elif not cred_path.is_file():
-                result["credentials"] = "not_a_file"
-            elif not cred_path.stat().st_size:
-                result["credentials"] = "empty_file"
-            else:
-                result["credentials"] = "ok"
+            try:
+                cred_path = Path(self.pubsub_credentials_path)
+                if not cred_path.is_file():
+                    result["credentials"] = "not_a_file" if cred_path.exists() else "file_not_found"
+                elif cred_path.stat().st_size == 0:
+                    result["credentials"] = "empty_file"
+                else:
+                    result["credentials"] = "ok"
+            except OSError:
+                result["credentials"] = "invalid_path_or_permission_error"
         else:
             result["credentials"] = "using_default"
 
