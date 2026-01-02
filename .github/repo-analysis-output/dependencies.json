@@ -235,6 +235,22 @@
       }
     },
     {
+      "id": "src/spec_compiler/services/downstream_sender.py",
+      "path": "src/spec_compiler/services/downstream_sender.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "abc.ABC",
+          "abc.abstractmethod",
+          "threading.Lock",
+          "typing.Any"
+        ],
+        "third-party": [
+          "structlog"
+        ]
+      }
+    },
+    {
       "id": "src/spec_compiler/services/github_auth.py",
       "path": "src/spec_compiler/services/github_auth.py",
       "type": "file",
@@ -340,9 +356,7 @@
       "type": "file",
       "external_dependencies": {
         "stdlib": [
-          "typing.Any",
           "unittest.mock.MagicMock",
-          "unittest.mock.Mock",
           "unittest.mock.patch"
         ],
         "third-party": [
@@ -427,6 +441,17 @@
         ],
         "third-party": [
           "pydantic.ValidationError",
+          "pytest"
+        ]
+      }
+    },
+    {
+      "id": "tests/test_downstream_sender.py",
+      "path": "tests/test_downstream_sender.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": [
           "pytest"
         ]
       }
@@ -767,6 +792,10 @@
     },
     {
       "source": "src/spec_compiler/services/__init__.py",
+      "target": "src/spec_compiler/services/downstream_sender.py"
+    },
+    {
+      "source": "src/spec_compiler/services/__init__.py",
       "target": "src/spec_compiler/services/github_auth.py"
     },
     {
@@ -784,6 +813,14 @@
     {
       "source": "src/spec_compiler/services/__init__.py",
       "target": "src/spec_compiler/services/plan_scheduler_publisher.py"
+    },
+    {
+      "source": "src/spec_compiler/services/downstream_sender.py",
+      "target": "src/spec_compiler/models/llm.py"
+    },
+    {
+      "source": "src/spec_compiler/services/downstream_sender.py",
+      "target": "src/spec_compiler/config.py"
     },
     {
       "source": "src/spec_compiler/services/github_auth.py",
@@ -904,6 +941,14 @@
     {
       "source": "tests/test_config.py",
       "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "tests/test_downstream_sender.py",
+      "target": "src/spec_compiler/models/llm.py"
+    },
+    {
+      "source": "tests/test_downstream_sender.py",
+      "target": "src/spec_compiler/services/downstream_sender.py"
     },
     {
       "source": "tests/test_github_auth.py",

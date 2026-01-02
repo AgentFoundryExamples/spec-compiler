@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 43
+Total files: 45
 
 ## src/spec_compiler/__init__.py
 **Language:** Python  
@@ -47,8 +47,8 @@ Total files: 43
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 31.40 KB  
-**LOC:** 770  
+**Size:** 31.37 KB  
+**LOC:** 769  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/app/routes/health.py
@@ -65,8 +65,8 @@ Total files: 43
 **Role:** configuration  
 **Role Justification:** configuration file name 'config'  
 **Summary:** Python configuration file (role: configuration)  
-**Size:** 15.81 KB  
-**LOC:** 315  
+**Size:** 16.16 KB  
+**LOC:** 323  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/logging.py
@@ -146,8 +146,17 @@ Total files: 43
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
 **Summary:** Python module initialization (role: module-init)  
-**Size:** 1.75 KB  
-**LOC:** 45  
+**Size:** 2.11 KB  
+**LOC:** 57  
+**TODOs/FIXMEs:** 0  
+
+## src/spec_compiler/services/downstream_sender.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Summary:** Python core implementation  
+**Size:** 8.70 KB  
+**LOC:** 183  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/services/github_auth.py
@@ -218,8 +227,8 @@ Total files: 43
 **Role:** test  
 **Role Justification:** located in 'tests' directory  
 **Summary:** Python test implementation (role: test)  
-**Size:** 6.77 KB  
-**LOC:** 137  
+**Size:** 6.69 KB  
+**LOC:** 136  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_compile_endpoint.py
@@ -263,8 +272,17 @@ Total files: 43
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 28.70 KB  
-**LOC:** 606  
+**Size:** 30.38 KB  
+**LOC:** 642  
+**TODOs/FIXMEs:** 0  
+
+## tests/test_downstream_sender.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 10.51 KB  
+**LOC:** 230  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_github_auth.py
@@ -326,8 +344,8 @@ Total files: 43
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 14.26 KB  
-**LOC:** 230  
+**Size:** 14.27 KB  
+**LOC:** 234  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_models_compile.py
@@ -362,7 +380,7 @@ Total files: 43
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 22.69 KB  
+**Size:** 22.68 KB  
 **LOC:** 472  
 **TODOs/FIXMEs:** 0  
 

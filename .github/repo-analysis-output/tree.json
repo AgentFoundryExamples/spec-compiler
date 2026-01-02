@@ -164,6 +164,10 @@
                 },
                 {
                   "type": "file",
+                  "name": "downstream_sender.py"
+                },
+                {
+                  "type": "file",
                   "name": "github_auth.py"
                 },
                 {
@@ -235,6 +239,10 @@
         {
           "type": "file",
           "name": "test_config.py"
+        },
+        {
+          "type": "file",
+          "name": "test_downstream_sender.py"
         },
         {
           "type": "file",
