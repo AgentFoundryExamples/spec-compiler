@@ -18,7 +18,6 @@ Provides a client for the OpenAI Responses API with support for GPT-5+
 models, structured output, retry logic, and proper error handling.
 """
 
-import json
 import logging
 import time
 from typing import Any
@@ -221,7 +220,8 @@ class OpenAiResponsesClient(LlmClient):
                     response.raise_for_status()
 
                     # Parse and return response
-                    return response.json()
+                    response_data: dict[str, Any] = response.json()
+                    return response_data
 
             except httpx.TimeoutException as e:
                 last_exception = e

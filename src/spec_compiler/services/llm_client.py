@@ -21,7 +21,6 @@ provider selection, stub mode support, and error handling.
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
 
 from spec_compiler.config import settings
 from spec_compiler.models.llm import LlmCompiledSpecOutput, LlmRequestEnvelope, LlmResponseEnvelope

@@ -27,7 +27,6 @@ import pytest
 from spec_compiler.models.llm import LlmRequestEnvelope, LlmResponseEnvelope, SystemPromptConfig
 from spec_compiler.services.llm_client import (
     LlmApiError,
-    LlmClient,
     LlmConfigurationError,
     StubLlmClient,
     create_llm_client,
