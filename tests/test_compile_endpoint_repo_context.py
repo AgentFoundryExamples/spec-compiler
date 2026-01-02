@@ -58,7 +58,9 @@ def mock_github_repo_client():
         mock_instance.get_json_file.side_effect = lambda owner, repo, path, token: {
             "tree.json": {"tree": [{"path": "src/main.py", "type": "blob"}]},
             "dependencies.json": {"dependencies": [{"name": "fastapi", "version": "0.100.0"}]},
-            "file-summaries.json": {"summaries": [{"path": "src/main.py", "summary": "Main entry point"}]},
+            "file-summaries.json": {
+                "summaries": [{"path": "src/main.py", "summary": "Main entry point"}]
+            },
         }.get(path.split("/")[-1], {})
 
         yield mock_instance
@@ -184,6 +186,7 @@ def test_compile_with_missing_tree_json_uses_fallback(
     mock_github_repo_client,
 ) -> None:
     """Test that missing tree.json uses fallback without failing request."""
+
     # Simulate tree.json not found
     def mock_get_json_file(owner, repo, path, token):
         if "tree.json" in path:
@@ -246,6 +249,7 @@ def test_compile_with_malformed_json_uses_fallback(
     mock_github_repo_client,
 ) -> None:
     """Test that malformed JSON files use fallback without failing request."""
+
     # Simulate malformed dependencies.json
     def mock_get_json_file(owner, repo, path, token):
         if "dependencies.json" in path:
@@ -278,6 +282,7 @@ def test_compile_with_partial_file_success(
     mock_github_repo_client,
 ) -> None:
     """Test that partial success (some files missing) still completes request."""
+
     # Simulate tree.json success, but dependencies.json fails
     def mock_get_json_file(owner, repo, path, token):
         if "tree.json" in path:
@@ -369,6 +374,7 @@ def test_compile_logs_repo_context_metadata(
 ) -> None:
     """Test that repo context metadata is logged."""
     import logging
+
     caplog.set_level(logging.INFO)
 
     payload = {
@@ -397,6 +403,7 @@ def test_compile_with_non_list_tree_data_uses_fallback(
     mock_github_repo_client,
 ) -> None:
     """Test that non-list tree data triggers fallback."""
+
     # Simulate tree.json returning a dict instead of list inside "tree" key
     def mock_get_json_file(owner, repo, path, token):
         if "tree.json" in path:
@@ -434,8 +441,12 @@ def test_fetch_repo_context_function_directly():
         # Mock successful file fetches
         mock_instance.get_json_file.side_effect = lambda owner, repo, path, token: {
             ".github/repo-analysis-output/tree.json": {"tree": [{"path": "main.py"}]},
-            ".github/repo-analysis-output/dependencies.json": {"dependencies": [{"name": "fastapi"}]},
-            ".github/repo-analysis-output/file-summaries.json": {"summaries": [{"path": "main.py", "summary": "Main"}]},
+            ".github/repo-analysis-output/dependencies.json": {
+                "dependencies": [{"name": "fastapi"}]
+            },
+            ".github/repo-analysis-output/file-summaries.json": {
+                "summaries": [{"path": "main.py", "summary": "Main"}]
+            },
         }.get(path, {})
 
         result = fetch_repo_context(

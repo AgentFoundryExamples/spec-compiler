@@ -23,6 +23,7 @@ from typing import Any, Literal
 from spec_compiler.models.compile import CompileRequest, CompileResponse
 from spec_compiler.models.llm import (
     GitHubAuthToken,
+    LlmCompiledSpecOutput,
     LlmRequestEnvelope,
     LlmResponseEnvelope,
     RepoContextPayload,
@@ -36,6 +37,7 @@ __all__ = [
     "RepoContextPayload",
     "LlmRequestEnvelope",
     "LlmResponseEnvelope",
+    "LlmCompiledSpecOutput",
     "GitHubAuthToken",
     "generate_request_id",
     "create_llm_response_stub",

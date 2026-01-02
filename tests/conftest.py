@@ -17,9 +17,10 @@ Pytest configuration and fixtures.
 Provides shared test fixtures for the test suite.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
 
 from spec_compiler.app.main import create_app
 from spec_compiler.models import GitHubAuthToken
@@ -34,9 +35,11 @@ def test_client() -> TestClient:
         TestClient instance for making test requests
     """
     # Mock GitHub clients to avoid needing real minting service in tests
-    with patch("spec_compiler.app.routes.compile.GitHubAuthClient") as mock_auth_class, \
-         patch("spec_compiler.app.routes.compile.GitHubRepoClient") as mock_repo_class:
-        
+    with (
+        patch("spec_compiler.app.routes.compile.GitHubAuthClient") as mock_auth_class,
+        patch("spec_compiler.app.routes.compile.GitHubRepoClient") as mock_repo_class,
+    ):
+
         # Setup auth client mock
         mock_auth_instance = MagicMock()
         mock_auth_class.return_value = mock_auth_instance
@@ -45,7 +48,7 @@ def test_client() -> TestClient:
             token_type="bearer",
         )
         mock_auth_instance.mint_user_to_server_token.return_value = mock_token
-        
+
         # Setup repo client mock
         mock_repo_instance = MagicMock()
         mock_repo_class.return_value = mock_repo_instance
@@ -54,7 +57,7 @@ def test_client() -> TestClient:
             ".github/repo-analysis-output/dependencies.json": {"dependencies": []},
             ".github/repo-analysis-output/file-summaries.json": {"summaries": []},
         }.get(path, {})
-        
+
         app = create_app()
         yield TestClient(app)
 
@@ -79,9 +82,11 @@ def test_client_with_error_routes() -> TestClient:
         TestClient instance with error test endpoints
     """
     # Mock GitHub clients
-    with patch("spec_compiler.app.routes.compile.GitHubAuthClient") as mock_auth_class, \
-         patch("spec_compiler.app.routes.compile.GitHubRepoClient") as mock_repo_class:
-        
+    with (
+        patch("spec_compiler.app.routes.compile.GitHubAuthClient") as mock_auth_class,
+        patch("spec_compiler.app.routes.compile.GitHubRepoClient") as mock_repo_class,
+    ):
+
         mock_auth_instance = MagicMock()
         mock_auth_class.return_value = mock_auth_instance
         mock_token = GitHubAuthToken(
@@ -89,11 +94,11 @@ def test_client_with_error_routes() -> TestClient:
             token_type="bearer",
         )
         mock_auth_instance.mint_user_to_server_token.return_value = mock_token
-        
+
         mock_repo_instance = MagicMock()
         mock_repo_class.return_value = mock_repo_instance
         mock_repo_instance.get_json_file.return_value = {}
-        
+
         app = create_app()
 
         # Add test routes that raise exceptions
