@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     pubsub_topic_plan_status: str | None = Field(
         default=None, description="Pub/Sub topic for plan status updates"
     )
+    pubsub_credentials_path: str | None = Field(
+        default=None,
+        description="Optional path to GCP service account credentials JSON file for Pub/Sub authentication",
+    )
     downstream_log_sink: str | None = Field(
         default=None, description="Downstream log sink for Cloud Logging"
     )
@@ -251,6 +255,46 @@ class Settings(BaseSettings):
                 result["system_prompt"] = "ok"
         else:
             result["system_prompt"] = "using_default"
+
+        return result
+
+    def validate_pubsub_config(self) -> dict[str, str]:
+        """
+        Validate Pub/Sub configuration and return status.
+
+        Returns:
+            Dictionary with validation results for Pub/Sub configuration.
+            Keys: 'gcp_project_id', 'topic', 'credentials'
+            Values: 'ok', 'missing', 'invalid', or specific status
+        """
+        result: dict[str, str] = {}
+
+        # Validate GCP Project ID
+        if not self.gcp_project_id or not self.gcp_project_id.strip():
+            result["gcp_project_id"] = "missing"
+        else:
+            result["gcp_project_id"] = "ok"
+
+        # Validate Pub/Sub topic
+        if not self.pubsub_topic_plan_status or not self.pubsub_topic_plan_status.strip():
+            result["topic"] = "missing"
+        else:
+            result["topic"] = "ok"
+
+        # Validate credentials path if configured
+        if self.pubsub_credentials_path:
+            try:
+                cred_path = Path(self.pubsub_credentials_path)
+                if not cred_path.is_file():
+                    result["credentials"] = "not_a_file" if cred_path.exists() else "file_not_found"
+                elif cred_path.stat().st_size == 0:
+                    result["credentials"] = "empty_file"
+                else:
+                    result["credentials"] = "ok"
+            except OSError:
+                result["credentials"] = "invalid_path_or_permission_error"
+        else:
+            result["credentials"] = "using_default"
 
         return result
 

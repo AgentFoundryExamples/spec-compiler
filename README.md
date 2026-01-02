@@ -181,10 +181,37 @@ The following environment variables are available (see `.env.example` for a comp
 - To reload a changed prompt file, restart the service or call the cache clear method programmatically
 - Very large prompts (e.g., > 100KB) are loaded once and cached, not streamed per request
 
-#### Google Cloud Configuration (Optional)
-- **`GCP_PROJECT_ID`**: Google Cloud Project ID. **Not yet used** - reserved for future integrations.
-- **`PUBSUB_TOPIC_PLAN_STATUS`**: Pub/Sub topic name for plan status updates. **Not yet used** - reserved for future Pub/Sub integrations.
-- **`DOWNSTREAM_LOG_SINK`**: Downstream log sink for Cloud Logging. **Not yet used** - reserved for future logging integrations.
+#### Google Cloud Configuration
+
+##### Pub/Sub Status Publishing
+The service can publish plan status updates to Google Cloud Pub/Sub for consumption by plan-scheduler. Configuration requires:
+
+- **`GCP_PROJECT_ID`**: **REQUIRED** for Pub/Sub publishing. Google Cloud Project ID where the Pub/Sub topic exists (e.g., `my-project-id`).
+- **`PUBSUB_TOPIC_PLAN_STATUS`**: **REQUIRED** for status publishing. Pub/Sub topic name for plan status updates (e.g., `plan-status-updates`). Topic must exist in the specified GCP project.
+- **`PUBSUB_CREDENTIALS_PATH`**: **OPTIONAL**. Path to GCP service account credentials JSON file (e.g., `/path/to/service-account-key.json` or `./credentials/gcp-sa.json`). If not set, uses Application Default Credentials (ADC):
+  - ADC checks (in order): `GOOGLE_APPLICATION_CREDENTIALS` env var → `gcloud auth` → Compute Engine/Cloud Run metadata
+  - Only needed for local development or when ADC is unavailable
+
+**Status Message Schema:**
+Status messages conform to the `PlanStatusMessage` schema defined in `plan-scheduler.openapi.json`:
+- **Required fields**: `plan_id` (string), `spec_index` (integer), `status` (enum), `request_id` (string), `timestamp` (ISO8601 string)
+- **Optional fields**: `error_code` (string), `error_message` (string) - used when status is `failed`
+- **Allowed status values**: `in_progress`, `succeeded`, `failed`
+- **Max payload size**: 10MB (10485760 bytes)
+- **Ordering key**: `plan_id` (ensures messages for the same plan are processed in order)
+
+**Status Event Flow:**
+1. `spec-compiler` publishes status updates → Pub/Sub topic (`PUBSUB_TOPIC_PLAN_STATUS`)
+2. `plan-scheduler` subscribes to the topic and processes status updates
+3. Status updates track compilation progress: `in_progress` (started) → `succeeded`/`failed` (completed)
+
+**Configuration Validation:**
+- Use `settings.validate_pubsub_config()` to check configuration at startup
+- Missing `GCP_PROJECT_ID` or `PUBSUB_TOPIC_PLAN_STATUS` will result in validation errors
+- Invalid credentials path will be reported but won't block startup (falls back to ADC)
+
+##### Other Cloud Configuration
+- **`DOWNSTREAM_LOG_SINK`**: **OPTIONAL**. Downstream log sink for Cloud Logging (e.g., `projects/my-project/logs/app-logs`). Not yet used - reserved for future logging integrations.
 
 #### CORS Settings
 - **`CORS_ORIGINS`**: Comma-separated list of allowed CORS origins (e.g., `http://localhost:3000,https://example.com`). Leave empty to disable CORS, or use `*` for all origins (not recommended in production).
