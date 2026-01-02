@@ -245,6 +245,20 @@
       }
     },
     {
+      "id": "src/spec_compiler/services/llm_client.py",
+      "path": "src/spec_compiler/services/llm_client.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "abc.ABC",
+          "abc.abstractmethod",
+          "logging",
+          "pathlib.Path"
+        ],
+        "third-party": []
+      }
+    },
+    {
       "id": "src/spec_compiler/services/llm_input.py",
       "path": "src/spec_compiler/services/llm_input.py",
       "type": "file",
@@ -254,6 +268,21 @@
           "typing.Any"
         ],
         "third-party": []
+      }
+    },
+    {
+      "id": "src/spec_compiler/services/openai_responses.py",
+      "path": "src/spec_compiler/services/openai_responses.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "logging",
+          "time",
+          "typing.Any"
+        ],
+        "third-party": [
+          "httpx"
+        ]
       }
     },
     {
@@ -473,6 +502,24 @@
           "pytest"
         ]
       }
+    },
+    {
+      "id": "tests/test_services_llm.py",
+      "path": "tests/test_services_llm.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "pathlib.Path",
+          "tempfile",
+          "unittest.mock.MagicMock",
+          "unittest.mock.Mock",
+          "unittest.mock.patch"
+        ],
+        "third-party": [
+          "httpx",
+          "pytest"
+        ]
+      }
     }
   ],
   "edges": [
@@ -565,6 +612,14 @@
       "target": "src/spec_compiler/services/github_repo.py"
     },
     {
+      "source": "src/spec_compiler/services/__init__.py",
+      "target": "src/spec_compiler/services/llm_client.py"
+    },
+    {
+      "source": "src/spec_compiler/services/__init__.py",
+      "target": "src/spec_compiler/services/openai_responses.py"
+    },
+    {
       "source": "src/spec_compiler/services/github_auth.py",
       "target": "src/spec_compiler/config.py"
     },
@@ -583,6 +638,34 @@
     {
       "source": "src/spec_compiler/services/github_repo.py",
       "target": "src/spec_compiler/logging.py"
+    },
+    {
+      "source": "src/spec_compiler/services/llm_client.py",
+      "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "src/spec_compiler/services/llm_client.py",
+      "target": "src/spec_compiler/models/llm.py"
+    },
+    {
+      "source": "src/spec_compiler/services/llm_client.py",
+      "target": "src/spec_compiler/services/openai_responses.py"
+    },
+    {
+      "source": "src/spec_compiler/services/openai_responses.py",
+      "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "src/spec_compiler/services/openai_responses.py",
+      "target": "src/spec_compiler/models/llm.py"
+    },
+    {
+      "source": "src/spec_compiler/services/openai_responses.py",
+      "target": "src/spec_compiler/services/llm_client.py"
+    },
+    {
+      "source": "src/spec_compiler/services/openai_responses.py",
+      "target": "src/spec_compiler/services/llm_input.py"
     },
     {
       "source": "tests/conftest.py",
@@ -671,10 +754,24 @@
     {
       "source": "tests/test_services_github.py",
       "target": "src/spec_compiler/services/github_repo.py"
+    },
+    {
+      "source": "tests/test_services_llm.py",
+      "target": "src/spec_compiler/models/llm.py"
+    },
+    {
+      "source": "tests/test_services_llm.py",
+      "target": "src/spec_compiler/services/llm_client.py"
+    },
+    {
+      "source": "tests/test_services_llm.py",
+      "target": "src/spec_compiler/services/openai_responses.py"
     }
   ],
   "external_dependencies_summary": {
     "stdlib": [
+      "abc.ABC",
+      "abc.abstractmethod",
       "base64",
       "collections.abc.AsyncGenerator",
       "contextlib.asynccontextmanager",
@@ -688,12 +785,15 @@
       "pathlib.Path",
       "re",
       "sys",
+      "tempfile",
       "threading",
       "threading.Lock",
+      "time",
       "typing.Annotated",
       "typing.Any",
       "typing.Literal",
       "unittest.mock.MagicMock",
+      "unittest.mock.Mock",
       "unittest.mock.patch",
       "uuid"
     ],
@@ -723,7 +823,7 @@
       "structlog.types.Processor",
       "uvicorn"
     ],
-    "stdlib_count": 21,
+    "stdlib_count": 26,
     "third-party_count": 24
   }
 }

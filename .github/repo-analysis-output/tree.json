@@ -168,7 +168,15 @@
                 },
                 {
                   "type": "file",
+                  "name": "llm_client.py"
+                },
+                {
+                  "type": "file",
                   "name": "llm_input.py"
+                },
+                {
+                  "type": "file",
+                  "name": "openai_responses.py"
                 }
               ]
             },
@@ -251,6 +259,10 @@
         {
           "type": "file",
           "name": "test_services_github.py"
+        },
+        {
+          "type": "file",
+          "name": "test_services_llm.py"
         }
       ]
     },

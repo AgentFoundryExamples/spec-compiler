@@ -8,17 +8,19 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 ## Statistics
 
-- **Total files**: 33
-- **Intra-repo dependencies**: 49
-- **External stdlib dependencies**: 21
+- **Total files**: 36
+- **Intra-repo dependencies**: 61
+- **External stdlib dependencies**: 26
 - **External third-party dependencies**: 24
 
 ## External Dependencies
 
 ### Standard Library / Core Modules
 
-Total: 21 unique modules
+Total: 26 unique modules
 
+- `abc.ABC`
+- `abc.abstractmethod`
 - `base64`
 - `collections.abc.AsyncGenerator`
 - `contextlib.asynccontextmanager`
@@ -32,14 +34,12 @@ Total: 21 unique modules
 - `pathlib.Path`
 - `re`
 - `sys`
+- `tempfile`
 - `threading`
 - `threading.Lock`
+- `time`
 - `typing.Annotated`
-- `typing.Any`
-- `typing.Literal`
-- `unittest.mock.MagicMock`
-- `unittest.mock.patch`
-- ... and 1 more (see JSON for full list)
+- ... and 6 more (see JSON for full list)
 
 ### Third-Party Packages
 
@@ -69,26 +69,26 @@ Total: 24 unique packages
 
 ## Most Depended Upon Files (Intra-Repo)
 
+- `src/spec_compiler/config.py` (10 dependents)
 - `src/spec_compiler/models/__init__.py` (8 dependents)
-- `src/spec_compiler/config.py` (8 dependents)
 - `src/spec_compiler/logging.py` (6 dependents)
+- `src/spec_compiler/models/llm.py` (6 dependents)
 - `src/spec_compiler/services/github_auth.py` (5 dependents)
 - `src/spec_compiler/services/github_repo.py` (5 dependents)
 - `src/spec_compiler/models/compile.py` (4 dependents)
-- `src/spec_compiler/models/llm.py` (3 dependents)
+- `src/spec_compiler/services/llm_client.py` (3 dependents)
+- `src/spec_compiler/services/openai_responses.py` (3 dependents)
 - `src/spec_compiler/app/routes/compile.py` (2 dependents)
-- `src/spec_compiler/middleware/error_handler.py` (2 dependents)
-- `src/spec_compiler/middleware/request_id.py` (2 dependents)
 
 ## Files with Most Dependencies (Intra-Repo)
 
 - `src/spec_compiler/app/main.py` (6 dependencies)
 - `src/spec_compiler/app/routes/compile.py` (6 dependencies)
+- `src/spec_compiler/services/__init__.py` (4 dependencies)
+- `src/spec_compiler/services/openai_responses.py` (4 dependencies)
 - `tests/test_compile_endpoint_repo_context.py` (4 dependencies)
 - `src/spec_compiler/services/github_auth.py` (3 dependencies)
+- `src/spec_compiler/services/llm_client.py` (3 dependencies)
 - `tests/test_compile_endpoint.py` (3 dependencies)
 - `tests/test_models_helpers.py` (3 dependencies)
-- `src/spec_compiler/middleware/__init__.py` (2 dependencies)
-- `src/spec_compiler/models/__init__.py` (2 dependencies)
-- `src/spec_compiler/services/__init__.py` (2 dependencies)
-- `src/spec_compiler/services/github_repo.py` (2 dependencies)
+- `tests/test_services_llm.py` (3 dependencies)

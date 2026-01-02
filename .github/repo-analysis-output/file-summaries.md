@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 33
+Total files: 36
 
 ## src/spec_compiler/__init__.py
 **Language:** Python  
@@ -137,8 +137,8 @@ Total files: 33
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
 **Summary:** Python module initialization (role: module-init)  
-**Size:** 1.18 KB  
-**LOC:** 23  
+**Size:** 1.58 KB  
+**LOC:** 39  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/services/github_auth.py
@@ -159,6 +159,15 @@ Total files: 33
 **LOC:** 390  
 **TODOs/FIXMEs:** 0  
 
+## src/spec_compiler/services/llm_client.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Summary:** Python core implementation  
+**Size:** 7.53 KB  
+**LOC:** 150  
+**TODOs/FIXMEs:** 0  
+
 ## src/spec_compiler/services/llm_input.py
 **Language:** Python  
 **Role:** implementation  
@@ -167,6 +176,15 @@ Total files: 33
 **Size:** 7.45 KB  
 **LOC:** 167  
 **TODOs/FIXMEs:** 1  
+
+## src/spec_compiler/services/openai_responses.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Summary:** Python core implementation  
+**Size:** 16.37 KB  
+**LOC:** 299  
+**TODOs/FIXMEs:** 0  
 
 ## tests/__init__.py
 **Language:** Python  
@@ -301,4 +319,13 @@ Total files: 33
 **Summary:** Python test file (role: test)  
 **Size:** 15.09 KB  
 **LOC:** 273  
+**TODOs/FIXMEs:** 0  
+
+## tests/test_services_llm.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 20.96 KB  
+**LOC:** 396  
 **TODOs/FIXMEs:** 0  
