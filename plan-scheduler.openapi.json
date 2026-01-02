@@ -1,0 +1,82 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Plan Scheduler API",
+    "description": "OpenAPI specification for plan-scheduler service defining the PlanStatusMessage contract for Pub/Sub status publishing.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "PlanStatusMessage": {
+        "type": "object",
+        "description": "Message schema for plan status updates published to Pub/Sub. This schema is used by spec-compiler to publish status events that are consumed by plan-scheduler.",
+        "required": [
+          "plan_id",
+          "spec_index",
+          "status",
+          "request_id",
+          "timestamp"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "description": "Unique identifier for the plan execution",
+            "example": "plan-abc123-456def"
+          },
+          "spec_index": {
+            "type": "integer",
+            "description": "Zero-based index of the spec within the plan",
+            "minimum": 0,
+            "example": 0
+          },
+          "status": {
+            "type": "string",
+            "description": "Current status of the spec execution",
+            "enum": [
+              "in_progress",
+              "succeeded",
+              "failed"
+            ],
+            "example": "in_progress"
+          },
+          "request_id": {
+            "type": "string",
+            "description": "Request correlation ID for tracing",
+            "example": "req-xyz789"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO8601 timestamp when the status update occurred",
+            "example": "2026-01-02T18:18:33.883Z"
+          },
+          "error_code": {
+            "type": "string",
+            "description": "Optional error code when status is 'failed'",
+            "example": "COMPILATION_ERROR"
+          },
+          "error_message": {
+            "type": "string",
+            "description": "Optional error message providing details when status is 'failed'",
+            "example": "LLM compilation failed: timeout exceeded"
+          }
+        }
+      }
+    }
+  },
+  "x-pubsub-config": {
+    "topics": {
+      "plan-status": {
+        "name": "plan-status-updates",
+        "description": "Pub/Sub topic for publishing plan status updates. Messages must conform to PlanStatusMessage schema.",
+        "message_schema": "#/components/schemas/PlanStatusMessage",
+        "constraints": {
+          "max_payload_bytes": 10485760,
+          "required_attributes": [],
+          "ordering_key": "plan_id"
+        }
+      }
+    }
+  }
+}

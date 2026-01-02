@@ -661,3 +661,149 @@ def test_validate_prompt_path_rejects_directory(tmp_path):
         is_valid, error = settings._validate_prompt_path(Path(str(tmp_path)))
         assert is_valid is False
         assert "not a regular file" in error.lower()
+
+
+# Pub/Sub Configuration Tests
+
+
+def test_pubsub_credentials_path_default():
+    """Test that Pub/Sub credentials path defaults to None."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        assert settings.pubsub_credentials_path is None
+
+
+def test_pubsub_credentials_path_from_env():
+    """Test that Pub/Sub credentials path can be configured from environment."""
+    with patch.dict(os.environ, {"PUBSUB_CREDENTIALS_PATH": "/path/to/creds.json"}, clear=True):
+        settings = Settings()
+        assert settings.pubsub_credentials_path == "/path/to/creds.json"
+
+
+def test_validate_pubsub_config_all_valid(tmp_path):
+    """Test Pub/Sub config validation with all valid settings."""
+    creds_file = tmp_path / "credentials.json"
+    creds_file.write_text('{"type": "service_account"}')
+
+    env = {
+        "GCP_PROJECT_ID": "my-project",
+        "PUBSUB_TOPIC_PLAN_STATUS": "plan-status-updates",
+        "PUBSUB_CREDENTIALS_PATH": str(creds_file),
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_pubsub_config()
+        assert result["gcp_project_id"] == "ok"
+        assert result["topic"] == "ok"
+        assert result["credentials"] == "ok"
+
+
+def test_validate_pubsub_config_missing_project_id():
+    """Test Pub/Sub config validation with missing GCP project ID."""
+    with patch.dict(os.environ, {"PUBSUB_TOPIC_PLAN_STATUS": "plan-status"}, clear=True):
+        settings = Settings()
+        result = settings.validate_pubsub_config()
+        assert result["gcp_project_id"] == "missing"
+        assert result["topic"] == "ok"
+
+
+def test_validate_pubsub_config_missing_topic():
+    """Test Pub/Sub config validation with missing topic."""
+    with patch.dict(os.environ, {"GCP_PROJECT_ID": "my-project"}, clear=True):
+        settings = Settings()
+        result = settings.validate_pubsub_config()
+        assert result["gcp_project_id"] == "ok"
+        assert result["topic"] == "missing"
+
+
+def test_validate_pubsub_config_all_missing():
+    """Test Pub/Sub config validation with all required fields missing."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        result = settings.validate_pubsub_config()
+        assert result["gcp_project_id"] == "missing"
+        assert result["topic"] == "missing"
+        assert result["credentials"] == "using_default"
+
+
+def test_validate_pubsub_config_empty_strings():
+    """Test Pub/Sub config validation with empty string values."""
+    env = {
+        "GCP_PROJECT_ID": "   ",
+        "PUBSUB_TOPIC_PLAN_STATUS": "",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_pubsub_config()
+        assert result["gcp_project_id"] == "missing"
+        assert result["topic"] == "missing"
+
+
+def test_validate_pubsub_config_credentials_not_found():
+    """Test Pub/Sub config validation with non-existent credentials file."""
+    env = {
+        "GCP_PROJECT_ID": "my-project",
+        "PUBSUB_TOPIC_PLAN_STATUS": "plan-status",
+        "PUBSUB_CREDENTIALS_PATH": "/nonexistent/creds.json",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_pubsub_config()
+        assert result["credentials"] == "file_not_found"
+
+
+def test_validate_pubsub_config_credentials_is_directory(tmp_path):
+    """Test Pub/Sub config validation when credentials path is a directory."""
+    env = {
+        "GCP_PROJECT_ID": "my-project",
+        "PUBSUB_TOPIC_PLAN_STATUS": "plan-status",
+        "PUBSUB_CREDENTIALS_PATH": str(tmp_path),
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_pubsub_config()
+        assert result["credentials"] == "not_a_file"
+
+
+def test_validate_pubsub_config_credentials_empty_file(tmp_path):
+    """Test Pub/Sub config validation with empty credentials file."""
+    creds_file = tmp_path / "empty.json"
+    creds_file.write_text("")
+
+    env = {
+        "GCP_PROJECT_ID": "my-project",
+        "PUBSUB_TOPIC_PLAN_STATUS": "plan-status",
+        "PUBSUB_CREDENTIALS_PATH": str(creds_file),
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_pubsub_config()
+        assert result["credentials"] == "empty_file"
+
+
+def test_validate_pubsub_config_no_credentials_uses_default():
+    """Test Pub/Sub config validation without credentials path uses ADC."""
+    env = {
+        "GCP_PROJECT_ID": "my-project",
+        "PUBSUB_TOPIC_PLAN_STATUS": "plan-status",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_pubsub_config()
+        assert result["gcp_project_id"] == "ok"
+        assert result["topic"] == "ok"
+        assert result["credentials"] == "using_default"
+
+
+def test_pubsub_config_case_insensitive():
+    """Test that Pub/Sub environment variables are case-insensitive."""
+    env = {
+        "gcp_project_id": "test-project",
+        "pubsub_topic_plan_status": "test-topic",
+        "pubsub_credentials_path": "/path/to/creds.json",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        assert settings.gcp_project_id == "test-project"
+        assert settings.pubsub_topic_plan_status == "test-topic"
+        assert settings.pubsub_credentials_path == "/path/to/creds.json"
