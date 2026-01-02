@@ -312,6 +312,10 @@
     },
     {
       "type": "file",
+      "name": "plan-scheduler.openapi.json"
+    },
+    {
+      "type": "file",
       "name": "pyproject.toml"
     },
     {

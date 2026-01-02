@@ -71,6 +71,7 @@
 ├── LICENSE
 ├── LLMs.md
 ├── Makefile
+├── plan-scheduler.openapi.json
 ├── pyproject.toml
 ├── README.md
 ├── requirements.txt
