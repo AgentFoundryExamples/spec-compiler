@@ -17,6 +17,10 @@ LLM input composition utilities.
 Provides functions to compose structured user content for LLM requests,
 combining system prompts, repository context, and specification data into
 a deterministic format suitable for the Responses API.
+
+TODO: Future enhancement - Add optional config parameter to redact or truncate
+      oversized sections when instructed by configuration. This would help
+      manage token limits while preserving testability with fixtures.
 """
 
 import json
