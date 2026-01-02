@@ -19,6 +19,7 @@ with a default logging-only implementation that emits structured logs.
 """
 
 from abc import ABC, abstractmethod
+from threading import Lock
 from typing import Any
 
 import structlog
@@ -194,38 +195,23 @@ class DefaultDownstreamLoggerSender(DownstreamSender):
 
         # Log based on skip_send flag
         if self.skip_send:
-            try:
-                logger.info(
-                    "Downstream send skipped (SKIP_DOWNSTREAM_SEND=true)",
-                    **log_context,
-                    skip_reason="feature_flag_disabled",
-                )
-            except Exception as e:
-                # Log warning if logging itself fails, but don't crash
-                logger.warning(
-                    "Failed to log downstream skip",
-                    error=str(e),
-                    error_type=type(e).__name__,
-                )
+            logger.info(
+                "Downstream send skipped (SKIP_DOWNSTREAM_SEND=true)",
+                **log_context,
+                skip_reason="feature_flag_disabled",
+            )
         else:
-            try:
-                logger.info(
-                    "Downstream send attempt (logging mode)",
-                    **log_context,
-                    send_status="executed",
-                )
-            except Exception as e:
-                # Log warning if logging itself fails, but don't crash
-                logger.warning(
-                    "Failed to log downstream send attempt",
-                    error=str(e),
-                    error_type=type(e).__name__,
-                )
+            logger.info(
+                "Downstream send attempt (logging mode)",
+                **log_context,
+                send_status="executed",
+            )
 
 
 # Global sender instance (initialized on first use)
 _sender: DownstreamSender | None = None
 _sender_init_failed = False
+_sender_lock = Lock()
 
 
 def get_downstream_sender() -> DownstreamSender | None:
@@ -243,30 +229,31 @@ def get_downstream_sender() -> DownstreamSender | None:
     """
     global _sender, _sender_init_failed
 
-    # Return None if we already know initialization failed
-    if _sender_init_failed:
-        return None
-
-    # Return existing sender if already initialized
-    if _sender is not None:
+    # First check without a lock for performance
+    if _sender is not None or _sender_init_failed:
         return _sender
 
-    # Try to initialize sender
-    try:
-        from spec_compiler.config import settings
+    with _sender_lock:
+        # Double-checked locking to prevent race conditions
+        if _sender is not None or _sender_init_failed:
+            return _sender
 
-        _sender = DefaultDownstreamLoggerSender(
-            downstream_target_uri=settings.downstream_target_uri,
-            skip_send=settings.skip_downstream_send,
-        )
-        logger.info("DownstreamSender initialized successfully")
-        return _sender
-    except Exception as e:
-        # Log error but don't fail - downstream sending is optional
-        logger.warning(
-            "Failed to initialize DownstreamSender, downstream sending disabled",
-            error=str(e),
-            error_type=type(e).__name__,
-        )
-        _sender_init_failed = True
-        return None
+        # Try to initialize sender
+        try:
+            from spec_compiler.config import settings
+
+            _sender = DefaultDownstreamLoggerSender(
+                downstream_target_uri=settings.downstream_target_uri,
+                skip_send=settings.skip_downstream_send,
+            )
+            logger.info("DownstreamSender initialized successfully")
+            return _sender
+        except Exception as e:
+            # Log error but don't fail - downstream sending is optional
+            logger.warning(
+                "Failed to initialize DownstreamSender, downstream sending disabled",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            _sender_init_failed = True
+            return None
