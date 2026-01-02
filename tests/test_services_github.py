@@ -30,7 +30,6 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from spec_compiler.models import GitHubAuthToken
 from spec_compiler.services.github_auth import GitHubAuthClient, MintingError
 from spec_compiler.services.github_repo import (
     GitHubFileError,
@@ -64,17 +63,11 @@ class TestGitHubServicesIntegration:
 
     def test_full_workflow_success(self, auth_client, repo_client):
         """Test complete workflow: mint token, fetch files, parse JSON."""
-        # Mock token minting
-        mock_token = GitHubAuthToken(
-            access_token="gho_test_token",
-            token_type="bearer",
-        )
-
         # Mock file content
         json_content = {"key": "value", "data": [1, 2, 3]}
-        encoded_content = base64.b64encode(json.dumps(json_content).encode("utf-8")).decode(
-            "ascii"
-        )
+        encoded_content = base64.b64encode(
+            json.dumps(json_content).encode("utf-8")
+        ).decode("ascii")
 
         with patch("httpx.Client") as mock_client_class:
             mock_client = MagicMock()
@@ -104,7 +97,9 @@ class TestGitHubServicesIntegration:
             token = auth_client.mint_user_to_server_token("owner", "repo")
             assert token.access_token == "gho_test_token"
 
-            result = repo_client.get_json_file("owner", "repo", "test.json", token=token.access_token)
+            result = repo_client.get_json_file(
+                "owner", "repo", "test.json", token=token.access_token
+            )
             assert result == json_content
 
     def test_workflow_with_token_minting_failure(self, auth_client):
@@ -186,7 +181,9 @@ class TestGitHubServicesIntegration:
                     response = MagicMock()
                     response.status_code = 200
                     valid_json = {"summaries": [{"path": "test.py"}]}
-                    encoded = base64.b64encode(json.dumps(valid_json).encode("utf-8")).decode("ascii")
+                    encoded = base64.b64encode(json.dumps(valid_json).encode("utf-8")).decode(
+                        "ascii"
+                    )
                     response.json.return_value = {
                         "content": encoded,
                         "encoding": "base64",
@@ -197,15 +194,21 @@ class TestGitHubServicesIntegration:
 
             # Test tree.json - should raise GitHubFileError
             with pytest.raises(GitHubFileError) as exc_info:
-                repo_client.get_json_file("owner", "repo", ".github/repo-analysis-output/tree.json", token=token)
+                repo_client.get_json_file(
+                    "owner", "repo", ".github/repo-analysis-output/tree.json", token=token
+                )
             assert exc_info.value.status_code == 404
 
             # Test dependencies.json - should raise InvalidJSONError
             with pytest.raises(InvalidJSONError):
-                repo_client.get_json_file("owner", "repo", ".github/repo-analysis-output/dependencies.json", token=token)
+                repo_client.get_json_file(
+                    "owner", "repo", ".github/repo-analysis-output/dependencies.json", token=token
+                )
 
             # Test file-summaries.json - should succeed
-            result = repo_client.get_json_file("owner", "repo", ".github/repo-analysis-output/file-summaries.json", token=token)
+            result = repo_client.get_json_file(
+                "owner", "repo", ".github/repo-analysis-output/file-summaries.json", token=token
+            )
             assert "summaries" in result
 
 
@@ -253,11 +256,13 @@ class TestFallbackHelpers:
         summaries = create_fallback_file_summaries()
 
         # All should be JSON-serializable
-        json_str = json.dumps({
-            "tree": tree,
-            "dependencies": deps,
-            "file_summaries": summaries,
-        })
+        json_str = json.dumps(
+            {
+                "tree": tree,
+                "dependencies": deps,
+                "file_summaries": summaries,
+            }
+        )
 
         # Should be able to parse back
         parsed = json.loads(json_str)
