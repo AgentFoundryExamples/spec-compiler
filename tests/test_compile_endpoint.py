@@ -444,7 +444,7 @@ def test_compile_request_without_content_length_header(test_client: TestClient) 
 
 
 def test_compile_request_logs_llm_response_envelope(test_client: TestClient, caplog) -> None:
-    """Test that compile endpoint logs the stubbed LLM response envelope."""
+    """Test that compile endpoint logs LLM service calls and responses."""
     caplog.set_level(logging.INFO)
 
     payload = {
@@ -459,22 +459,22 @@ def test_compile_request_logs_llm_response_envelope(test_client: TestClient, cap
 
     assert response.status_code == 202
 
-    # Check that LLM envelope logging occurred
+    # Check that LLM service logging occurred
     log_messages = [record.message for record in caplog.records]
-    assert any("Generated stubbed LLM response envelope" in msg for msg in log_messages)
+    assert any("calling_llm_service" in msg for msg in log_messages)
+    assert any("llm_service_response_received" in msg for msg in log_messages)
+    assert any("llm_response_parsed_successfully" in msg for msg in log_messages)
 
-    # Verify the envelope structure is logged with correct fields
-    # Find the log record that contains LLM metadata
-    llm_log_records = [
-        r for r in caplog.records if "Generated stubbed LLM response envelope" in r.message
+    # Verify LLM client creation is logged
+    llm_client_log_records = [
+        r for r in caplog.records if "llm_client_created" in r.message
     ]
-    assert len(llm_log_records) > 0
+    assert len(llm_client_log_records) > 0
 
     # Check that the log record has the expected structured fields
-    llm_record = llm_log_records[0]
-    # The logger should have bound context with llm_status and llm_metadata
-    # structlog stores these in the record's message or as attributes
-    assert hasattr(llm_record, "message")
+    llm_client_record = llm_client_log_records[0]
+    # The logger should have bound context
+    assert hasattr(llm_client_record, "message")
 
 
 def test_compile_request_validates_llm_envelope_structure(test_client: TestClient) -> None:
@@ -526,7 +526,7 @@ def test_compile_request_logs_compile_receipt(test_client: TestClient, caplog) -
     # Check that compile request was logged with context
     log_messages = [record.message for record in caplog.records]
     assert any("Compile request received" in msg for msg in log_messages)
-    assert any("Compile request accepted" in msg for msg in log_messages)
+    assert any("Compile request completed successfully" in msg for msg in log_messages)
 
 
 def test_compile_endpoint_error_middleware_catches_exceptions(

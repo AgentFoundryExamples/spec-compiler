@@ -25,7 +25,12 @@ from fastapi import APIRouter, Header, HTTPException, Request, status
 
 from spec_compiler.config import settings
 from spec_compiler.logging import get_logger
-from spec_compiler.models import RepoContextPayload, create_llm_response_stub
+from spec_compiler.models import (
+    LlmCompiledSpecOutput,
+    LlmRequestEnvelope,
+    RepoContextPayload,
+    SystemPromptConfig,
+)
 from spec_compiler.models.compile import CompileRequest, CompileResponse
 from spec_compiler.services.github_auth import GitHubAuthClient, MintingError
 from spec_compiler.services.github_repo import (
@@ -35,6 +40,11 @@ from spec_compiler.services.github_repo import (
     create_fallback_dependencies,
     create_fallback_file_summaries,
     create_fallback_tree,
+)
+from spec_compiler.services.llm_client import (
+    LlmApiError,
+    LlmConfigurationError,
+    create_llm_client,
 )
 
 router = APIRouter()
@@ -281,9 +291,18 @@ async def compile_spec(
     """
     Compile a specification with LLM integration.
 
-    Accepts a compile request, validates the payload, logs the operation,
-    and returns a 202 Accepted response. Currently stubs out downstream
-    LLM integration.
+    Accepts a compile request, validates the payload, fetches repository context,
+    invokes the configured LLM provider (or stub) to generate a compiled spec,
+    parses and validates the result, and returns a 202 Accepted response.
+
+    The workflow includes:
+    1. Minting GitHub token for repository access
+    2. Fetching repository analysis files (tree.json, dependencies.json, file-summaries.json)
+    3. Creating LLM client based on configuration (stub or real provider)
+    4. Building LLM request envelope with system prompt, repo context, and spec data
+    5. Calling LLM service to generate compiled specification
+    6. Parsing and validating the LLM response as LlmCompiledSpecOutput
+    7. Logging the compiled spec and returning success response
 
     Args:
         request: FastAPI request object (for accessing request_id and body)
@@ -295,6 +314,9 @@ async def compile_spec(
     Raises:
         HTTPException: 413 if request body exceeds size limit
         HTTPException: 422 if validation fails (handled by Pydantic)
+        HTTPException: 500 if LLM configuration error or internal error
+        HTTPException: 502 if token minting service error (4xx)
+        HTTPException: 503 if token minting service error (5xx) or LLM API error
     """
     # Get request_id from middleware
     request_id = getattr(request.state, "request_id", None)
@@ -513,36 +535,202 @@ async def compile_spec(
             file_summaries=create_fallback_file_summaries(),
         )
 
-    # Generate placeholder LLM response envelope
-    # NOTE: This is intentionally created but not returned/used. It simulates
-    # the future workflow where we would dispatch to LLM services. The envelope
-    # is logged to validate the data structure and demonstrate the intended flow.
-    # Now includes repo_context in metadata for future LLM integration.
-    llm_response = create_llm_response_stub(
-        request_id=request_id,
-        status="pending",
-        content="",
-        metadata={
-            "status": "stubbed",
-            "details": "LLM call not yet implemented",
-            "repo_context_available": True,
-            "repo_context_tree_count": len(repo_context.tree),
-            "repo_context_dependencies_count": len(repo_context.dependencies),
-            "repo_context_file_summaries_count": len(repo_context.file_summaries),
-        },
-    )
+    # Create LLM client based on configuration (stub or real provider)
+    try:
+        logger.info(
+            "creating_llm_client",
+            request_id=request_id,
+            provider=settings.llm_provider,
+            stub_mode=settings.llm_stub_mode,
+        )
+        llm_client = create_llm_client()
+        logger.info(
+            "llm_client_created",
+            request_id=request_id,
+            client_type=type(llm_client).__name__,
+        )
+    except LlmConfigurationError as e:
+        logger.error(
+            "llm_client_configuration_failed",
+            request_id=request_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "LLM service not configured",
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "LLM service configuration error. Please contact support.",
+            },
+        ) from None
 
-    # Log the stubbed LLM response as if dispatching downstream
-    logger.info(
-        "Generated stubbed LLM response envelope",
-        request_id=request_id,
-        plan_id=compile_request.plan_id,
-        spec_index=compile_request.spec_index,
-        llm_status=llm_response.status,
-        llm_metadata=llm_response.metadata,
-    )
+    # Build LLM request envelope with repo context and spec data
+    try:
+        logger.info(
+            "building_llm_request_envelope",
+            request_id=request_id,
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+        )
 
-    # Create and return response
+        # Get system prompt from configuration
+        system_prompt = settings.get_system_prompt()
+
+        # Create request envelope
+        llm_request = LlmRequestEnvelope(
+            request_id=request_id,
+            model=settings.openai_model if settings.llm_provider == "openai" else settings.claude_model,
+            system_prompt=SystemPromptConfig(
+                template=system_prompt,
+                max_tokens=4096,
+            ),
+            repo_context=repo_context,
+            metadata={
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "github_owner": compile_request.github_owner,
+                "github_repo": compile_request.github_repo,
+                "spec_data": compile_request.spec_data,
+            },
+        )
+
+        logger.info(
+            "llm_request_envelope_built",
+            request_id=request_id,
+            model=llm_request.model,
+            repo_context_tree_count=len(repo_context.tree),
+            repo_context_dependencies_count=len(repo_context.dependencies),
+            repo_context_file_summaries_count=len(repo_context.file_summaries),
+            spec_data_size=len(json.dumps(compile_request.spec_data)),
+        )
+
+    except Exception as e:
+        logger.error(
+            "llm_request_envelope_build_failed",
+            request_id=request_id,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "Failed to build LLM request",
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "Internal error building request. Please retry or contact support.",
+            },
+        ) from None
+
+    # Call LLM service to generate compiled spec
+    try:
+        logger.info(
+            "calling_llm_service",
+            request_id=request_id,
+            provider=settings.llm_provider,
+            model=llm_request.model,
+        )
+
+        llm_response = llm_client.generate_response(llm_request)
+
+        logger.info(
+            "llm_service_response_received",
+            request_id=request_id,
+            status=llm_response.status,
+            model=llm_response.model,
+            usage_tokens=llm_response.usage.get("total_tokens", 0) if llm_response.usage else 0,
+            content_length=len(llm_response.content),
+        )
+
+    except LlmApiError as e:
+        logger.error(
+            "llm_service_api_error",
+            request_id=request_id,
+            error=str(e),
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "LLM service error",
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "LLM service temporarily unavailable. Please retry.",
+            },
+        ) from None
+    except Exception as e:
+        logger.error(
+            "llm_service_unexpected_error",
+            request_id=request_id,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "Unexpected LLM service error",
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "Internal error calling LLM service. Please contact support.",
+            },
+        ) from None
+
+    # Parse and validate LLM response as compiled spec output
+    try:
+        logger.info(
+            "parsing_llm_response",
+            request_id=request_id,
+            content_preview=llm_response.content[:200] if llm_response.content else "",
+        )
+
+        compiled_spec = LlmCompiledSpecOutput.from_json_string(llm_response.content)
+
+        logger.info(
+            "llm_response_parsed_successfully",
+            request_id=request_id,
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            version=compiled_spec.version,
+            issues_count=len(compiled_spec.issues),
+        )
+
+        # Log compiled spec at debug level (first issue only for brevity)
+        if compiled_spec.issues:
+            first_issue = compiled_spec.issues[0]
+            logger.debug(
+                "compiled_spec_sample",
+                request_id=request_id,
+                version=compiled_spec.version,
+                first_issue_id=first_issue.get("id", "unknown"),
+                first_issue_title=first_issue.get("title", "")[:100],
+                total_issues=len(compiled_spec.issues),
+            )
+
+    except (ValueError, json.JSONDecodeError) as e:
+        logger.error(
+            "llm_response_parsing_failed",
+            request_id=request_id,
+            error=str(e),
+            error_type=type(e).__name__,
+            content_preview=llm_response.content[:500] if llm_response.content else "",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "Invalid LLM response format",
+                "request_id": request_id,
+                "plan_id": compile_request.plan_id,
+                "spec_index": compile_request.spec_index,
+                "message": "LLM returned invalid response format. Please retry or contact support.",
+            },
+        ) from None
+
+    # Create and return success response
     response = CompileResponse(
         request_id=request_id,
         plan_id=compile_request.plan_id,
@@ -552,10 +740,12 @@ async def compile_spec(
     )
 
     logger.info(
-        "Compile request accepted",
+        "Compile request completed successfully",
         request_id=request_id,
         plan_id=compile_request.plan_id,
         spec_index=compile_request.spec_index,
+        compiled_version=compiled_spec.version,
+        compiled_issues_count=len(compiled_spec.issues),
     )
 
     return response

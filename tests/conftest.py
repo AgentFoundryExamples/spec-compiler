@@ -35,9 +35,11 @@ def test_client() -> TestClient:
         TestClient instance for making test requests
     """
     # Mock GitHub clients to avoid needing real minting service in tests
+    # Enable LLM stub mode to avoid needing API keys
     with (
         patch("spec_compiler.app.routes.compile.GitHubAuthClient") as mock_auth_class,
         patch("spec_compiler.app.routes.compile.GitHubRepoClient") as mock_repo_class,
+        patch("spec_compiler.config.settings.llm_stub_mode", True),
     ):
 
         # Setup auth client mock
@@ -82,9 +84,11 @@ def test_client_with_error_routes() -> TestClient:
         TestClient instance with error test endpoints
     """
     # Mock GitHub clients
+    # Enable LLM stub mode to avoid needing API keys
     with (
         patch("spec_compiler.app.routes.compile.GitHubAuthClient") as mock_auth_class,
         patch("spec_compiler.app.routes.compile.GitHubRepoClient") as mock_repo_class,
+        patch("spec_compiler.config.settings.llm_stub_mode", True),
     ):
 
         mock_auth_instance = MagicMock()
