@@ -150,12 +150,14 @@ class PlanStatusMessage(BaseModel):
             v = v[:MAX_ERROR_MESSAGE_LENGTH] + "... (truncated)"
 
         # Basic sanitization: remove potential API keys or tokens
-        # Pattern: strings that look like API keys (long alphanumeric strings)
-        # This is a basic approach; more sophisticated sanitization can be added
+        # Use targeted patterns for known secret formats to avoid redacting legitimate IDs
+        # Pattern matches common API key prefixes followed by long strings
+        # This avoids redacting UUIDs, request IDs, or plan IDs that may appear in errors
         sanitized = re.sub(
-            r'\b[A-Za-z0-9_-]{32,}\b',
-            '[REDACTED]',
-            v
+            r'\b(sk_live_|sk_test_|pk_live_|pk_test_|api[_-]?key[_-]?)[A-Za-z0-9_-]{20,}\b',
+            r'\1[REDACTED]',
+            v,
+            flags=re.IGNORECASE
         )
 
         return sanitized

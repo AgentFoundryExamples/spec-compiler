@@ -234,6 +234,9 @@ class PlanSchedulerPublisher:
         """
         Calculate exponential backoff delay with jitter.
 
+        Uses additive jitter rather than multiplicative to provide better
+        distribution of retry attempts and avoid thundering herd issues.
+
         Args:
             attempt: Current retry attempt number (0-indexed)
 
@@ -244,8 +247,9 @@ class PlanSchedulerPublisher:
         delay = DEFAULT_BASE_DELAY * (2**attempt)
         # Cap at max delay
         delay = min(delay, DEFAULT_MAX_DELAY)
-        # Add jitter: random value between 0 and delay
-        jittered_delay: float = delay * random.uniform(0.5, 1.0)
+        # Add jitter: a random fraction of the delay (up to 10%)
+        jitter = random.uniform(0, delay * 0.1)
+        jittered_delay: float = delay + jitter
         return jittered_delay
 
     def publish_status(
@@ -290,8 +294,6 @@ class PlanSchedulerPublisher:
             message_size_bytes=len(message_bytes),
         )
 
-        last_exception: Exception | None = None
-
         for attempt in range(self.max_retries + 1):
             try:
                 # Publish message
@@ -316,7 +318,6 @@ class PlanSchedulerPublisher:
                 return
 
             except gcp_exceptions.GoogleAPICallError as e:
-                last_exception = e
                 # Check if error is transient
                 is_transient = self._is_transient_error(e)
 
@@ -362,7 +363,7 @@ class PlanSchedulerPublisher:
                     raise
 
             except Exception as e:
-                last_exception = e
+                # Any non-GoogleAPICallError is unexpected and should not be retried
                 logger.error(
                     "Unexpected error publishing to Pub/Sub",
                     plan_id=plan_status.plan_id,
@@ -374,10 +375,12 @@ class PlanSchedulerPublisher:
                 )
                 raise
 
-        # Should not reach here, but handle gracefully
-        if last_exception:
-            raise last_exception
-        raise Exception("Failed to publish message after all retries")
+        # This should only be reached if max_retries is exhausted with transient errors
+        # The loop should have raised the exception on the last attempt
+        raise Exception(
+            f"Failed to publish message after {self.max_retries + 1} attempts for "
+            f"plan_id={plan_status.plan_id}, request_id={plan_status.request_id}"
+        )
 
     def _is_transient_error(self, error: Exception) -> bool:
         """
@@ -406,6 +409,17 @@ class PlanSchedulerPublisher:
 
         This should be called when the publisher is no longer needed,
         typically during application shutdown.
+
+        Note: This method does not wait for in-flight publish operations to
+        complete. If the publisher is closed while messages are being published,
+        those operations may fail or be left in an inconsistent state. To ensure
+        all messages are published before closing, callers should track publish
+        futures and wait for them to complete before calling close().
+
+        For graceful shutdown with pending publishes:
+        1. Stop accepting new publish requests
+        2. Wait for all pending publish futures to complete
+        3. Call close() to release resources
         """
         if self.client:
             logger.info("Closing Pub/Sub client")

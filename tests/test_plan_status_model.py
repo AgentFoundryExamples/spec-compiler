@@ -223,6 +223,27 @@ class TestPlanStatusMessage:
         assert "[REDACTED]" in message.error_message  # type: ignore
         assert "sk_test_abcdef1234567890abcdef1234567890abcdef" not in message.error_message  # type: ignore
 
+    def test_error_message_preserves_legitimate_ids(self) -> None:
+        """Test that legitimate IDs like UUIDs and request IDs are not redacted."""
+        # This message contains UUIDs and request IDs that should NOT be redacted
+        message_with_ids = (
+            "Request failed: request_id=550e8400-e29b-41d4-a716-446655440000 "
+            "plan_id=plan-abc123-456def-789ghi correlation_id=cor-1234567890abcdef"
+        )
+        message = PlanStatusMessage(
+            plan_id="plan-123",
+            spec_index=0,
+            status="failed",
+            request_id="req-456",
+            error_message=message_with_ids,
+        )
+        # Verify legitimate IDs are preserved
+        assert "550e8400-e29b-41d4-a716-446655440000" in message.error_message  # type: ignore
+        assert "plan-abc123-456def-789ghi" in message.error_message  # type: ignore
+        assert "cor-1234567890abcdef" in message.error_message  # type: ignore
+        # Verify no redaction occurred
+        assert "[REDACTED]" not in message.error_message  # type: ignore
+
     def test_to_json_dict(self) -> None:
         """Test JSON dictionary serialization."""
         message = PlanStatusMessage(
