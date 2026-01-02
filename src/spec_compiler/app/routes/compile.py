@@ -41,6 +41,71 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
+def _fetch_and_log_context_file(
+    repo_client: GitHubRepoClient,
+    owner: str,
+    repo: str,
+    file_path: str,
+    token: str,
+    request_id: str,
+    data_key: str,
+    fallback_factory: Any,
+    success_log_event: str,
+    error_log_event: str,
+    invalid_json_log_event: str,
+) -> dict[str, Any]:
+    """
+    Helper to fetch a single repo context file with logging and fallback.
+
+    Args:
+        repo_client: GitHubRepoClient instance
+        owner: GitHub repository owner
+        repo: GitHub repository name
+        file_path: Path to the file in the repository
+        token: GitHub access token
+        request_id: Request ID for logging
+        data_key: Key in the response dict containing the data list
+        fallback_factory: Callable that returns fallback data
+        success_log_event: Log event name for success
+        error_log_event: Log event name for GitHub file errors
+        invalid_json_log_event: Log event name for invalid JSON errors
+
+    Returns:
+        Dictionary with data_key mapped to the fetched or fallback data
+    """
+    try:
+        data = repo_client.get_json_file(owner=owner, repo=repo, path=file_path, token=token)
+        count = len(data.get(data_key, [])) if isinstance(data, dict) else 0
+        logger.info(
+            success_log_event,
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            count=count,
+        )
+        return data
+    except GitHubFileError as e:
+        logger.warning(
+            error_log_event,
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            error=str(e),
+            status_code=e.status_code,
+            using_fallback=True,
+        )
+    except InvalidJSONError as e:
+        logger.warning(
+            invalid_json_log_event,
+            request_id=request_id,
+            owner=owner,
+            repo=repo,
+            error=str(e),
+            using_fallback=True,
+        )
+    return {data_key: fallback_factory()}
+
+
 def fetch_repo_context(
     owner: str,
     repo: str,
@@ -66,125 +131,50 @@ def fetch_repo_context(
     repo_client = GitHubRepoClient()
     base_path = ".github/repo-analysis-output"
 
-    # Initialize with fallback values
-    tree_data = None
-    dependencies_data = None
-    file_summaries_data = None
-
     # Fetch tree.json
-    try:
-        tree_data = repo_client.get_json_file(
-            owner=owner,
-            repo=repo,
-            path=f"{base_path}/tree.json",
-            token=token,
-        )
-        logger.info(
-            "repo_context_tree_success",
-            request_id=request_id,
-            owner=owner,
-            repo=repo,
-            tree_entries=len(tree_data.get("tree", [])) if isinstance(tree_data, dict) else 0,
-        )
-    except GitHubFileError as e:
-        logger.warning(
-            "repo_context_tree_error",
-            request_id=request_id,
-            owner=owner,
-            repo=repo,
-            error=str(e),
-            status_code=e.status_code,
-            using_fallback=True,
-        )
-        tree_data = {"tree": create_fallback_tree()}
-    except InvalidJSONError as e:
-        logger.warning(
-            "repo_context_tree_invalid_json",
-            request_id=request_id,
-            owner=owner,
-            repo=repo,
-            error=str(e),
-            using_fallback=True,
-        )
-        tree_data = {"tree": create_fallback_tree()}
+    tree_data = _fetch_and_log_context_file(
+        repo_client,
+        owner,
+        repo,
+        f"{base_path}/tree.json",
+        token,
+        request_id,
+        "tree",
+        create_fallback_tree,
+        "repo_context_tree_success",
+        "repo_context_tree_error",
+        "repo_context_tree_invalid_json",
+    )
 
     # Fetch dependencies.json
-    try:
-        dependencies_data = repo_client.get_json_file(
-            owner=owner,
-            repo=repo,
-            path=f"{base_path}/dependencies.json",
-            token=token,
-        )
-        logger.info(
-            "repo_context_dependencies_success",
-            request_id=request_id,
-            owner=owner,
-            repo=repo,
-            dependency_count=len(dependencies_data.get("dependencies", []))
-            if isinstance(dependencies_data, dict)
-            else 0,
-        )
-    except GitHubFileError as e:
-        logger.warning(
-            "repo_context_dependencies_error",
-            request_id=request_id,
-            owner=owner,
-            repo=repo,
-            error=str(e),
-            status_code=e.status_code,
-            using_fallback=True,
-        )
-        dependencies_data = {"dependencies": create_fallback_dependencies()}
-    except InvalidJSONError as e:
-        logger.warning(
-            "repo_context_dependencies_invalid_json",
-            request_id=request_id,
-            owner=owner,
-            repo=repo,
-            error=str(e),
-            using_fallback=True,
-        )
-        dependencies_data = {"dependencies": create_fallback_dependencies()}
+    dependencies_data = _fetch_and_log_context_file(
+        repo_client,
+        owner,
+        repo,
+        f"{base_path}/dependencies.json",
+        token,
+        request_id,
+        "dependencies",
+        create_fallback_dependencies,
+        "repo_context_dependencies_success",
+        "repo_context_dependencies_error",
+        "repo_context_dependencies_invalid_json",
+    )
 
     # Fetch file-summaries.json
-    try:
-        file_summaries_data = repo_client.get_json_file(
-            owner=owner,
-            repo=repo,
-            path=f"{base_path}/file-summaries.json",
-            token=token,
-        )
-        logger.info(
-            "repo_context_file_summaries_success",
-            request_id=request_id,
-            owner=owner,
-            repo=repo,
-            summary_count=len(file_summaries_data.get("summaries", []))
-            if isinstance(file_summaries_data, dict)
-            else 0,
-        )
-    except GitHubFileError as e:
-        logger.warning(
-            "repo_context_file_summaries_error",
-            request_id=request_id,
-            owner=owner,
-            repo=repo,
-            error=str(e),
-            status_code=e.status_code,
-            using_fallback=True,
-        )
-        file_summaries_data = {"summaries": create_fallback_file_summaries()}
-    except InvalidJSONError as e:
-        logger.warning(
-            "repo_context_file_summaries_invalid_json",
-            request_id=request_id,
-            owner=owner,
-            repo=repo,
-            error=str(e),
-            using_fallback=True,
-        )
-        file_summaries_data = {"summaries": create_fallback_file_summaries()}
+    file_summaries_data = _fetch_and_log_context_file(
+        repo_client,
+        owner,
+        repo,
+        f"{base_path}/file-summaries.json",
+        token,
+        request_id,
+        "summaries",
+        create_fallback_file_summaries,
+        "repo_context_file_summaries_success",
+        "repo_context_file_summaries_error",
+        "repo_context_file_summaries_invalid_json",
+    )
 
     # Extract data with safe defaults
     tree = tree_data.get("tree", create_fallback_tree()) if tree_data else create_fallback_tree()
@@ -455,21 +445,14 @@ async def compile_spec(
         # Use 502 Bad Gateway for service communication failures
         # Use 503 Service Unavailable for temporary failures
         # Use 500 Internal Server Error for configuration issues
-        if e.status_code is not None:
-            # If we have an HTTP status from the minting service, use it to determine mapping
-            if e.status_code >= 500:
-                http_status = status.HTTP_503_SERVICE_UNAVAILABLE
-                error_message = "Token minting service temporarily unavailable"
-            elif e.status_code >= 400:
-                http_status = status.HTTP_502_BAD_GATEWAY
-                error_message = "Token minting service error"
-            else:
-                http_status = status.HTTP_500_INTERNAL_SERVER_ERROR
-                error_message = "Unexpected token minting error"
-        elif "not configured" in str(e).lower():
+        if "not configured" in str(e).lower():
             http_status = status.HTTP_500_INTERNAL_SERVER_ERROR
             error_message = "Token minting service not configured"
+        elif e.status_code and e.status_code >= 500:
+            http_status = status.HTTP_503_SERVICE_UNAVAILABLE
+            error_message = "Token minting service temporarily unavailable"
         else:
+            # Catches 4xx errors from minting service and other connection issues
             http_status = status.HTTP_502_BAD_GATEWAY
             error_message = "Token minting service error"
 
