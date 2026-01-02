@@ -21,7 +21,6 @@ flag behavior, and status publishing during downstream errors.
 import logging
 from unittest.mock import Mock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from spec_compiler.services.downstream_sender import (
@@ -60,7 +59,6 @@ class TestDownstreamSenderSuccess:
             # Verify downstream sender was called
             mock_sender.send_compiled_spec.assert_called_once()
             call_args = mock_sender.send_compiled_spec.call_args
-            compiled_spec = call_args[0][0]
             context = call_args[0][1]
 
             # Verify context contains required fields
@@ -391,7 +389,7 @@ class TestDownstreamIntegrationFlow:
             succeeded_messages = mock_publisher.get_messages_by_status("succeeded")
             assert len(in_progress_messages) >= 1
             assert len(succeeded_messages) >= 1
-            
+
             # Verify order by checking the messages list directly
             status_sequence = [msg.status for msg in mock_publisher.messages]
             assert "in_progress" in status_sequence
