@@ -585,7 +585,10 @@ async def compile_spec(
         elif settings.llm_provider == "anthropic":
             model = settings.claude_model
         else:
-            raise ValueError(f"Unsupported LLM provider: {settings.llm_provider}")
+            raise ValueError(
+                f"Unsupported LLM provider: {settings.llm_provider}. "
+                f"Supported providers: openai, anthropic"
+            )
 
         # Create request envelope
         llm_request = LlmRequestEnvelope(

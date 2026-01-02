@@ -482,7 +482,17 @@ def test_compile_with_unsupported_provider(test_client: TestClient) -> None:
     }
 
     # Mock settings to use an unsupported provider
-    with patch("spec_compiler.config.settings.llm_provider", "unsupported_provider"):
+    with patch("spec_compiler.app.routes.compile.settings") as mock_settings:
+        # Copy all settings attributes
+        from spec_compiler.config import settings as real_settings
+        for attr in dir(real_settings):
+            if not attr.startswith("_"):
+                setattr(mock_settings, attr, getattr(real_settings, attr))
+        
+        # Override the provider
+        mock_settings.llm_provider = "unsupported_provider"
+        mock_settings.llm_stub_mode = True
+
         response = test_client.post("/compile-spec", json=payload)
 
         assert response.status_code == 500
