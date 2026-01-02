@@ -14,7 +14,7 @@
 """
 Services package for spec-compiler.
 
-Provides GitHub authentication and repository access clients.
+Provides GitHub authentication, repository access, and LLM clients.
 """
 
 from spec_compiler.services.github_auth import GitHubAuthClient, MintingError
@@ -26,6 +26,15 @@ from spec_compiler.services.github_repo import (
     create_fallback_file_summaries,
     create_fallback_tree,
 )
+from spec_compiler.services.llm_client import (
+    LlmApiError,
+    LlmClient,
+    LlmClientError,
+    LlmConfigurationError,
+    StubLlmClient,
+    create_llm_client,
+)
+from spec_compiler.services.openai_responses import OpenAiResponsesClient
 
 __all__ = [
     "GitHubAuthClient",
@@ -36,4 +45,11 @@ __all__ = [
     "create_fallback_tree",
     "create_fallback_dependencies",
     "create_fallback_file_summaries",
+    "LlmClient",
+    "LlmClientError",
+    "LlmConfigurationError",
+    "LlmApiError",
+    "StubLlmClient",
+    "OpenAiResponsesClient",
+    "create_llm_client",
 ]
