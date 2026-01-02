@@ -35,6 +35,10 @@ from spec_compiler.services.llm_client import (
     create_llm_client,
 )
 from spec_compiler.services.openai_responses import OpenAiResponsesClient
+from spec_compiler.services.plan_scheduler_publisher import (
+    ConfigurationError,
+    PlanSchedulerPublisher,
+)
 
 __all__ = [
     "GitHubAuthClient",
@@ -52,4 +56,6 @@ __all__ = [
     "StubLlmClient",
     "OpenAiResponsesClient",
     "create_llm_client",
+    "PlanSchedulerPublisher",
+    "ConfigurationError",
 ]

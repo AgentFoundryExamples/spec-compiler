@@ -29,6 +29,7 @@ from spec_compiler.models.llm import (
     RepoContextPayload,
     SystemPromptConfig,
 )
+from spec_compiler.models.plan_status import PlanStatusMessage
 
 __all__ = [
     "CompileRequest",
@@ -39,6 +40,7 @@ __all__ = [
     "LlmResponseEnvelope",
     "LlmCompiledSpecOutput",
     "GitHubAuthToken",
+    "PlanStatusMessage",
     "generate_request_id",
     "create_llm_response_stub",
 ]
