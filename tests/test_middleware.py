@@ -259,17 +259,7 @@ def test_middleware_publishes_failed_status_on_exception(
     """Test that middleware publishes failed status when compile request throws exception."""
     from unittest.mock import patch
 
-    # Create a special route that throws during compile processing
-    app = test_client_with_error_routes.app
-
-    @app.post("/test-compile-error")
-    async def test_compile_error_route():
-        # Simulate a compile request that failed
-        raise RuntimeError("Simulated compile failure")
-
     # Make a request that will fail
-    # Note: We can't inject request body easily with test routes, so we'll test
-    # the actual compile endpoint with a mock that throws
     with patch("spec_compiler.app.routes.compile.create_llm_client") as mock_create:
         mock_create.side_effect = RuntimeError("LLM client creation failed")
 
@@ -288,10 +278,10 @@ def test_middleware_publishes_failed_status_on_exception(
 
         # Verify failed status was published
         failed_messages = mock_publisher.get_messages_by_status("failed")
-        assert len(failed_messages) >= 1
+        assert len(failed_messages) == 1
 
         # Verify the failed message has correct plan context
-        failed_msg = failed_messages[-1]  # Get the last failed message
+        failed_msg = failed_messages[0]
         assert failed_msg.plan_id == "plan-middleware-test"
         assert failed_msg.spec_index == 3
         assert failed_msg.error_code == "unhandled_exception"
@@ -360,9 +350,9 @@ def test_middleware_extracts_plan_context_from_body(test_client_with_error_route
 
         # Verify plan context was extracted and used
         failed_messages = mock_publisher.get_messages_by_status("failed")
-        assert len(failed_messages) >= 1
+        assert len(failed_messages) == 1
 
-        msg = failed_messages[-1]
+        msg = failed_messages[0]
         assert msg.plan_id == "plan-context-extract"
         assert msg.spec_index == 7
 

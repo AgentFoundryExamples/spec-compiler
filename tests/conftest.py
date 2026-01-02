@@ -198,6 +198,3 @@ def mock_publisher_disabled():
     with patch("spec_compiler.app.routes.compile.get_publisher", return_value=None):
         with patch("spec_compiler.middleware.error_handler.get_publisher", return_value=None):
             yield
-
-
-        yield TestClient(app)

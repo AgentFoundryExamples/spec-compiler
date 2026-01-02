@@ -459,6 +459,7 @@ class TestPublisherConcurrency:
 
     def test_concurrent_publishes_are_thread_safe(self) -> None:
         """Test that concurrent publishes from multiple threads work correctly."""
+        import json
         import threading
         from queue import Queue
 
@@ -516,6 +517,16 @@ class TestPublisherConcurrency:
         # Verify all messages were published
         assert mock_client.publish.call_count == 10
         assert publish_calls.qsize() == 10
+
+        # Verify the content of published messages
+        published_plan_ids = set()
+        while not publish_calls.empty():
+            _, data, _ = publish_calls.get()
+            msg_dict = json.loads(data)
+            published_plan_ids.add(msg_dict["plan_id"])
+        
+        expected_plan_ids = {f"plan-{i}" for i in range(10)}
+        assert published_plan_ids == expected_plan_ids
 
     def test_message_ordering_with_ordering_key(self) -> None:
         """Test that messages with same ordering key maintain order."""
