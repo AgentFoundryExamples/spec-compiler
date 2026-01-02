@@ -47,7 +47,7 @@ async def health_check() -> dict[str, str]:
 
 
 @router.post("/debug/status")
-async def debug_publish_status() -> dict[str, str]:
+async def debug_publish_status() -> dict[str, str | int]:
     """
     Debug endpoint to test status message publishing.
     
