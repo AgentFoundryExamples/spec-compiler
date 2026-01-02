@@ -421,6 +421,23 @@
           "pytest"
         ]
       }
+    },
+    {
+      "id": "tests/test_services_github.py",
+      "path": "tests/test_services_github.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "base64",
+          "json",
+          "unittest.mock.MagicMock",
+          "unittest.mock.patch"
+        ],
+        "third-party": [
+          "httpx",
+          "pytest"
+        ]
+      }
     }
   ],
   "edges": [
@@ -607,6 +624,14 @@
     {
       "source": "tests/test_models_llm.py",
       "target": "src/spec_compiler/models/llm.py"
+    },
+    {
+      "source": "tests/test_services_github.py",
+      "target": "src/spec_compiler/services/github_auth.py"
+    },
+    {
+      "source": "tests/test_services_github.py",
+      "target": "src/spec_compiler/services/github_repo.py"
     }
   ],
   "external_dependencies_summary": {

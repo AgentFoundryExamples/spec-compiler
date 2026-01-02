@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 30,
+  "total_files": 31,
   "files": [
     {
       "schema_version": "2.0",
@@ -419,6 +419,20 @@
       "metrics": {
         "size_bytes": 18878,
         "loc": 412,
+        "todo_count": 0
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "tests/test_services_github.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "summary": "Python test file (role: test)",
+      "summary_text": "Python test file (role: test)",
+      "metrics": {
+        "size_bytes": 15449,
+        "loc": 273,
         "todo_count": 0
       }
     }

@@ -239,6 +239,10 @@
         {
           "type": "file",
           "name": "test_models_llm.py"
+        },
+        {
+          "type": "file",
+          "name": "test_services_github.py"
         }
       ]
     },

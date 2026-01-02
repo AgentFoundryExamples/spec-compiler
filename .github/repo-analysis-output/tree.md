@@ -53,7 +53,8 @@
   ├── test_middleware.py
   ├── test_models_compile.py
   ├── test_models_helpers.py
-  └── test_models_llm.py
+  ├── test_models_llm.py
+  └── test_services_github.py
 ├── .dockerignore
 ├── .env.example
 ├── .gitignore

@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 30
+Total files: 31
 
 ## src/spec_compiler/__init__.py
 **Language:** Python  
@@ -274,4 +274,13 @@ Total files: 30
 **Summary:** Python test file (role: test)  
 **Size:** 18.44 KB  
 **LOC:** 412  
+**TODOs/FIXMEs:** 0  
+
+## tests/test_services_github.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 15.09 KB  
+**LOC:** 273  
 **TODOs/FIXMEs:** 0  
