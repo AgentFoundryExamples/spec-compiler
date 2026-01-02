@@ -431,6 +431,13 @@ def stage_mint_token(
         owner=compile_request.github_owner,
         repo=compile_request.github_repo,
     )
+    
+    logger.info(
+        "minting_token_start",
+        request_id=request_id,
+        owner=compile_request.github_owner,
+        repo=compile_request.github_repo,
+    )
 
     auth_client = GitHubAuthClient()
 
@@ -440,6 +447,15 @@ def stage_mint_token(
             repo=compile_request.github_repo,
         )
 
+        logger.info(
+            "minting_token_success",
+            request_id=request_id,
+            owner=compile_request.github_owner,
+            repo=compile_request.github_repo,
+            token_type=github_token.token_type,
+            has_expiry=github_token.expires_at is not None,
+        )
+        
         logger.info(
             "stage_mint_token_complete",
             request_id=request_id,
@@ -516,6 +532,13 @@ def stage_fetch_repo_context(
         owner=compile_request.github_owner,
         repo=compile_request.github_repo,
     )
+    
+    logger.info(
+        "fetching_repo_context_start",
+        request_id=request_id,
+        owner=compile_request.github_owner,
+        repo=compile_request.github_repo,
+    )
 
     try:
         repo_context = fetch_repo_context(
@@ -525,6 +548,16 @@ def stage_fetch_repo_context(
             request_id=request_id,
         )
 
+        logger.info(
+            "fetching_repo_context_success",
+            request_id=request_id,
+            owner=compile_request.github_owner,
+            repo=compile_request.github_repo,
+            tree_count=len(repo_context.tree),
+            dependencies_count=len(repo_context.dependencies),
+            file_summaries_count=len(repo_context.file_summaries),
+        )
+        
         logger.info(
             "stage_fetch_repo_context_complete",
             request_id=request_id,
@@ -872,6 +905,18 @@ def stage_call_llm(
             version=compiled_spec.version,
             issues_count=len(compiled_spec.issues),
         )
+        
+        # Log compiled spec sample at debug level
+        if compiled_spec.issues:
+            first_issue = compiled_spec.issues[0]
+            logger.debug(
+                "compiled_spec_sample",
+                request_id=request_id,
+                version=compiled_spec.version,
+                first_issue_id=first_issue.get("id", "unknown"),
+                first_issue_title=first_issue.get("title", "")[:100],
+                total_issues=len(compiled_spec.issues),
+            )
         
         logger.info(
             "stage_call_llm_complete",
