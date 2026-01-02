@@ -33,6 +33,10 @@
       ├── __init__.py
       ├── compile.py
       └── llm.py
+    ├── services
+      ├── __init__.py
+      ├── github_auth.py
+      └── github_repo.py
     ├── __init__.py
     ├── config.py
     └── logging.py
@@ -41,6 +45,8 @@
   ├── conftest.py
   ├── test_compile_endpoint.py
   ├── test_config.py
+  ├── test_github_auth.py
+  ├── test_github_repo.py
   ├── test_health.py
   ├── test_logging.py
   ├── test_middleware.py

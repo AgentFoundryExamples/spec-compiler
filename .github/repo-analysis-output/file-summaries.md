@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 24
+Total files: 29
 
 ## src/spec_compiler/__init__.py
 **Language:** Python  
@@ -132,6 +132,33 @@ Total files: 24
 **LOC:** 181  
 **TODOs/FIXMEs:** 0  
 
+## src/spec_compiler/services/__init__.py
+**Language:** Python  
+**Role:** module-init  
+**Role Justification:** module initialization file '__init__'  
+**Summary:** Python module initialization (role: module-init)  
+**Size:** 1.18 KB  
+**LOC:** 23  
+**TODOs/FIXMEs:** 0  
+
+## src/spec_compiler/services/github_auth.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Summary:** Python core implementation  
+**Size:** 13.84 KB  
+**LOC:** 308  
+**TODOs/FIXMEs:** 0  
+
+## src/spec_compiler/services/github_repo.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Summary:** Python core implementation  
+**Size:** 16.02 KB  
+**LOC:** 390  
+**TODOs/FIXMEs:** 0  
+
 ## tests/__init__.py
 **Language:** Python  
 **Role:** test  
@@ -166,6 +193,24 @@ Total files: 24
 **Summary:** Python test file (role: test)  
 **Size:** 8.01 KB  
 **LOC:** 163  
+**TODOs/FIXMEs:** 0  
+
+## tests/test_github_auth.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 17.12 KB  
+**LOC:** 353  
+**TODOs/FIXMEs:** 0  
+
+## tests/test_github_repo.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 17.71 KB  
+**LOC:** 363  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_health.py

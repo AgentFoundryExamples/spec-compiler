@@ -197,6 +197,47 @@
       }
     },
     {
+      "id": "src/spec_compiler/services/__init__.py",
+      "path": "src/spec_compiler/services/__init__.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [],
+        "third-party": []
+      }
+    },
+    {
+      "id": "src/spec_compiler/services/github_auth.py",
+      "path": "src/spec_compiler/services/github_auth.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "datetime.UTC",
+          "datetime.datetime",
+          "re",
+          "typing.Any"
+        ],
+        "third-party": [
+          "httpx"
+        ]
+      }
+    },
+    {
+      "id": "src/spec_compiler/services/github_repo.py",
+      "path": "src/spec_compiler/services/github_repo.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "base64",
+          "json",
+          "re",
+          "typing.Any"
+        ],
+        "third-party": [
+          "httpx"
+        ]
+      }
+    },
+    {
       "id": "tests/__init__.py",
       "path": "tests/__init__.py",
       "type": "file",
@@ -242,6 +283,41 @@
           "unittest.mock.patch"
         ],
         "third-party": []
+      }
+    },
+    {
+      "id": "tests/test_github_auth.py",
+      "path": "tests/test_github_auth.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "datetime.UTC",
+          "datetime.datetime",
+          "datetime.timedelta",
+          "unittest.mock.MagicMock",
+          "unittest.mock.patch"
+        ],
+        "third-party": [
+          "httpx",
+          "pytest"
+        ]
+      }
+    },
+    {
+      "id": "tests/test_github_repo.py",
+      "path": "tests/test_github_repo.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "base64",
+          "json",
+          "unittest.mock.MagicMock",
+          "unittest.mock.patch"
+        ],
+        "third-party": [
+          "httpx",
+          "pytest"
+        ]
       }
     },
     {
@@ -401,6 +477,34 @@
       "target": "src/spec_compiler/models/llm.py"
     },
     {
+      "source": "src/spec_compiler/services/__init__.py",
+      "target": "src/spec_compiler/services/github_auth.py"
+    },
+    {
+      "source": "src/spec_compiler/services/__init__.py",
+      "target": "src/spec_compiler/services/github_repo.py"
+    },
+    {
+      "source": "src/spec_compiler/services/github_auth.py",
+      "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "src/spec_compiler/services/github_auth.py",
+      "target": "src/spec_compiler/logging.py"
+    },
+    {
+      "source": "src/spec_compiler/services/github_auth.py",
+      "target": "src/spec_compiler/models/__init__.py"
+    },
+    {
+      "source": "src/spec_compiler/services/github_repo.py",
+      "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "src/spec_compiler/services/github_repo.py",
+      "target": "src/spec_compiler/logging.py"
+    },
+    {
       "source": "tests/conftest.py",
       "target": "src/spec_compiler/app/main.py"
     },
@@ -419,6 +523,18 @@
     {
       "source": "tests/test_config.py",
       "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "tests/test_github_auth.py",
+      "target": "src/spec_compiler/models/__init__.py"
+    },
+    {
+      "source": "tests/test_github_auth.py",
+      "target": "src/spec_compiler/services/github_auth.py"
+    },
+    {
+      "source": "tests/test_github_repo.py",
+      "target": "src/spec_compiler/services/github_repo.py"
     },
     {
       "source": "tests/test_logging.py",
@@ -447,10 +563,12 @@
   ],
   "external_dependencies_summary": {
     "stdlib": [
+      "base64",
       "collections.abc.AsyncGenerator",
       "contextlib.asynccontextmanager",
       "datetime.UTC",
       "datetime.datetime",
+      "datetime.timedelta",
       "io.StringIO",
       "json",
       "logging",
@@ -460,6 +578,7 @@
       "typing.Annotated",
       "typing.Any",
       "typing.Literal",
+      "unittest.mock.MagicMock",
       "unittest.mock.patch",
       "uuid"
     ],
@@ -473,6 +592,7 @@
       "fastapi.middleware.cors.CORSMiddleware",
       "fastapi.status",
       "fastapi.testclient.TestClient",
+      "httpx",
       "pydantic.BaseModel",
       "pydantic.Field",
       "pydantic.ValidationError",
@@ -488,7 +608,7 @@
       "structlog.types.Processor",
       "uvicorn"
     ],
-    "stdlib_count": 15,
-    "third-party_count": 23
+    "stdlib_count": 18,
+    "third-party_count": 24
   }
 }
