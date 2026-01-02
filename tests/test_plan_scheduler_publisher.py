@@ -130,9 +130,7 @@ class TestPlanSchedulerPublisherConfiguration:
         assert publisher.topic_path == "projects/test-project/topics/test-topic"
 
     @patch("spec_compiler.services.plan_scheduler_publisher.pubsub_v1.PublisherClient")
-    def test_initialization_without_credentials_uses_adc(
-        self, mock_publisher_client: Mock
-    ) -> None:
+    def test_initialization_without_credentials_uses_adc(self, mock_publisher_client: Mock) -> None:
         """Test initialization without credentials uses Application Default Credentials."""
         mock_instance = Mock()
         mock_instance.topic_path.return_value = "projects/test-project/topics/test-topic"

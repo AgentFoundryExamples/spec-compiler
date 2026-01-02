@@ -466,9 +466,7 @@ def test_compile_request_logs_llm_response_envelope(test_client: TestClient, cap
     assert any("llm_response_parsed_successfully" in msg for msg in log_messages)
 
     # Verify LLM client creation is logged
-    llm_client_log_records = [
-        r for r in caplog.records if "llm_client_created" in r.message
-    ]
+    llm_client_log_records = [r for r in caplog.records if "llm_client_created" in r.message]
     assert len(llm_client_log_records) > 0
 
     # Check that the log record has the expected structured fields

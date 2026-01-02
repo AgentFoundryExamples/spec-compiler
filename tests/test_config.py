@@ -784,7 +784,7 @@ def test_validate_pubsub_config_credentials_empty_file(tmp_path):
 def test_validate_pubsub_config_credentials_permission_error(tmp_path):
     """Test Pub/Sub config validation with permission or OSError on credentials path."""
     from pathlib import Path as PathClass
-    
+
     creds_file = tmp_path / "credentials.json"
     creds_file.write_text('{"type": "service_account"}')
 
@@ -795,7 +795,7 @@ def test_validate_pubsub_config_credentials_permission_error(tmp_path):
     }
     with patch.dict(os.environ, env, clear=True):
         settings = Settings()
-        
+
         # Mock is_file to raise OSError (simulates race condition or permission issue)
         with patch.object(PathClass, "is_file", side_effect=OSError("Permission denied")):
             result = settings.validate_pubsub_config()

@@ -211,7 +211,9 @@ class TestOpenAiResponsesClient:
             "output": [
                 {
                     "type": "message",
-                    "content": [{"type": "output_text", "text": '{"version": "1.0", "issues": []}'}],
+                    "content": [
+                        {"type": "output_text", "text": '{"version": "1.0", "issues": []}'}
+                    ],
                 }
             ],
             "usage": {
@@ -332,9 +334,7 @@ class TestOpenAiResponsesClient:
 
     @patch("httpx.Client")
     @patch("time.sleep")
-    def test_make_request_exhausts_retries(
-        self, mock_sleep: Mock, mock_client_class: Mock
-    ) -> None:
+    def test_make_request_exhausts_retries(self, mock_sleep: Mock, mock_client_class: Mock) -> None:
         """Test that request fails after exhausting retries."""
         client = OpenAiResponsesClient(api_key="test-key", max_retries=3)
 
@@ -376,9 +376,7 @@ class TestOpenAiResponsesClient:
 
     @patch("spec_compiler.services.openai_responses.OpenAiResponsesClient._make_request_with_retry")
     @patch("spec_compiler.services.openai_responses.OpenAiResponsesClient._parse_response")
-    def test_generate_response_integration(
-        self, mock_parse: Mock, mock_request: Mock
-    ) -> None:
+    def test_generate_response_integration(self, mock_parse: Mock, mock_request: Mock) -> None:
         """Test full generate_response flow."""
         client = OpenAiResponsesClient(api_key="test-key", model="gpt-5.1")
 

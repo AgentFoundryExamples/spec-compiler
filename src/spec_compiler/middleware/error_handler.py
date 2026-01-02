@@ -15,14 +15,55 @@
 Error handling middleware for uniform error responses.
 
 Captures unhandled exceptions and returns structured JSON error responses.
+Also publishes failed status messages when plan context is available.
 """
 
+import json
 import uuid
 
 import structlog
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse
+
+from spec_compiler.models.plan_status import PlanStatusMessage
+from spec_compiler.services.plan_scheduler_publisher import get_publisher
+
+
+def publish_failed_status_safe(
+    plan_id: str,
+    spec_index: int,
+    request_id: str,
+    error_message: str,
+) -> None:
+    """
+    Safely publish a failed status message, catching and logging any errors.
+
+    This function ensures that publisher failures never prevent error responses.
+
+    Args:
+        plan_id: Plan identifier
+        spec_index: Spec index within the plan
+        request_id: Request correlation ID
+        error_message: Error message describing the failure
+    """
+    publisher = get_publisher()
+    if publisher is None:
+        return
+
+    try:
+        message = PlanStatusMessage(
+            plan_id=plan_id,
+            spec_index=spec_index,
+            status="failed",
+            request_id=request_id,
+            error_code="unhandled_exception",
+            error_message=error_message[:1000],  # Truncate for safety
+        )
+        publisher.publish_status(message)
+    except Exception:
+        # Silently fail - we're already in error handling
+        pass
 
 
 class ErrorHandlingMiddleware(BaseHTTPMiddleware):
@@ -67,6 +108,16 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             client_host=request.client.host if request.client else None,
         )
 
+        # Cache body for error handling if it's a compile request
+        # This prevents body consumption issues when we need to extract plan context during error handling
+        if request.method == "POST" and request.url.path == "/compile-spec":
+            try:
+                body = await request.body()
+                # Store the raw body in state. It can be parsed later if needed.
+                request.state.raw_body = body
+            except Exception:
+                request.state.raw_body = None  # Body could not be read
+
         try:
             # Process request through the rest of the middleware chain
             response = await call_next(request)
@@ -106,6 +157,30 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                 method=request.method,
                 path=request.url.path,
             )
+
+            # Try to extract plan context from request body for status publishing
+            plan_id = None
+            spec_index = None
+            try:
+                # Attempt to read and parse body from cached state
+                if request.method == "POST" and request.url.path == "/compile-spec":
+                    raw_body = getattr(request.state, "raw_body", None)
+                    if raw_body:
+                        body_dict = json.loads(raw_body)
+                        plan_id = body_dict.get("plan_id")
+                        spec_index = body_dict.get("spec_index")
+            except Exception:
+                # Silently fail - we're already in error handling
+                pass
+
+            # Publish failed status if we have plan context
+            if plan_id and isinstance(spec_index, int):
+                publish_failed_status_safe(
+                    plan_id=plan_id,
+                    spec_index=spec_index,
+                    request_id=request_id,
+                    error_message=f"Unhandled exception: {type(exc).__name__}: {str(exc)[:1000]}",
+                )
 
             # Create safe error message (don't leak internal details)
             safe_message = (

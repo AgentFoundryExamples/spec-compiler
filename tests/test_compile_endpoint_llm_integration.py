@@ -208,7 +208,7 @@ def test_compile_logs_parsing_errors(test_client: TestClient, caplog) -> None:
         invalid_response = LlmResponseEnvelope(
             request_id="test-request-id",
             status="success",
-            content='not valid json at all',
+            content="not valid json at all",
             model="stub-model",
         )
         mock_instance.generate_response.return_value = invalid_response
@@ -246,10 +246,9 @@ def test_compile_builds_correct_llm_request_envelope(test_client: TestClient) ->
             return LlmResponseEnvelope(
                 request_id=request_envelope.request_id,
                 status="success",
-                content=json.dumps({
-                    "version": "test/1.0",
-                    "issues": [{"id": "TEST-1", "title": "Test"}]
-                }),
+                content=json.dumps(
+                    {"version": "test/1.0", "issues": [{"id": "TEST-1", "title": "Test"}]}
+                ),
                 model="stub-model",
             )
 
@@ -485,6 +484,7 @@ def test_compile_with_unsupported_provider(test_client: TestClient) -> None:
     with patch("spec_compiler.app.routes.compile.settings") as mock_settings:
         # Copy all settings attributes
         from spec_compiler.config import settings as real_settings
+
         for attr in dir(real_settings):
             if not attr.startswith("_"):
                 setattr(mock_settings, attr, getattr(real_settings, attr))

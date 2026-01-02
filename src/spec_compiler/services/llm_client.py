@@ -111,9 +111,7 @@ class StubLlmClient(LlmClient):
                 if sample_path.exists():
                     return str(sample_path)
                 else:
-                    raise FileNotFoundError(
-                        f"sample.v1_1.json not found in repo root: {repo_root}"
-                    )
+                    raise FileNotFoundError(f"sample.v1_1.json not found in repo root: {repo_root}")
 
         raise FileNotFoundError("Could not determine repository root to find sample.v1_1.json.")
 
