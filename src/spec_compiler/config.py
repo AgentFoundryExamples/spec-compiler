@@ -223,6 +223,12 @@ class Settings(BaseSettings):
         """
         Validate LLM configuration and return status.
 
+        This method checks that the provider configuration is correct and that
+        the required API key for the active provider is present. During startup,
+        missing API keys generate warnings but don't block the service. However,
+        when attempting to use a provider without its API key, the client
+        initialization will fail fast with an explicit error.
+
         Returns:
             Dictionary with validation results for LLM configuration.
             Keys: 'provider', 'model', 'api_key', 'system_prompt'
@@ -244,7 +250,9 @@ class Settings(BaseSettings):
         else:
             result["model"] = "unknown_provider"
 
-        # Validate API key is configured (warn if missing, but don't block startup)
+        # Validate API key is configured
+        # This generates a warning during startup but allows the service to start.
+        # When the client is actually used, it will fail fast if the key is missing.
         if self.llm_provider.lower() == "openai":
             result["api_key"] = "ok" if self.openai_api_key else "missing"
         elif self.llm_provider.lower() == "anthropic":
