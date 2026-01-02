@@ -52,7 +52,9 @@
   ├── conftest.py
   ├── test_anthropic_llm_client.py
   ├── test_compile_endpoint.py
+  ├── test_compile_endpoint_downstream.py
   ├── test_compile_endpoint_llm_integration.py
+  ├── test_compile_endpoint_provider_selection.py
   ├── test_compile_endpoint_repo_context.py
   ├── test_compile_endpoint_staged_flow.py
   ├── test_compile_endpoint_status_publishing.py

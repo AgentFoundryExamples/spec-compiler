@@ -1,6 +1,6 @@
 {
   "schema_version": "2.0",
-  "total_files": 48,
+  "total_files": 50,
   "files": [
     {
       "schema_version": "2.0",
@@ -396,6 +396,20 @@
     },
     {
       "schema_version": "2.0",
+      "path": "tests/test_compile_endpoint_downstream.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "summary": "Python test file (role: test)",
+      "summary_text": "Python test file (role: test)",
+      "metrics": {
+        "size_bytes": 17433,
+        "loc": 319,
+        "todo_count": 0
+      }
+    },
+    {
+      "schema_version": "2.0",
       "path": "tests/test_compile_endpoint_llm_integration.py",
       "language": "Python",
       "role": "test",
@@ -405,6 +419,20 @@
       "metrics": {
         "size_bytes": 18491,
         "loc": 368,
+        "todo_count": 0
+      }
+    },
+    {
+      "schema_version": "2.0",
+      "path": "tests/test_compile_endpoint_provider_selection.py",
+      "language": "Python",
+      "role": "test",
+      "role_justification": "filename starts with 'test_'",
+      "summary": "Python test file (role: test)",
+      "summary_text": "Python test file (role: test)",
+      "metrics": {
+        "size_bytes": 16900,
+        "loc": 317,
         "todo_count": 0
       }
     },

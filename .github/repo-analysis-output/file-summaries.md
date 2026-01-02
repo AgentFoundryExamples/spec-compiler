@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 48
+Total files: 50
 
 ## src/spec_compiler/__init__.py
 **Language:** Python  
@@ -258,6 +258,15 @@ Total files: 48
 **LOC:** 405  
 **TODOs/FIXMEs:** 0  
 
+## tests/test_compile_endpoint_downstream.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 17.02 KB  
+**LOC:** 319  
+**TODOs/FIXMEs:** 0  
+
 ## tests/test_compile_endpoint_llm_integration.py
 **Language:** Python  
 **Role:** test  
@@ -265,6 +274,15 @@ Total files: 48
 **Summary:** Python test file (role: test)  
 **Size:** 18.06 KB  
 **LOC:** 368  
+**TODOs/FIXMEs:** 0  
+
+## tests/test_compile_endpoint_provider_selection.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 16.50 KB  
+**LOC:** 317  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_compile_endpoint_repo_context.py

@@ -422,6 +422,22 @@
       }
     },
     {
+      "id": "tests/test_compile_endpoint_downstream.py",
+      "path": "tests/test_compile_endpoint_downstream.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "logging",
+          "unittest.mock.Mock",
+          "unittest.mock.patch"
+        ],
+        "third-party": [
+          "fastapi.testclient.TestClient",
+          "pytest"
+        ]
+      }
+    },
+    {
       "id": "tests/test_compile_endpoint_llm_integration.py",
       "path": "tests/test_compile_endpoint_llm_integration.py",
       "type": "file",
@@ -430,6 +446,24 @@
           "json",
           "logging",
           "unittest.mock.MagicMock",
+          "unittest.mock.patch"
+        ],
+        "third-party": [
+          "fastapi.testclient.TestClient",
+          "pytest"
+        ]
+      }
+    },
+    {
+      "id": "tests/test_compile_endpoint_provider_selection.py",
+      "path": "tests/test_compile_endpoint_provider_selection.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "json",
+          "logging",
+          "unittest.mock.MagicMock",
+          "unittest.mock.Mock",
           "unittest.mock.patch"
         ],
         "third-party": [
@@ -988,6 +1022,14 @@
       "target": "src/spec_compiler/models/compile.py"
     },
     {
+      "source": "tests/test_compile_endpoint_downstream.py",
+      "target": "src/spec_compiler/services/downstream_sender.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_downstream.py",
+      "target": "src/spec_compiler/services/llm_client.py"
+    },
+    {
       "source": "tests/test_compile_endpoint_llm_integration.py",
       "target": "src/spec_compiler/models/__init__.py"
     },
@@ -1002,6 +1044,18 @@
     {
       "source": "tests/test_compile_endpoint_llm_integration.py",
       "target": "src/spec_compiler/config.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_provider_selection.py",
+      "target": "src/spec_compiler/models/__init__.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_provider_selection.py",
+      "target": "src/spec_compiler/app/main.py"
+    },
+    {
+      "source": "tests/test_compile_endpoint_provider_selection.py",
+      "target": "src/spec_compiler/services/llm_client.py"
     },
     {
       "source": "tests/test_compile_endpoint_repo_context.py",

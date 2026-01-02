@@ -234,7 +234,15 @@
         },
         {
           "type": "file",
+          "name": "test_compile_endpoint_downstream.py"
+        },
+        {
+          "type": "file",
           "name": "test_compile_endpoint_llm_integration.py"
+        },
+        {
+          "type": "file",
+          "name": "test_compile_endpoint_provider_selection.py"
         },
         {
           "type": "file",

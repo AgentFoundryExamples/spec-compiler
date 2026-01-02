@@ -8,8 +8,8 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 ## Statistics
 
-- **Total files**: 48
-- **Intra-repo dependencies**: 98
+- **Total files**: 50
+- **Intra-repo dependencies**: 103
 - **External stdlib dependencies**: 28
 - **External third-party dependencies**: 34
 
@@ -70,9 +70,9 @@ Total: 34 unique packages
 ## Most Depended Upon Files (Intra-Repo)
 
 - `src/spec_compiler/config.py` (16 dependents)
+- `src/spec_compiler/models/__init__.py` (10 dependents)
+- `src/spec_compiler/services/llm_client.py` (10 dependents)
 - `src/spec_compiler/models/llm.py` (10 dependents)
-- `src/spec_compiler/models/__init__.py` (9 dependents)
-- `src/spec_compiler/services/llm_client.py` (8 dependents)
 - `src/spec_compiler/models/plan_status.py` (7 dependents)
 - `src/spec_compiler/logging.py` (6 dependents)
 - `src/spec_compiler/services/github_auth.py` (6 dependents)
