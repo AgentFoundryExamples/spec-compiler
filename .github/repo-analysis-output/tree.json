@@ -238,6 +238,10 @@
     },
     {
       "type": "file",
+      "name": "GITHUB_MINTING_ANALYSIS.md"
+    },
+    {
+      "type": "file",
       "name": "LICENSE"
     },
     {

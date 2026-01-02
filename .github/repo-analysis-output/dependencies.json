@@ -184,12 +184,15 @@
       "type": "file",
       "external_dependencies": {
         "stdlib": [
+          "datetime.UTC",
+          "datetime.datetime",
           "typing.Any",
           "typing.Literal"
         ],
         "third-party": [
           "pydantic.BaseModel",
-          "pydantic.Field"
+          "pydantic.Field",
+          "pydantic.field_validator"
         ]
       }
     },
@@ -314,7 +317,9 @@
       "path": "tests/test_models_llm.py",
       "type": "file",
       "external_dependencies": {
-        "stdlib": [],
+        "stdlib": [
+          "datetime.datetime"
+        ],
         "third-party": [
           "pydantic.ValidationError",
           "pytest"
@@ -329,11 +334,11 @@
     },
     {
       "source": "src/spec_compiler/app/main.py",
-      "target": "src/spec_compiler/app/routes/health.py"
+      "target": "src/spec_compiler/app/routes/compile.py"
     },
     {
       "source": "src/spec_compiler/app/main.py",
-      "target": "src/spec_compiler/app/routes/compile.py"
+      "target": "src/spec_compiler/app/routes/health.py"
     },
     {
       "source": "src/spec_compiler/app/main.py",
@@ -444,6 +449,8 @@
     "stdlib": [
       "collections.abc.AsyncGenerator",
       "contextlib.asynccontextmanager",
+      "datetime.UTC",
+      "datetime.datetime",
       "io.StringIO",
       "json",
       "logging",
@@ -481,7 +488,7 @@
       "structlog.types.Processor",
       "uvicorn"
     ],
-    "stdlib_count": 13,
+    "stdlib_count": 15,
     "third-party_count": 23
   }
 }

@@ -53,6 +53,7 @@
 ├── .pre-commit-config.yaml
 ├── Dockerfile
 ├── github-app-basic.openapi.json
+├── GITHUB_MINTING_ANALYSIS.md
 ├── LICENSE
 ├── LLMs.md
 ├── Makefile

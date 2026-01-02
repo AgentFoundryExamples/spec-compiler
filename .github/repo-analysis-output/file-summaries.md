@@ -65,8 +65,8 @@ Total files: 24
 **Role:** configuration  
 **Role Justification:** configuration file name 'config'  
 **Summary:** Python configuration file (role: configuration)  
-**Size:** 3.60 KB  
-**LOC:** 65  
+**Size:** 5.43 KB  
+**LOC:** 100  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/logging.py
@@ -92,8 +92,8 @@ Total files: 24
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 5.79 KB  
-**LOC:** 102  
+**Size:** 5.85 KB  
+**LOC:** 106  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/middleware/request_id.py
@@ -110,8 +110,8 @@ Total files: 24
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
 **Summary:** Python module initialization (role: module-init)  
-**Size:** 2.07 KB  
-**LOC:** 52  
+**Size:** 2.11 KB  
+**LOC:** 54  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/models/compile.py
@@ -128,8 +128,8 @@ Total files: 24
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 4.73 KB  
-**LOC:** 125  
+**Size:** 6.85 KB  
+**LOC:** 181  
 **TODOs/FIXMEs:** 0  
 
 ## tests/__init__.py
@@ -155,8 +155,8 @@ Total files: 24
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 18.81 KB  
-**LOC:** 406  
+**Size:** 18.79 KB  
+**LOC:** 405  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_config.py
@@ -164,8 +164,8 @@ Total files: 24
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 4.17 KB  
-**LOC:** 86  
+**Size:** 8.01 KB  
+**LOC:** 163  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_health.py
@@ -191,8 +191,8 @@ Total files: 24
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 9.13 KB  
-**LOC:** 141  
+**Size:** 9.14 KB  
+**LOC:** 143  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_models_compile.py
@@ -218,6 +218,6 @@ Total files: 24
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 12.52 KB  
-**LOC:** 275  
+**Size:** 18.44 KB  
+**LOC:** 412  
 **TODOs/FIXMEs:** 0  
