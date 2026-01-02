@@ -378,6 +378,128 @@ curl -X POST http://localhost:8080/compile-spec \
 }
 ```
 
+### Repository Context Integration
+
+The compile endpoint automatically fetches repository context from GitHub to enhance LLM compilation. This includes the repository tree structure, dependencies, and file summaries.
+
+#### How It Works
+
+When a compile request is received, the service:
+
+1. **Mints a GitHub Token**: Calls the configured GitHub token minting service to obtain a user-to-server access token for the target repository.
+2. **Fetches Analysis Files**: Retrieves three JSON files from `.github/repo-analysis-output/` in the repository:
+   - `tree.json`: Repository file tree structure
+   - `dependencies.json`: Repository dependencies
+   - `file-summaries.json`: Summaries of key repository files
+3. **Builds Repo Context**: Assembles a `RepoContextPayload` containing the fetched data
+4. **Fallback Handling**: If any file is missing (404) or malformed (invalid JSON), uses placeholder fallback data without failing the request
+5. **Passes to LLM**: Includes the repo context in the metadata sent to downstream LLM services (currently stubbed)
+
+#### Error Handling
+
+**Token Minting Failures:**
+- **500 Internal Server Error**: Minting service not configured (`MINTING_SERVICE_BASE_URL` missing)
+- **502 Bad Gateway**: Minting service returned a 4xx error (client error)
+- **503 Service Unavailable**: Minting service returned a 5xx error (temporary failure)
+
+Error responses include structured JSON with `error`, `request_id`, `plan_id`, `spec_index`, and `message` fields.
+
+**File Fetch Failures:**
+- Missing files (404): Uses fallback placeholder data, logs warning, continues processing
+- Malformed JSON: Uses fallback placeholder data, logs warning, continues processing
+- GitHub API errors (403, 500, etc.): Uses fallback placeholder data, logs warning, continues processing
+- Unexpected errors: Uses full fallback payload, logs error, continues processing
+
+The compile endpoint is designed to be resilient—partial or complete failure to fetch repository context will not block the compilation request. Fallback data ensures downstream LLM processing can proceed with minimal context.
+
+#### Fallback Data Structure
+
+When analysis files are unavailable, the service uses these fallback structures:
+
+**Tree Fallback:**
+```json
+[
+  {
+    "path": ".",
+    "type": "tree",
+    "mode": "040000",
+    "sha": "unavailable",
+    "url": "unavailable",
+    "note": "Repository tree data unavailable"
+  }
+]
+```
+
+**Dependencies Fallback:**
+```json
+[
+  {
+    "name": "unknown",
+    "version": "unknown",
+    "ecosystem": "unknown",
+    "note": "Dependency data unavailable"
+  }
+]
+```
+
+**File Summaries Fallback:**
+```json
+[
+  {
+    "path": "unknown",
+    "summary": "File summary data unavailable",
+    "lines": 0,
+    "note": "Unable to fetch or summarize repository files"
+  }
+]
+```
+
+#### Structured Logging
+
+The service logs detailed information about repo context fetching:
+
+**Success Logs:**
+- `minting_token_start`: Token minting initiated
+- `minting_token_success`: Token successfully minted (includes token type, expiry info)
+- `fetching_repo_context_start`: Repo context fetch initiated
+- `repo_context_tree_success`: Tree file fetched successfully (includes entry count)
+- `repo_context_dependencies_success`: Dependencies file fetched (includes dependency count)
+- `repo_context_file_summaries_success`: File summaries fetched (includes summary count)
+- `fetching_repo_context_success`: All files processed (includes counts for each type)
+
+**Warning Logs (with fallback):**
+- `repo_context_tree_error`: Tree file fetch failed (includes error, status code)
+- `repo_context_tree_invalid_json`: Tree file has invalid JSON
+- `repo_context_dependencies_error`: Dependencies file fetch failed
+- `repo_context_dependencies_invalid_json`: Dependencies file has invalid JSON
+- `repo_context_file_summaries_error`: File summaries fetch failed
+- `repo_context_file_summaries_invalid_json`: File summaries has invalid JSON
+- `repo_context_tree_not_list`: Tree data is not a list (using fallback)
+- `repo_context_dependencies_not_list`: Dependencies data is not a list (using fallback)
+- `repo_context_file_summaries_not_list`: File summaries data is not a list (using fallback)
+
+**Error Logs:**
+- `minting_token_failed`: Token minting failed (includes error, status code, context)
+- `fetching_repo_context_unexpected_error`: Unexpected error during repo context fetch (uses full fallback)
+
+All logs include `request_id`, `owner`, `repo` for correlation and debugging.
+
+#### Configuration Requirements
+
+To enable repository context fetching, configure:
+
+```bash
+# GitHub Token Minting Service
+MINTING_SERVICE_BASE_URL=https://your-minting-service.run.app
+MINTING_SERVICE_AUTH_HEADER=your-gcp-identity-token
+
+# GitHub API (defaults to https://api.github.com)
+GITHUB_API_BASE_URL=https://api.github.com
+```
+
+Without proper minting service configuration, compile requests will return a 500 error.
+
+
 #### Request Headers
 
 - **`X-Request-Id`** (optional): Client-provided request ID for distributed tracing. If not provided or invalid, a UUID will be generated.

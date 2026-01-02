@@ -19,7 +19,7 @@ Provides the main compile endpoint for processing specifications.
 
 import json
 import re
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
 
@@ -359,7 +359,7 @@ async def compile_spec(
             # Ensure all error details are JSON serializable
             serializable_errors = []
             for error in errors:
-                serializable_error = {
+                serializable_error: dict[str, Any] = {
                     "loc": error.get("loc", []),
                     "msg": error.get("msg", ""),
                     "type": error.get("type", ""),
@@ -370,7 +370,8 @@ async def compile_spec(
                     # Ensure ctx is serializable
                     try:
                         json.dumps(error["ctx"])
-                        serializable_error["ctx"] = error["ctx"]
+                        ctx_value: Any = error["ctx"]
+                        serializable_error["ctx"] = ctx_value
                     except (TypeError, ValueError):
                         # Skip non-serializable ctx
                         pass
@@ -482,7 +483,7 @@ async def compile_spec(
                 "spec_index": compile_request.spec_index,
                 "message": "Unable to authenticate with GitHub. Please retry or contact support.",
             },
-        )
+        ) from None
 
     # Fetch repository context
     try:

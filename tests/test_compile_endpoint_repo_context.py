@@ -19,7 +19,6 @@ into the compile endpoint, including token minting, file fetching,
 fallback handling, and error scenarios.
 """
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -36,7 +35,7 @@ def mock_github_auth_client():
     with patch("spec_compiler.app.routes.compile.GitHubAuthClient") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
-        
+
         # Default behavior: successful token minting
         mock_token = GitHubAuthToken(
             access_token="gho_test_token_123",
@@ -44,7 +43,7 @@ def mock_github_auth_client():
             expires_at="2025-12-31T23:59:59+00:00",
         )
         mock_instance.mint_user_to_server_token.return_value = mock_token
-        
+
         yield mock_instance
 
 
@@ -54,14 +53,14 @@ def mock_github_repo_client():
     with patch("spec_compiler.app.routes.compile.GitHubRepoClient") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
-        
+
         # Default behavior: successful file fetching
         mock_instance.get_json_file.side_effect = lambda owner, repo, path, token: {
             "tree.json": {"tree": [{"path": "src/main.py", "type": "blob"}]},
             "dependencies.json": {"dependencies": [{"name": "fastapi", "version": "0.100.0"}]},
             "file-summaries.json": {"summaries": [{"path": "src/main.py", "summary": "Main entry point"}]},
         }.get(path.split("/")[-1], {})
-        
+
         yield mock_instance
 
 
@@ -353,7 +352,7 @@ def test_compile_error_response_maintains_valid_json(
     # Verify response is valid JSON
     assert response.status_code == 503
     data = response.json()
-    
+
     # Verify structure is valid and doesn't have status="failed" string literal
     assert isinstance(data, dict)
     assert "detail" in data
@@ -427,25 +426,25 @@ def test_compile_with_non_list_tree_data_uses_fallback(
 def test_fetch_repo_context_function_directly():
     """Test the fetch_repo_context helper function directly."""
     from spec_compiler.app.routes.compile import fetch_repo_context
-    
+
     with patch("spec_compiler.app.routes.compile.GitHubRepoClient") as mock_client_class:
         mock_instance = MagicMock()
         mock_client_class.return_value = mock_instance
-        
+
         # Mock successful file fetches
         mock_instance.get_json_file.side_effect = lambda owner, repo, path, token: {
             ".github/repo-analysis-output/tree.json": {"tree": [{"path": "main.py"}]},
             ".github/repo-analysis-output/dependencies.json": {"dependencies": [{"name": "fastapi"}]},
             ".github/repo-analysis-output/file-summaries.json": {"summaries": [{"path": "main.py", "summary": "Main"}]},
         }.get(path, {})
-        
+
         result = fetch_repo_context(
             owner="test-owner",
             repo="test-repo",
             token="gho_test",
             request_id="test-request-id",
         )
-        
+
         assert len(result.tree) == 1
         assert len(result.dependencies) == 1
         assert len(result.file_summaries) == 1
