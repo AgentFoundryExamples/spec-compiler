@@ -239,7 +239,236 @@ This project uses GitHub Actions for continuous integration. On every pull reque
 
 See `.github/workflows/ci.yml` for the complete CI configuration.
 
-## Configuration
+## Compile Pipeline
+
+The spec-compiler service processes specification compilation requests through a multi-stage pipeline with comprehensive logging and status publishing. Understanding this pipeline is essential for integrators and developers working with the service.
+
+### Pipeline Architecture
+
+The compilation pipeline executes the following stages sequentially:
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as Compile Endpoint
+    participant Validator as Stage 1: Validate
+    participant StatusPub as Status Publisher
+    participant Minter as Stage 2: Mint Token
+    participant GitHub as GitHub API
+    participant RepoFetch as Stage 3: Fetch Context
+    participant LLMFactory as Stage 4: Create LLM Client
+    participant LLM as Stage 5: Call LLM
+    participant Downstream as Stage 6: Send Downstream
+    participant Logger as Downstream Logger
+    
+    Client->>API: POST /compile-spec (CompileRequest)
+    API->>Validator: Validate request & size limits
+    Validator-->>API: request_id, validated payload
+    
+    API->>StatusPub: Publish "in_progress" status
+    StatusPub->>StatusPub: Pub/Sub topic (plan-scheduler)
+    StatusPub-->>API: Status logged/published
+    
+    API->>Minter: Mint GitHub token
+    Minter->>GitHub: Request user-to-server token
+    GitHub-->>Minter: GitHub access token
+    Minter-->>API: Token string
+    
+    API->>RepoFetch: Fetch repository context
+    RepoFetch->>GitHub: GET .github/repo-analysis-output/tree.json
+    RepoFetch->>GitHub: GET .github/repo-analysis-output/dependencies.json
+    RepoFetch->>GitHub: GET .github/repo-analysis-output/file-summaries.json
+    GitHub-->>RepoFetch: Analysis files (or fallback on error)
+    RepoFetch-->>API: RepoContextPayload
+    
+    API->>LLMFactory: Create LLM client (provider + stub mode)
+    LLMFactory-->>API: Configured LLM client
+    
+    API->>LLM: Generate response (spec + context)
+    LLM->>LLM: API call or stub response
+    LLM-->>API: LlmCompiledSpecOutput (parsed JSON)
+    
+    API->>Downstream: Send compiled spec
+    Downstream->>Logger: Log structured message
+    Logger-->>Downstream: Logged (no actual transport)
+    Downstream-->>API: Send complete
+    
+    API->>StatusPub: Publish "succeeded" status
+    StatusPub->>StatusPub: Pub/Sub topic (plan-scheduler)
+    StatusPub-->>API: Status logged/published
+    
+    API->>Client: HTTP 202 Accepted (CompileResponse)
+    
+    Note over API,StatusPub: On any error: publish "failed" status
+```
+
+### Stage-by-Stage Breakdown
+
+#### Stage 1: Validate Request
+**Function**: `stage_validate_request`
+- **Purpose**: Parse and validate incoming compile request
+- **Actions**:
+  - Check request body size against `MAX_REQUEST_BODY_SIZE_BYTES` limit (default: 10MB)
+  - Parse JSON body and validate with `CompileRequest` Pydantic model
+  - Sanitize optional `Idempotency-Key` header
+  - Generate or extract `request_id` for tracing
+- **Logs**: `stage_validate_request_start`, `stage_validate_request_complete`
+- **Errors**: Returns HTTP 413 (body too large) or HTTP 422 (validation failed)
+
+#### Stage 2: Publish In-Progress Status
+- **Purpose**: Notify plan-scheduler that compilation has started
+- **Actions**:
+  - Create `PlanStatusMessage` with status `in_progress`
+  - Publish to Google Cloud Pub/Sub topic (`PUBSUB_TOPIC_PLAN_STATUS`)
+  - Uses `plan_id` as ordering key to ensure sequential processing
+- **Logs**: `stage_publish_in_progress`, `Published plan status message`
+- **Errors**: Logged but never block pipeline (status publishing failures are non-fatal)
+
+#### Stage 3: Mint GitHub Token
+**Function**: `stage_mint_token`
+- **Purpose**: Obtain GitHub user-to-server access token from minting service
+- **Actions**:
+  - Call `POST {MINTING_SERVICE_BASE_URL}/api/token` with IAM authentication
+  - Receive GitHub access token (format: `gho_...`)
+  - Cache token for subsequent requests (5-minute expiry buffer)
+- **Logs**: `stage_mint_token_start`, `minting_token_success`, `stage_mint_token_complete`
+- **Errors**: 
+  - HTTP 500: Minting service not configured (`MINTING_SERVICE_BASE_URL` missing)
+  - HTTP 502: Minting service returned 4xx error (auth/config issue)
+  - HTTP 503: Minting service returned 5xx error (temporary failure)
+  - Publishes `failed` status before returning error
+
+#### Stage 4: Fetch Repository Context
+**Function**: `stage_fetch_repo_context`
+- **Purpose**: Retrieve repository analysis files for LLM context
+- **Actions**:
+  - Fetch `tree.json` (repository file structure)
+  - Fetch `dependencies.json` (project dependencies)
+  - Fetch `file-summaries.json` (key file summaries)
+  - Use fallback placeholder data for any missing/malformed files
+- **Logs**: `stage_fetch_repo_context_start`, `repo_context_*_success/error`, `stage_fetch_repo_context_complete`
+- **Errors**: Never fatal - uses fallback data to allow compilation to proceed
+
+#### Stage 5: Create LLM Client
+**Function**: `stage_create_llm_client`
+- **Purpose**: Initialize LLM client based on configuration
+- **Actions**:
+  - Check `LLM_STUB_MODE` setting (defaults to `false`)
+  - If stub mode: return `StubLlmClient` (uses `sample.v1_1.json`)
+  - If provider=openai: return `OpenAiResponsesClient` (requires `OPENAI_API_KEY`)
+  - If provider=anthropic: return `ClaudeLlmClient` (requires `CLAUDE_API_KEY`)
+- **Logs**: `stage_create_llm_client_start`, `llm_client_created`, `stage_create_llm_client_complete`
+- **Errors**: 
+  - HTTP 500: Invalid provider or missing API key
+  - Publishes `failed` status before returning error
+
+#### Stage 6: Call LLM Service
+**Function**: `stage_call_llm`
+- **Purpose**: Generate compiled specification using LLM
+- **Actions**:
+  - Build `LlmRequestEnvelope` with system prompt, spec data, and repo context
+  - Call `llm_client.generate_response()` with latency tracking
+  - Parse response as `LlmCompiledSpecOutput` (JSON with issues array)
+  - Record provider, model, duration, and token usage metrics
+- **Logs**: `stage_call_llm_start`, `calling_llm_service`, `llm_service_response_received`, `llm_response_parsed_successfully`, `stage_call_llm_complete`
+- **Errors**:
+  - HTTP 503: LLM API error (network/quota/timeout)
+  - HTTP 500: Response parsing error or unexpected exception
+  - Publishes `failed` status with error details
+
+#### Stage 7: Send Downstream
+**Function**: `stage_send_downstream`
+- **Purpose**: Forward compiled spec to downstream consumer
+- **Actions**:
+  - Call `downstream_sender.send_compiled_spec()`
+  - Current implementation: `DefaultDownstreamLoggerSender` (logging only)
+  - Emits structured log with plan_id, spec_index, version, issue count
+  - Future: Will integrate with actual message queue or API
+- **Logs**: `stage_send_downstream_start`, `downstream_send`, `stage_send_downstream_complete`
+- **Errors**:
+  - HTTP 502: Downstream validation or sender error
+  - HTTP 500: Unexpected downstream error
+  - Publishes `failed` status before returning error
+
+#### Stage 8: Publish Succeeded Status
+- **Purpose**: Notify plan-scheduler that compilation completed successfully
+- **Actions**:
+  - Create `PlanStatusMessage` with status `succeeded`
+  - Publish to Pub/Sub topic with `plan_id` ordering key
+- **Logs**: `stage_publish_succeeded`, `Published plan status message`
+- **Errors**: Logged but never block response (non-fatal)
+
+#### Stage 9: Return Response
+- **Purpose**: Send HTTP response to client
+- **Actions**:
+  - Create `CompileResponse` with request_id, plan_id, spec_index, status "accepted"
+  - Return HTTP 202 Accepted
+  - Log final metrics (LLM duration, provider, model, issue count)
+- **Logs**: `Compile request completed successfully`
+
+### Error Handling and Status Publishing
+
+The pipeline implements comprehensive error handling with status publishing integration:
+
+**Failed Status Publishing**:
+- Published automatically on any stage failure (minting, LLM, downstream)
+- Includes `error_code` and `error_message` (truncated to 10KB, sanitized)
+- Never blocks HTTP error response to client
+- Logged if publisher not configured or publish fails
+
+**Status Message Schema**:
+```json
+{
+  "plan_id": "string",
+  "spec_index": 0,
+  "status": "in_progress|succeeded|failed",
+  "request_id": "uuid",
+  "timestamp": "ISO8601",
+  "error_code": "optional_error_code",
+  "error_message": "optional_error_details"
+}
+```
+
+**Status Flow Integration**:
+1. `spec-compiler` publishes status messages → Pub/Sub topic (`PUBSUB_TOPIC_PLAN_STATUS`)
+2. `plan-scheduler` subscribes to topic and processes updates
+3. Messages use `plan_id` as ordering key for sequential processing
+4. Each plan can have multiple specs (spec_index) tracked independently
+
+### Logging and Observability
+
+**Structured Logging**:
+- All pipeline stages emit JSON logs (when `LOG_JSON=true`)
+- Every log includes `request_id` for distributed tracing
+- Stage-specific logs include stage name and relevant context
+- Latency tracking for LLM calls (start_timestamp, end_timestamp, duration_seconds)
+
+**Key Log Events**:
+- `stage_*_start` / `stage_*_complete`: Stage boundaries
+- `minting_token_*`: Token minting lifecycle
+- `repo_context_*`: Repository context fetching
+- `calling_llm_service` / `llm_service_response_received`: LLM API timing
+- `downstream_send`: Downstream forwarding
+- `Published plan status message`: Status publishing
+
+**Monitoring Recommendations**:
+- Alert on high `failed` status publish rate
+- Track LLM duration trends by provider/model
+- Monitor fallback usage for repo context files
+- Track minting service availability
+
+### Pipeline Configuration
+
+See the [Configuration Guide](#configuration-guide) section below for detailed environment variable documentation.
+
+**Key Pipeline Settings**:
+- `LLM_PROVIDER`: Which LLM to use (openai, anthropic)
+- `LLM_STUB_MODE`: Enable stub mode for testing without API calls
+- `MINTING_SERVICE_BASE_URL`: GitHub token minting service URL
+- `GCP_PROJECT_ID` + `PUBSUB_TOPIC_PLAN_STATUS`: Status publishing config
+- `DOWNSTREAM_TARGET_URI` + `SKIP_DOWNSTREAM_SEND`: Downstream config
+
+## Configuration Guide
 
 All configuration is managed through environment variables. Copy `.env.example` to `.env` and customize as needed.
 
@@ -400,6 +629,279 @@ curl -X POST http://localhost:8080/debug/status
 - GitHub integration and Pub/Sub messaging features are present but may have limited functionality in some environments.
 - Never commit real API keys, tokens, or secrets to version control. Always use `.env` for local secrets (already in `.gitignore`).
 - For production deployments, use your platform's secret management system (e.g., Google Cloud Secret Manager, AWS Secrets Manager).
+
+### Local Development with Stub Mode
+
+For local development and testing without consuming LLM API quota or requiring API keys, the service supports **stub mode** that returns pre-defined responses from a sample file instead of making actual LLM API calls.
+
+#### Enabling Stub Mode
+
+**Option 1: Environment Variable (Recommended)**
+
+Edit your `.env` file:
+```bash
+LLM_STUB_MODE=true
+```
+
+Restart the service to apply changes (stub mode is not hot-reloadable).
+
+**Option 2: Inline Environment Variable**
+
+```bash
+# Linux/macOS
+LLM_STUB_MODE=true PYTHONPATH=src python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 --reload
+
+# Windows PowerShell
+$env:LLM_STUB_MODE="true"; $env:PYTHONPATH="src"; python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 --reload
+```
+
+#### How Stub Mode Works
+
+When `LLM_STUB_MODE=true`:
+
+1. **Client Selection**: Service creates `StubLlmClient` instead of `OpenAiResponsesClient` or `ClaudeLlmClient`
+2. **Sample Response**: Returns pre-defined compiled spec from `sample.v1_1.json` in repository root
+3. **Metadata Simulation**: Response includes simulated provider/model metadata matching configured `LLM_PROVIDER`
+4. **No API Calls**: Zero network calls to OpenAI, Anthropic, or other LLM services
+5. **Zero Cost**: No API quota consumed, no billing charges
+
+**Stub Response Characteristics**:
+- Status: `success`
+- Content: Full compiled spec JSON from sample file
+- Model: Reflects configured provider (e.g., `gpt-5.1` for OpenAI, `claude-3-5-sonnet-20241022` for Anthropic)
+- Usage: Synthetic token counts (all zeros)
+- Metadata: Includes `stub_mode: true`, sample file path, version, issue count
+
+#### Testing with Stub Mode
+
+**Making a Test Request**:
+
+```bash
+curl -X POST http://localhost:8080/compile-spec \
+  -H "Content-Type: application/json" \
+  -H "X-Request-Id: test-$(uuidgen)" \
+  -d '{
+    "plan_id": "test-plan-123",
+    "spec_index": 0,
+    "spec_data": {"type": "feature", "description": "Test feature"},
+    "github_owner": "test-owner",
+    "github_repo": "test-repo"
+  }'
+```
+
+**Expected Response (HTTP 202 Accepted)**:
+```json
+{
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "plan_id": "test-plan-123",
+  "spec_index": 0,
+  "status": "accepted",
+  "message": "Request accepted for processing"
+}
+```
+
+**Verifying Stub Mode in Logs**:
+
+Watch for these log entries confirming stub mode:
+```
+StubLlmClient initialized with sample file: /path/to/sample.v1_1.json
+Generated stub response for request_id=..., version=v1.1, issues=5, provider=openai, model=gpt-5.1
+```
+
+#### Switching LLM Providers (Stub or Real)
+
+**To Switch Providers**:
+
+Edit `.env`:
+```bash
+# Use OpenAI (stub or real)
+LLM_PROVIDER=openai
+OPENAI_MODEL=gpt-5.1
+OPENAI_API_KEY=sk-your-key-here  # Only needed if LLM_STUB_MODE=false
+
+# OR use Anthropic Claude (stub or real)
+LLM_PROVIDER=anthropic
+CLAUDE_MODEL=claude-3-5-sonnet-20241022
+CLAUDE_API_KEY=sk-ant-your-key-here  # Only needed if LLM_STUB_MODE=false
+
+# Stub mode works with either provider
+LLM_STUB_MODE=true
+```
+
+Restart the service after changing providers.
+
+**Provider-Specific Notes**:
+
+- **OpenAI Integration**: Uses Responses API with `gpt-5.1` model (see `LLMs.md`)
+  - API Key Format: `sk-...`
+  - SDK: `openai` Python package
+  - Real API calls require `OPENAI_API_KEY` when `LLM_STUB_MODE=false`
+
+- **Anthropic Claude Integration**: Uses Messages API with `claude-3-5-sonnet-20241022` (see `LLMs.md`)
+  - API Key Format: `sk-ant-...`
+  - SDK: `anthropic` Python package
+  - Real API calls require `CLAUDE_API_KEY` when `LLM_STUB_MODE=false`
+
+- **Stub Mode**: Works identically for both providers
+  - Returns same sample data regardless of provider setting
+  - Simulates provider/model metadata in response
+  - Useful for testing provider-switching logic without API calls
+
+#### Downstream Integration Behavior
+
+The compile pipeline includes a **downstream sender** stage that forwards compiled specs to downstream consumers. The current implementation is **logging-only** and simulates actual transport.
+
+**Current Behavior (DefaultDownstreamLoggerSender)**:
+
+```bash
+# In .env
+DOWNSTREAM_TARGET_URI=placeholder://downstream/target
+SKIP_DOWNSTREAM_SEND=false
+```
+
+**What Happens**:
+1. After LLM compilation completes, `stage_send_downstream` is called
+2. `DefaultDownstreamLoggerSender` emits a structured log message with:
+   - `plan_id`, `spec_index`, `request_id`
+   - Compiled spec version and issue count
+   - Downstream target URI (placeholder)
+3. **No actual network calls** are made (no HTTP POST, no Pub/Sub publish)
+4. Pipeline continues to status publishing and HTTP response
+
+**Example Log Output**:
+```json
+{
+  "event": "downstream_send",
+  "plan_id": "test-plan-123",
+  "spec_index": 0,
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "downstream_target": "placeholder://downstream/target",
+  "spec_version": "v1.1",
+  "issues_count": 5,
+  "timestamp": "2026-01-02T22:40:00Z"
+}
+```
+
+**Skipping Downstream Send**:
+
+To completely bypass downstream sending (useful for isolated testing):
+
+```bash
+# In .env
+SKIP_DOWNSTREAM_SEND=true
+```
+
+When enabled:
+- `stage_send_downstream` logs skip reason and returns immediately
+- No downstream sender is invoked
+- Pipeline continues normally
+
+**Future Integration Expectations**:
+
+When real downstream transport is implemented:
+1. Replace `DefaultDownstreamLoggerSender` with production implementation (e.g., `PubSubDownstreamSender`, `HttpDownstreamSender`)
+2. Set actual `DOWNSTREAM_TARGET_URI` (e.g., `pubsub://my-project/compiled-specs-topic`)
+3. Configure authentication credentials (service account, API keys)
+4. Remove `SKIP_DOWNSTREAM_SEND` flag or set to `false`
+5. Test with real downstream consumer (plan-scheduler or other service)
+
+**Important**: Downstream sending failures are **non-fatal** - if downstream send fails, an error is logged and status is published as `failed`, but the HTTP response is still returned to the client. This prevents downstream issues from blocking the compile API.
+
+#### Verifying Local Setup
+
+**Complete Local Development Checklist**:
+
+1. **Start Service in Stub Mode**:
+   ```bash
+   # Edit .env
+   LLM_STUB_MODE=true
+   APP_ENV=development
+   LOG_LEVEL=DEBUG
+   
+   # Start service
+   PYTHONPATH=src python -m uvicorn spec_compiler.app.main:app --host 0.0.0.0 --port 8080 --reload
+   ```
+
+2. **Check Health**:
+   ```bash
+   curl http://localhost:8080/health
+   # Expected: {"status": "ok"}
+   ```
+
+3. **Make Test Compile Request**:
+   ```bash
+   curl -X POST http://localhost:8080/compile-spec \
+     -H "Content-Type: application/json" \
+     -d '{
+       "plan_id": "dev-test",
+       "spec_index": 0,
+       "spec_data": {"type": "test"},
+       "github_owner": "test",
+       "github_repo": "test"
+     }'
+   ```
+
+4. **Verify Logs**:
+   - Look for `stage_validate_request_complete`
+   - Look for `StubLlmClient initialized`
+   - Look for `Generated stub response`
+   - Look for `Compile request completed successfully`
+
+5. **Check Swagger UI**:
+   - Visit http://localhost:8080/docs
+   - Test compile endpoint interactively
+   - View request/response schemas
+
+**Troubleshooting Local Development**:
+
+- **"Module not found" error**: Set `PYTHONPATH=src` before running uvicorn
+- **"Sample file not found"**: Verify `sample.v1_1.json` exists in repository root
+- **"Publisher not configured" warnings**: Normal in local dev - status publishing disabled without GCP config
+- **"Minting service not configured" errors**: 
+  - Occurs when `MINTING_SERVICE_BASE_URL` is missing
+  - Expected in local dev if not testing GitHub integration
+  - To bypass: Test with mocked GitHub services (see `tests/conftest.py`)
+- **Port already in use**: Change `PORT` in `.env` or use different port in uvicorn command
+
+**Running Tests Locally**:
+
+```bash
+# Run all tests
+PYTHONPATH=src pytest tests/ -v
+
+# Run specific test file
+PYTHONPATH=src pytest tests/test_compile_endpoint.py -v
+
+# Run with coverage
+PYTHONPATH=src pytest tests/ --cov=src/spec_compiler --cov-report=html
+
+# Open coverage report
+open htmlcov/index.html  # macOS
+xdg-open htmlcov/index.html  # Linux
+start htmlcov/index.html  # Windows
+```
+
+**Simulating Success and Failure Scenarios**:
+
+```bash
+# Success case (stub mode)
+LLM_STUB_MODE=true
+# Make compile request → Should succeed with HTTP 202
+
+# Simulate LLM configuration error
+LLM_STUB_MODE=false
+LLM_PROVIDER=invalid_provider
+# Make compile request → Should fail with HTTP 500 "LLM service not configured"
+
+# Simulate missing API key
+LLM_STUB_MODE=false
+LLM_PROVIDER=openai
+OPENAI_API_KEY=  # Empty
+# Make compile request → Should fail with HTTP 500
+
+# Simulate validation error
+# Make compile request with empty plan_id → Should fail with HTTP 422
+```
 
 ### GitHub Token Minting Workflow
 
