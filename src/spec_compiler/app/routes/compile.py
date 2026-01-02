@@ -341,7 +341,7 @@ def fetch_repo_context(
     )
 
 
-def stage_validate_request(
+async def stage_validate_request(
     request: Request,
     idempotency_key: str | None,
 ) -> tuple[str, CompileRequest, str | None]:
@@ -390,6 +390,52 @@ def stage_validate_request(
         except ValueError:
             pass
 
+    # Read and parse body manually after size check
+    body_bytes = await request.body()
+    try:
+        body_dict = json.loads(body_bytes)
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid JSON: {str(e)}",
+        ) from None
+
+    # Validate using Pydantic model
+    try:
+        compile_request = CompileRequest.model_validate(body_dict)
+    except Exception as e:
+        from pydantic import ValidationError
+
+        if isinstance(e, ValidationError):
+            errors = e.errors()
+            serializable_errors = []
+            for error in errors:
+                serializable_error: dict[str, Any] = {
+                    "loc": error.get("loc", []),
+                    "msg": error.get("msg", ""),
+                    "type": error.get("type", ""),
+                }
+                if "input" in error:
+                    serializable_error["input"] = error["input"]
+                if "ctx" in error:
+                    try:
+                        json.dumps(error["ctx"])
+                        ctx_value: Any = error["ctx"]
+                        serializable_error["ctx"] = ctx_value
+                    except (TypeError, ValueError):
+                        pass
+                serializable_errors.append(serializable_error)
+
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=serializable_errors,
+            ) from None
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=str(e),
+            ) from None
+
     # Sanitize idempotency key
     safe_idempotency_key = None
     if idempotency_key:
@@ -404,7 +450,7 @@ def stage_validate_request(
         stage="validate",
     )
 
-    return request_id, None, safe_idempotency_key  # type: ignore[return-value]
+    return request_id, compile_request, safe_idempotency_key
 
 
 def stage_mint_token(
@@ -1154,53 +1200,7 @@ async def compile_spec(
         HTTPException: Various status codes based on failure stage
     """
     # Stage 1: Validate request
-    request_id, _, safe_idempotency_key = stage_validate_request(request, idempotency_key)
-
-    # Read and parse body manually after size check
-    body_bytes = await request.body()
-    try:
-        body_dict = json.loads(body_bytes)
-    except json.JSONDecodeError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid JSON: {str(e)}",
-        ) from None
-
-    # Validate using Pydantic model
-    try:
-        compile_request = CompileRequest.model_validate(body_dict)
-    except Exception as e:
-        from pydantic import ValidationError
-
-        if isinstance(e, ValidationError):
-            errors = e.errors()
-            serializable_errors = []
-            for error in errors:
-                serializable_error: dict[str, Any] = {
-                    "loc": error.get("loc", []),
-                    "msg": error.get("msg", ""),
-                    "type": error.get("type", ""),
-                }
-                if "input" in error:
-                    serializable_error["input"] = error["input"]
-                if "ctx" in error:
-                    try:
-                        json.dumps(error["ctx"])
-                        ctx_value: Any = error["ctx"]
-                        serializable_error["ctx"] = ctx_value
-                    except (TypeError, ValueError):
-                        pass
-                serializable_errors.append(serializable_error)
-
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=serializable_errors,
-            ) from None
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=str(e),
-            ) from None
+    request_id, compile_request, safe_idempotency_key = await stage_validate_request(request, idempotency_key)
 
     # Log receipt of compile request
     logger.info(

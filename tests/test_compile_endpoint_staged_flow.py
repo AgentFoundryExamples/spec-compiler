@@ -212,13 +212,6 @@ def test_compile_stage_order_is_enforced(test_client: TestClient, caplog) -> Non
 
     assert response.status_code == 202
 
-    # Extract stage log messages in order
-    stage_messages = [
-        record.message
-        for record in caplog.records
-        if "stage" in record.message and ("_start" in record.message or "_complete" in record.message)
-    ]
-
     # Define expected stage order
     expected_order = [
         "stage_validate_request_start",
@@ -235,6 +228,13 @@ def test_compile_stage_order_is_enforced(test_client: TestClient, caplog) -> Non
         "stage_send_downstream_start",
         "stage_send_downstream_complete",
         "stage_publish_succeeded",
+    ]
+
+    # Extract stage log messages in order
+    stage_messages = [
+        record.message
+        for record in caplog.records
+        if any(stage_name in record.message for stage_name in expected_order)
     ]
 
     # Check that stages appear in expected order
