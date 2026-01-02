@@ -48,7 +48,6 @@ from spec_compiler.services.llm_client import (
     create_llm_client,
 )
 from spec_compiler.services.plan_scheduler_publisher import (
-    PlanSchedulerPublisher,
     get_publisher,
 )
 

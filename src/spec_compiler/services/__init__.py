@@ -14,9 +14,16 @@
 """
 Services package for spec-compiler.
 
-Provides GitHub authentication, repository access, and LLM clients.
+Provides GitHub authentication, repository access, LLM clients, and downstream senders.
 """
 
+from spec_compiler.services.downstream_sender import (
+    DefaultDownstreamLoggerSender,
+    DownstreamSender,
+    DownstreamSenderError,
+    DownstreamValidationError,
+    get_downstream_sender,
+)
 from spec_compiler.services.github_auth import GitHubAuthClient, MintingError
 from spec_compiler.services.github_repo import (
     GitHubFileError,
@@ -41,6 +48,11 @@ from spec_compiler.services.plan_scheduler_publisher import (
 )
 
 __all__ = [
+    "DownstreamSender",
+    "DefaultDownstreamLoggerSender",
+    "DownstreamSenderError",
+    "DownstreamValidationError",
+    "get_downstream_sender",
     "GitHubAuthClient",
     "MintingError",
     "GitHubRepoClient",

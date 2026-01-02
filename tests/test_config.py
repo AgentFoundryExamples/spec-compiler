@@ -828,3 +828,47 @@ def test_pubsub_config_case_insensitive():
         assert settings.gcp_project_id == "test-project"
         assert settings.pubsub_topic_plan_status == "test-topic"
         assert settings.pubsub_credentials_path == "/path/to/creds.json"
+
+
+def test_downstream_sender_config_defaults():
+    """Test that downstream sender configuration has sensible defaults."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        assert settings.downstream_target_uri is None
+        assert settings.skip_downstream_send is False
+
+
+def test_downstream_sender_config_from_env():
+    """Test that downstream sender configuration is loaded from environment variables."""
+    env = {
+        "DOWNSTREAM_TARGET_URI": "pubsub://my-project/my-topic",
+        "SKIP_DOWNSTREAM_SEND": "true",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        assert settings.downstream_target_uri == "pubsub://my-project/my-topic"
+        assert settings.skip_downstream_send is True
+
+
+def test_downstream_sender_config_skip_send_false():
+    """Test that SKIP_DOWNSTREAM_SEND can be explicitly set to false."""
+    env = {
+        "DOWNSTREAM_TARGET_URI": "kafka://my-cluster/my-topic",
+        "SKIP_DOWNSTREAM_SEND": "false",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        assert settings.downstream_target_uri == "kafka://my-cluster/my-topic"
+        assert settings.skip_downstream_send is False
+
+
+def test_downstream_sender_config_case_insensitive():
+    """Test that downstream sender environment variables are case-insensitive."""
+    env = {
+        "downstream_target_uri": "https://api.example.com/specs",
+        "skip_downstream_send": "TRUE",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        assert settings.downstream_target_uri == "https://api.example.com/specs"
+        assert settings.skip_downstream_send is True

@@ -524,7 +524,7 @@ class TestPublisherConcurrency:
             _, data, _ = publish_calls.get()
             msg_dict = json.loads(data)
             published_plan_ids.add(msg_dict["plan_id"])
-        
+
         expected_plan_ids = {f"plan-{i}" for i in range(10)}
         assert published_plan_ids == expected_plan_ids
 
@@ -635,4 +635,3 @@ class TestPublisherConcurrency:
         call_args = mock_client.publish.call_args
         published_data = call_args[0][1]
         assert len(published_data) < len(large_error.encode("utf-8"))
-

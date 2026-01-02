@@ -317,7 +317,9 @@ def test_middleware_does_not_block_response_on_publish_failure(
         assert response.json()["error"] == "internal_error"
 
 
-def test_middleware_handles_unparseable_request_body(test_client_with_error_routes: TestClient, mock_publisher) -> None:
+def test_middleware_handles_unparseable_request_body(
+    test_client_with_error_routes: TestClient, mock_publisher
+) -> None:
     """Test that middleware handles errors when request body can't be parsed."""
     # Use the test-error endpoint which doesn't have a request body
     response = test_client_with_error_routes.get("/test-error")
@@ -328,7 +330,9 @@ def test_middleware_handles_unparseable_request_body(test_client_with_error_rout
     assert mock_publisher.call_count == 0
 
 
-def test_middleware_extracts_plan_context_from_body(test_client_with_error_routes: TestClient, mock_publisher) -> None:
+def test_middleware_extracts_plan_context_from_body(
+    test_client_with_error_routes: TestClient, mock_publisher
+) -> None:
     """Test that middleware can extract plan context from compile request body."""
     from unittest.mock import patch
 
@@ -387,4 +391,3 @@ def test_middleware_status_publishing_idempotent_across_errors(
         # Should have published one more failed status
         final_count = len(mock_publisher.get_messages_by_status("failed"))
         assert final_count == initial_count + 1
-

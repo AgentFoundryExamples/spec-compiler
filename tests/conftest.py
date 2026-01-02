@@ -18,8 +18,7 @@ Provides shared test fixtures for the test suite, including publisher mocks
 for status publishing tests.
 """
 
-from typing import Any
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -130,32 +129,32 @@ def test_client_with_error_routes() -> TestClient:
 class PublisherMock:
     """
     Mock publisher that captures published messages for testing.
-    
+
     This mock provides a way to verify that status messages were published
     with the correct content and in the correct order.
     """
-    
+
     def __init__(self):
         self.messages: list[PlanStatusMessage] = []
         self.call_count = 0
         self.should_raise = None
-        
+
     def publish_status(self, message: PlanStatusMessage, ordering_key: str | None = None) -> None:
         """Mock publish_status that captures messages."""
         self.call_count += 1
         self.messages.append(message)
-        
+
         if self.should_raise:
             raise self.should_raise
-    
+
     def get_messages_by_status(self, status: str) -> list[PlanStatusMessage]:
         """Get all messages with a specific status."""
         return [msg for msg in self.messages if msg.status == status]
-    
+
     def get_messages_by_plan(self, plan_id: str) -> list[PlanStatusMessage]:
         """Get all messages for a specific plan."""
         return [msg for msg in self.messages if msg.plan_id == plan_id]
-    
+
     def clear(self) -> None:
         """Clear captured messages."""
         self.messages.clear()
@@ -167,12 +166,12 @@ class PublisherMock:
 def mock_publisher():
     """
     Provide a PublisherMock that captures status messages.
-    
+
     Example usage:
         def test_something(mock_publisher):
             # Make API call that publishes status
             response = client.post(...)
-            
+
             # Verify messages were published
             assert mock_publisher.call_count == 2
             assert len(mock_publisher.get_messages_by_status("in_progress")) == 1
@@ -188,7 +187,7 @@ def mock_publisher():
 def mock_publisher_disabled():
     """
     Provide a disabled publisher (returns None) for testing graceful degradation.
-    
+
     Example usage:
         def test_compile_without_publisher(mock_publisher_disabled):
             # API should still work even without publisher configured
