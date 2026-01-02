@@ -16,6 +16,9 @@ httpx==0.28.1
 # OpenAI SDK for LLM integration
 openai==1.58.1
 
+# Google Cloud Pub/Sub for status publishing
+google-cloud-pubsub==2.26.1
+
 # Testing dependencies
 pytest==8.3.4
 pytest-asyncio==0.24.0
