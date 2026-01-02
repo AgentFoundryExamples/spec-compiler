@@ -26,14 +26,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from spec_compiler.models import GitHubAuthToken, LlmResponseEnvelope
-from spec_compiler.services.llm_client import LlmApiError, LlmConfigurationError
+from spec_compiler.services.llm_client import LlmApiError
 
 
 @pytest.fixture
 def test_client_without_stub() -> TestClient:
     """
     Create a test client without stub mode for testing real LLM integration.
-    
+
     Returns:
         TestClient instance with LLM stub mode disabled
     """
@@ -169,7 +169,7 @@ def test_compile_with_malformed_llm_json_returns_500(test_client: TestClient) ->
     with patch("spec_compiler.services.llm_client.StubLlmClient") as mock_stub_class:
         mock_instance = MagicMock()
         mock_stub_class.return_value = mock_instance
-        
+
         # Return response with invalid JSON content
         invalid_response = LlmResponseEnvelope(
             request_id="test-request-id",
@@ -204,7 +204,7 @@ def test_compile_logs_parsing_errors(test_client: TestClient, caplog) -> None:
     with patch("spec_compiler.services.llm_client.StubLlmClient") as mock_stub_class:
         mock_instance = MagicMock()
         mock_stub_class.return_value = mock_instance
-        
+
         invalid_response = LlmResponseEnvelope(
             request_id="test-request-id",
             status="success",
@@ -234,11 +234,11 @@ def test_compile_builds_correct_llm_request_envelope(test_client: TestClient) ->
 
     # Mock the LLM client to capture the request envelope
     captured_request = None
-    
+
     with patch("spec_compiler.services.llm_client.StubLlmClient") as mock_stub_class:
         mock_instance = MagicMock()
         mock_stub_class.return_value = mock_instance
-        
+
         def capture_request(request_envelope):
             nonlocal captured_request
             captured_request = request_envelope
@@ -252,7 +252,7 @@ def test_compile_builds_correct_llm_request_envelope(test_client: TestClient) ->
                 }),
                 model="stub-model",
             )
-        
+
         mock_instance.generate_response.side_effect = capture_request
 
         response = test_client.post("/compile-spec", json=payload)
@@ -280,7 +280,7 @@ def test_compile_with_missing_version_in_response(test_client: TestClient) -> No
     with patch("spec_compiler.services.llm_client.StubLlmClient") as mock_stub_class:
         mock_instance = MagicMock()
         mock_stub_class.return_value = mock_instance
-        
+
         # Return response without version field
         invalid_response = LlmResponseEnvelope(
             request_id="test-request-id",
@@ -310,7 +310,7 @@ def test_compile_with_missing_issues_in_response(test_client: TestClient) -> Non
     with patch("spec_compiler.services.llm_client.StubLlmClient") as mock_stub_class:
         mock_instance = MagicMock()
         mock_stub_class.return_value = mock_instance
-        
+
         # Return response without issues field
         invalid_response = LlmResponseEnvelope(
             request_id="test-request-id",
@@ -340,7 +340,7 @@ def test_compile_with_empty_issues_array(test_client: TestClient) -> None:
     with patch("spec_compiler.services.llm_client.StubLlmClient") as mock_stub_class:
         mock_instance = MagicMock()
         mock_stub_class.return_value = mock_instance
-        
+
         # Return response with empty issues array (valid)
         valid_response = LlmResponseEnvelope(
             request_id="test-request-id",
@@ -413,11 +413,11 @@ def test_compile_includes_repo_context_in_llm_request(test_client: TestClient) -
     }
 
     captured_request = None
-    
+
     with patch("spec_compiler.services.llm_client.StubLlmClient") as mock_stub_class:
         mock_instance = MagicMock()
         mock_stub_class.return_value = mock_instance
-        
+
         def capture_request(request_envelope):
             nonlocal captured_request
             captured_request = request_envelope
@@ -427,7 +427,7 @@ def test_compile_includes_repo_context_in_llm_request(test_client: TestClient) -
                 content=json.dumps({"version": "1.0", "issues": []}),
                 model="stub-model",
             )
-        
+
         mock_instance.generate_response.side_effect = capture_request
 
         response = test_client.post("/compile-spec", json=payload)
