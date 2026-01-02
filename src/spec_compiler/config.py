@@ -19,11 +19,18 @@ Manages environment variables and application settings using Pydantic BaseSettin
 
 import logging
 from pathlib import Path
+from threading import Lock
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
+
+# Constants for security limits
+MAX_PROMPT_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit for prompt files
+
+# Class-level lock for thread-safe prompt caching (shared across all instances)
+_prompt_cache_lock = Lock()
 
 
 class Settings(BaseSettings):
@@ -58,7 +65,7 @@ class Settings(BaseSettings):
         description="OpenAI model to use for compilations",
     )
     claude_model: str = Field(
-        default="claude-sonnet-4.5",
+        default="claude-3-5-sonnet-20241022",
         description="Anthropic Claude model to use for compilations",
     )
     system_prompt_path: str | None = Field(
@@ -249,6 +256,40 @@ class Settings(BaseSettings):
 
     _system_prompt_cache: str | None = None
 
+    def _validate_prompt_path(self, path: Path) -> tuple[bool, str | None]:
+        """
+        Validate the prompt file path for security concerns.
+
+        Args:
+            path: Path object to validate
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        # Resolve to absolute path to prevent path traversal
+        try:
+            resolved_path = path.resolve()
+        except (OSError, RuntimeError) as e:
+            return False, f"Failed to resolve path: {e}"
+
+        # Check if path is a file (not directory or symlink to sensitive locations)
+        if not resolved_path.is_file():
+            return False, "Path is not a regular file"
+
+        # Check file size to prevent unbounded reads
+        try:
+            file_size = resolved_path.stat().st_size
+            if file_size > MAX_PROMPT_FILE_SIZE:
+                return (
+                    False,
+                    f"File size ({file_size} bytes) exceeds maximum allowed "
+                    f"({MAX_PROMPT_FILE_SIZE} bytes)",
+                )
+        except OSError as e:
+            return False, f"Failed to get file size: {e}"
+
+        return True, None
+
     def get_system_prompt(self) -> str:
         """
         Load and return the system prompt content.
@@ -262,50 +303,65 @@ class Settings(BaseSettings):
         Raises:
             RuntimeError: If configured prompt file cannot be read
         """
-        # Return cached prompt if available
+        # Return cached prompt if available (quick check without lock)
         if self._system_prompt_cache is not None:
             return self._system_prompt_cache
 
-        # If path is configured, try to load from file
-        if self.system_prompt_path:
-            try:
-                prompt_path = Path(self.system_prompt_path)
-                if not prompt_path.exists():
-                    logger.warning(
-                        f"System prompt file not found at {self.system_prompt_path}, "
-                        "using default prompt"
+        with _prompt_cache_lock:
+            # Double-check if another thread populated the cache while waiting for the lock
+            if self._system_prompt_cache is not None:
+                return self._system_prompt_cache  # type: ignore[unreachable]
+
+            # If path is configured, try to load from file
+            if self.system_prompt_path:
+                try:
+                    prompt_path = Path(self.system_prompt_path)
+                    if not prompt_path.exists():
+                        logger.warning(
+                            f"System prompt file not found at {self.system_prompt_path}, "
+                            "using default prompt"
+                        )
+                        self._system_prompt_cache = self._get_default_system_prompt()
+                        return self._system_prompt_cache
+
+                    # Validate path for security
+                    is_valid, error_msg = self._validate_prompt_path(prompt_path)
+                    if not is_valid:
+                        logger.error(
+                            f"System prompt path validation failed: {error_msg}. "
+                            "Using default prompt."
+                        )
+                        self._system_prompt_cache = self._get_default_system_prompt()
+                        return self._system_prompt_cache
+
+                    # Read the file content with size limit enforced by validation
+                    content = prompt_path.read_text(encoding="utf-8")
+                    if not content.strip():
+                        logger.warning(
+                            f"System prompt file at {self.system_prompt_path} is empty, "
+                            "using default prompt"
+                        )
+                        self._system_prompt_cache = self._get_default_system_prompt()
+                        return self._system_prompt_cache
+
+                    logger.info(
+                        f"Loaded system prompt from {self.system_prompt_path} "
+                        f"({len(content)} characters)"
+                    )
+                    self._system_prompt_cache = content
+                    return self._system_prompt_cache
+
+                except Exception as e:
+                    logger.error(
+                        f"Failed to read system prompt from {self.system_prompt_path}: {e}. "
+                        "Using default prompt."
                     )
                     self._system_prompt_cache = self._get_default_system_prompt()
                     return self._system_prompt_cache
 
-                # Read the file content
-                content = prompt_path.read_text(encoding="utf-8")
-                if not content.strip():
-                    logger.warning(
-                        f"System prompt file at {self.system_prompt_path} is empty, "
-                        "using default prompt"
-                    )
-                    self._system_prompt_cache = self._get_default_system_prompt()
-                    return self._system_prompt_cache
-
-                logger.info(
-                    f"Loaded system prompt from {self.system_prompt_path} "
-                    f"({len(content)} characters)"
-                )
-                self._system_prompt_cache = content
-                return self._system_prompt_cache
-
-            except Exception as e:
-                logger.error(
-                    f"Failed to read system prompt from {self.system_prompt_path}: {e}. "
-                    "Using default prompt."
-                )
-                self._system_prompt_cache = self._get_default_system_prompt()
-                return self._system_prompt_cache
-
-        # No path configured, use default
-        self._system_prompt_cache = self._get_default_system_prompt()
-        return self._system_prompt_cache
+            # No path configured, use default
+            self._system_prompt_cache = self._get_default_system_prompt()
+            return self._system_prompt_cache
 
     def _get_default_system_prompt(self) -> str:
         """
@@ -326,7 +382,8 @@ class Settings(BaseSettings):
 
         Useful for testing or when prompt file has been updated and needs to be reloaded.
         """
-        self._system_prompt_cache = None
+        with _prompt_cache_lock:
+            self._system_prompt_cache = None
 
 
 # Global settings instance

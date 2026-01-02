@@ -276,10 +276,10 @@ def test_openai_model_from_env():
 
 
 def test_claude_model_default():
-    """Test that Claude model defaults to claude-sonnet-4.5."""
+    """Test that Claude model defaults to claude-3-5-sonnet-20241022."""
     with patch.dict(os.environ, {}, clear=True):
         settings = Settings()
-        assert settings.claude_model == "claude-sonnet-4.5"
+        assert settings.claude_model == "claude-3-5-sonnet-20241022"
 
 
 def test_claude_model_from_env():
@@ -341,7 +341,7 @@ def test_validate_llm_config_anthropic_all_ok():
     """Test LLM config validation with valid Anthropic configuration."""
     env = {
         "LLM_PROVIDER": "anthropic",
-        "CLAUDE_MODEL": "claude-sonnet-4.5",
+        "CLAUDE_MODEL": "claude-3-5-sonnet-20241022",
         "CLAUDE_API_KEY": "sk-ant-test-key",
     }
     with patch.dict(os.environ, env, clear=True):
@@ -539,3 +539,125 @@ def test_get_system_prompt_large_file(tmp_path):
         prompt = settings.get_system_prompt()
         assert len(prompt) == 100_000
         assert prompt == large_content
+
+
+def test_get_system_prompt_file_too_large(tmp_path):
+    """Test that oversized prompt files are rejected."""
+    from spec_compiler.config import MAX_PROMPT_FILE_SIZE
+
+    prompt_file = tmp_path / "huge.txt"
+    # Create a file larger than MAX_PROMPT_FILE_SIZE
+    huge_content = "A" * (MAX_PROMPT_FILE_SIZE + 1000)
+    prompt_file.write_text(huge_content)
+
+    env = {"SYSTEM_PROMPT_PATH": str(prompt_file)}
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        prompt = settings.get_system_prompt()
+        # Should fall back to default prompt
+        assert "AI assistant" in prompt
+        assert len(prompt) < 1000  # Default prompt is much smaller
+
+
+def test_get_system_prompt_thread_safety(tmp_path):
+    """Test that concurrent access to system prompt is thread-safe."""
+    import threading
+
+    prompt_file = tmp_path / "concurrent.txt"
+    prompt_file.write_text("Thread-safe prompt content")
+
+    env = {"SYSTEM_PROMPT_PATH": str(prompt_file)}
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+
+        results = []
+        errors = []
+
+        def load_prompt():
+            try:
+                result = settings.get_system_prompt()
+                results.append(result)
+            except Exception as e:
+                errors.append(e)
+
+        # Create multiple threads trying to load at the same time
+        threads = [threading.Thread(target=load_prompt) for _ in range(10)]
+
+        for thread in threads:
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        # All threads should get the same result
+        assert len(errors) == 0
+        assert len(results) == 10
+        assert all(r == "Thread-safe prompt content" for r in results)
+
+
+def test_clear_prompt_cache_thread_safety(tmp_path):
+    """Test that cache clearing is thread-safe."""
+    import threading
+
+    prompt_file = tmp_path / "cache_clear.txt"
+    prompt_file.write_text("Initial content")
+
+    env = {"SYSTEM_PROMPT_PATH": str(prompt_file)}
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+
+        # Load initial prompt
+        initial = settings.get_system_prompt()
+        assert initial == "Initial content"
+
+        errors = []
+
+        def clear_and_reload():
+            try:
+                settings.clear_prompt_cache()
+                settings.get_system_prompt()
+            except Exception as e:
+                errors.append(e)
+
+        # Multiple threads clearing and reloading
+        threads = [threading.Thread(target=clear_and_reload) for _ in range(5)]
+
+        for thread in threads:
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        # Should not have any errors
+        assert len(errors) == 0
+
+
+def test_validate_prompt_path_security(tmp_path):
+    """Test that path validation prevents directory traversal."""
+    # Create a prompt file
+    prompt_file = tmp_path / "legit.txt"
+    prompt_file.write_text("Legitimate prompt")
+
+    env = {"SYSTEM_PROMPT_PATH": str(prompt_file)}
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+
+        # Test with legitimate file
+        from pathlib import Path
+
+        is_valid, error = settings._validate_prompt_path(Path(str(prompt_file)))
+        assert is_valid is True
+        assert error is None
+
+
+def test_validate_prompt_path_rejects_directory(tmp_path):
+    """Test that directories are rejected as prompt paths."""
+    env = {"SYSTEM_PROMPT_PATH": str(tmp_path)}
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+
+        from pathlib import Path
+
+        is_valid, error = settings._validate_prompt_path(Path(str(tmp_path)))
+        assert is_valid is False
+        assert "not a regular file" in error.lower()

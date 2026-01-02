@@ -161,7 +161,7 @@ The following environment variables are available (see `.env.example` for a comp
   - `openai`: Use OpenAI GPT models (requires `OPENAI_API_KEY`)
   - `anthropic`: Use Anthropic Claude models (requires `CLAUDE_API_KEY`)
 - **`OPENAI_MODEL`**: OpenAI model name when using OpenAI provider (default: `gpt-5.1`). Recommended models: `gpt-5.1` (uses Responses API, see `LLMs.md` for details).
-- **`CLAUDE_MODEL`**: Anthropic Claude model name when using Anthropic provider (default: `claude-sonnet-4.5`). Recommended models: `claude-sonnet-4.5`, `claude-opus-4` (uses Messages API, see `LLMs.md` for details).
+- **`CLAUDE_MODEL`**: Anthropic Claude model name when using Anthropic provider (default: `claude-3-5-sonnet-20241022`). This is the latest Claude 3.5 Sonnet model (uses Messages API, see `LLMs.md` for details).
 - **`SYSTEM_PROMPT_PATH`**: Optional path to a file containing the system prompt for LLM requests. Can be absolute (e.g., `/app/prompts/system.txt`) or relative to the working directory (e.g., `./prompts/system.txt`). If not set or file is unreadable, a default prompt is used. Large prompt files are cached after first load for performance.
 - **`LLM_STUB_MODE`**: Enable stub mode to bypass actual LLM API calls (default: `false`). When `true`, returns stubbed responses without calling external APIs. Useful for:
   - Local development without API keys
