@@ -17,8 +17,13 @@ Configuration module for spec-compiler service.
 Manages environment variables and application settings using Pydantic BaseSettings.
 """
 
-from pydantic import Field
+import logging
+from pathlib import Path
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -42,6 +47,28 @@ class Settings(BaseSettings):
     # API Keys - Optional to allow service to start without them
     openai_api_key: str | None = Field(default=None, description="OpenAI API key")
     claude_api_key: str | None = Field(default=None, description="Anthropic Claude API key")
+
+    # LLM Configuration
+    llm_provider: str = Field(
+        default="openai",
+        description="LLM provider to use (openai|anthropic)",
+    )
+    openai_model: str = Field(
+        default="gpt-5.1",
+        description="OpenAI model to use for compilations",
+    )
+    claude_model: str = Field(
+        default="claude-sonnet-4.5",
+        description="Anthropic Claude model to use for compilations",
+    )
+    system_prompt_path: str | None = Field(
+        default=None,
+        description="Path to system prompt file. If not set, uses default prompt.",
+    )
+    llm_stub_mode: bool = Field(
+        default=False,
+        description="Enable stub mode to bypass actual LLM API calls for testing",
+    )
 
     # Google Cloud Configuration
     gcp_project_id: str | None = Field(default=None, description="GCP Project ID")
@@ -150,6 +177,156 @@ class Settings(BaseSettings):
         result["minting_auth_configured"] = "yes" if self.minting_service_auth_header else "no"
 
         return result
+
+    @field_validator("llm_provider")
+    @classmethod
+    def validate_llm_provider(cls, v: str) -> str:
+        """
+        Validate LLM provider is one of the supported values.
+
+        Args:
+            v: The provider value to validate
+
+        Returns:
+            The validated provider value (lowercased)
+
+        Raises:
+            ValueError: If provider is not supported
+        """
+        v_lower = v.lower().strip()
+        if v_lower not in ("openai", "anthropic"):
+            raise ValueError(f"Invalid LLM provider '{v}'. Must be 'openai' or 'anthropic'.")
+        return v_lower
+
+    def validate_llm_config(self) -> dict[str, str]:
+        """
+        Validate LLM configuration and return status.
+
+        Returns:
+            Dictionary with validation results for LLM configuration.
+            Keys: 'provider', 'model', 'api_key', 'system_prompt'
+            Values: 'ok', 'missing', 'invalid', or specific status
+        """
+        result: dict[str, str] = {}
+
+        # Validate provider (already validated by field_validator, but check anyway)
+        if self.llm_provider.lower() in ("openai", "anthropic"):
+            result["provider"] = "ok"
+        else:
+            result["provider"] = "invalid"
+
+        # Validate model is set
+        if self.llm_provider.lower() == "openai":
+            result["model"] = "ok" if self.openai_model.strip() else "missing"
+        elif self.llm_provider.lower() == "anthropic":
+            result["model"] = "ok" if self.claude_model.strip() else "missing"
+        else:
+            result["model"] = "unknown_provider"
+
+        # Validate API key is configured (warn if missing, but don't block startup)
+        if self.llm_provider.lower() == "openai":
+            result["api_key"] = "ok" if self.openai_api_key else "missing"
+        elif self.llm_provider.lower() == "anthropic":
+            result["api_key"] = "ok" if self.claude_api_key else "missing"
+        else:
+            result["api_key"] = "unknown_provider"
+
+        # Validate system prompt path if configured
+        if self.system_prompt_path:
+            prompt_path = Path(self.system_prompt_path)
+            if not prompt_path.exists():
+                result["system_prompt"] = "file_not_found"
+            elif not prompt_path.is_file():
+                result["system_prompt"] = "not_a_file"
+            elif not prompt_path.stat().st_size:
+                result["system_prompt"] = "empty_file"
+            else:
+                result["system_prompt"] = "ok"
+        else:
+            result["system_prompt"] = "using_default"
+
+        return result
+
+    _system_prompt_cache: str | None = None
+
+    def get_system_prompt(self) -> str:
+        """
+        Load and return the system prompt content.
+
+        If system_prompt_path is configured, loads from that file (with caching).
+        Otherwise, returns a default system prompt.
+
+        Returns:
+            The system prompt content as a string
+
+        Raises:
+            RuntimeError: If configured prompt file cannot be read
+        """
+        # Return cached prompt if available
+        if self._system_prompt_cache is not None:
+            return self._system_prompt_cache
+
+        # If path is configured, try to load from file
+        if self.system_prompt_path:
+            try:
+                prompt_path = Path(self.system_prompt_path)
+                if not prompt_path.exists():
+                    logger.warning(
+                        f"System prompt file not found at {self.system_prompt_path}, "
+                        "using default prompt"
+                    )
+                    self._system_prompt_cache = self._get_default_system_prompt()
+                    return self._system_prompt_cache
+
+                # Read the file content
+                content = prompt_path.read_text(encoding="utf-8")
+                if not content.strip():
+                    logger.warning(
+                        f"System prompt file at {self.system_prompt_path} is empty, "
+                        "using default prompt"
+                    )
+                    self._system_prompt_cache = self._get_default_system_prompt()
+                    return self._system_prompt_cache
+
+                logger.info(
+                    f"Loaded system prompt from {self.system_prompt_path} "
+                    f"({len(content)} characters)"
+                )
+                self._system_prompt_cache = content
+                return self._system_prompt_cache
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to read system prompt from {self.system_prompt_path}: {e}. "
+                    "Using default prompt."
+                )
+                self._system_prompt_cache = self._get_default_system_prompt()
+                return self._system_prompt_cache
+
+        # No path configured, use default
+        self._system_prompt_cache = self._get_default_system_prompt()
+        return self._system_prompt_cache
+
+    def _get_default_system_prompt(self) -> str:
+        """
+        Return the default system prompt when no custom prompt is configured.
+
+        Returns:
+            Default system prompt text
+        """
+        return (
+            "You are an AI assistant that helps compile and process specifications. "
+            "Analyze the provided specification data and generate appropriate responses "
+            "based on the context and requirements."
+        )
+
+    def clear_prompt_cache(self) -> None:
+        """
+        Clear the cached system prompt.
+
+        Useful for testing or when prompt file has been updated and needs to be reloaded.
+        """
+        self._system_prompt_cache = None
 
 
 # Global settings instance

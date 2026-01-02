@@ -153,8 +153,33 @@ The following environment variables are available (see `.env.example` for a comp
 - **`APP_VERSION`**: Application version string (default: `0.1.0`). Can also use git SHA.
 
 #### API Keys (Optional - Not Required for Core Functionality)
-- **`OPENAI_API_KEY`**: OpenAI API key for GPT models (format: `sk-...`). **Not yet used** - reserved for future LLM integrations.
-- **`CLAUDE_API_KEY`**: Anthropic API key for Claude models (format: `sk-ant-...`). **Not yet used** - reserved for future LLM integrations.
+- **`OPENAI_API_KEY`**: OpenAI API key for GPT models (format: `sk-...`). Required when `LLM_PROVIDER=openai` and `LLM_STUB_MODE=false`.
+- **`CLAUDE_API_KEY`**: Anthropic API key for Claude models (format: `sk-ant-...`). Required when `LLM_PROVIDER=anthropic` and `LLM_STUB_MODE=false`.
+
+#### LLM Configuration
+- **`LLM_PROVIDER`**: Which LLM provider to use for spec compilation (default: `openai`). Valid values:
+  - `openai`: Use OpenAI GPT models (requires `OPENAI_API_KEY`)
+  - `anthropic`: Use Anthropic Claude models (requires `CLAUDE_API_KEY`)
+- **`OPENAI_MODEL`**: OpenAI model name when using OpenAI provider (default: `gpt-5.1`). Recommended models: `gpt-5.1` (uses Responses API, see `LLMs.md` for details).
+- **`CLAUDE_MODEL`**: Anthropic Claude model name when using Anthropic provider (default: `claude-sonnet-4.5`). Recommended models: `claude-sonnet-4.5`, `claude-opus-4` (uses Messages API, see `LLMs.md` for details).
+- **`SYSTEM_PROMPT_PATH`**: Optional path to a file containing the system prompt for LLM requests. Can be absolute (e.g., `/app/prompts/system.txt`) or relative to the working directory (e.g., `./prompts/system.txt`). If not set or file is unreadable, a default prompt is used. Large prompt files are cached after first load for performance.
+- **`LLM_STUB_MODE`**: Enable stub mode to bypass actual LLM API calls (default: `false`). When `true`, returns stubbed responses without calling external APIs. Useful for:
+  - Local development without API keys
+  - Testing and CI/CD pipelines
+  - Cost savings during development
+  - Note: Requires restart to change (not hot-reloadable)
+
+**LLM Provider Selection:**
+- Set `LLM_PROVIDER=openai` to use OpenAI GPT models
+- Set `LLM_PROVIDER=anthropic` to use Anthropic Claude models
+- Invalid provider values will cause startup failure with an error message
+- The service validates provider/model configuration at startup and logs warnings for missing API keys
+
+**System Prompt Configuration:**
+- If `SYSTEM_PROMPT_PATH` is set but the file is missing or unreadable, the service will log a warning and fall back to the default prompt
+- Prompt content is cached in memory after first load to avoid repeated file I/O
+- To reload a changed prompt file, restart the service or call the cache clear method programmatically
+- Very large prompts (e.g., > 100KB) are loaded once and cached, not streamed per request
 
 #### Google Cloud Configuration (Optional)
 - **`GCP_PROJECT_ID`**: Google Cloud Project ID. **Not yet used** - reserved for future integrations.
@@ -179,7 +204,8 @@ The following environment variables are available (see `.env.example` for a comp
 - **`MINTING_SERVICE_AUTH_HEADER`**: Optional authorization header value for authenticating with the minting service. For Cloud Run IAM authentication, this should be a GCP identity token obtained via `gcloud auth print-identity-token` or programmatically via `google.oauth2.id_token.fetch_id_token()`.
 
 **⚠️ Important Notes**:
-- GitHub integration, LLM API calls, and Pub/Sub messaging are **not yet implemented**. The corresponding environment variables are placeholders for future features.
+- LLM configuration is now available for controlling provider, model, and stub mode. Actual LLM API integration is stubbed by default unless `LLM_STUB_MODE=false`.
+- GitHub integration and Pub/Sub messaging features are present but may have limited functionality in some environments.
 - Never commit real API keys, tokens, or secrets to version control. Always use `.env` for local secrets (already in `.gitignore`).
 - For production deployments, use your platform's secret management system (e.g., Google Cloud Secret Manager, AWS Secrets Manager).
 

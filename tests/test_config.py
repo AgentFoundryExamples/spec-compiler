@@ -220,3 +220,322 @@ def test_validate_github_config_empty_strings():
         result = settings.validate_github_config()
         assert result["github_api_url"] == "missing"
         assert result["minting_service_url"] == "missing"
+
+
+# LLM Configuration Tests
+
+
+def test_llm_provider_default():
+    """Test that LLM provider defaults to openai."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        assert settings.llm_provider == "openai"
+
+
+def test_llm_provider_from_env():
+    """Test that LLM provider can be configured from environment."""
+    with patch.dict(os.environ, {"LLM_PROVIDER": "anthropic"}, clear=True):
+        settings = Settings()
+        assert settings.llm_provider == "anthropic"
+
+
+def test_llm_provider_case_insensitive():
+    """Test that LLM provider is case-insensitive."""
+    with patch.dict(os.environ, {"LLM_PROVIDER": "OPENAI"}, clear=True):
+        settings = Settings()
+        assert settings.llm_provider == "openai"
+
+    with patch.dict(os.environ, {"LLM_PROVIDER": "Anthropic"}, clear=True):
+        settings = Settings()
+        assert settings.llm_provider == "anthropic"
+
+
+def test_llm_provider_invalid():
+    """Test that invalid LLM provider raises ValueError."""
+    import pytest
+    from pydantic import ValidationError
+
+    with patch.dict(os.environ, {"LLM_PROVIDER": "gemini"}, clear=True):
+        with pytest.raises(ValidationError) as exc_info:
+            Settings()
+        assert "Invalid LLM provider" in str(exc_info.value)
+
+
+def test_openai_model_default():
+    """Test that OpenAI model defaults to gpt-5.1."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        assert settings.openai_model == "gpt-5.1"
+
+
+def test_openai_model_from_env():
+    """Test that OpenAI model can be configured from environment."""
+    with patch.dict(os.environ, {"OPENAI_MODEL": "gpt-4"}, clear=True):
+        settings = Settings()
+        assert settings.openai_model == "gpt-4"
+
+
+def test_claude_model_default():
+    """Test that Claude model defaults to claude-sonnet-4.5."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        assert settings.claude_model == "claude-sonnet-4.5"
+
+
+def test_claude_model_from_env():
+    """Test that Claude model can be configured from environment."""
+    with patch.dict(os.environ, {"CLAUDE_MODEL": "claude-opus-4"}, clear=True):
+        settings = Settings()
+        assert settings.claude_model == "claude-opus-4"
+
+
+def test_system_prompt_path_default():
+    """Test that system prompt path defaults to None."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        assert settings.system_prompt_path is None
+
+
+def test_system_prompt_path_from_env():
+    """Test that system prompt path can be configured from environment."""
+    with patch.dict(os.environ, {"SYSTEM_PROMPT_PATH": "/app/prompts/system.txt"}, clear=True):
+        settings = Settings()
+        assert settings.system_prompt_path == "/app/prompts/system.txt"
+
+
+def test_llm_stub_mode_default():
+    """Test that LLM stub mode defaults to False."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        assert settings.llm_stub_mode is False
+
+
+def test_llm_stub_mode_from_env():
+    """Test that LLM stub mode can be configured from environment."""
+    with patch.dict(os.environ, {"LLM_STUB_MODE": "true"}, clear=True):
+        settings = Settings()
+        assert settings.llm_stub_mode is True
+
+    with patch.dict(os.environ, {"LLM_STUB_MODE": "false"}, clear=True):
+        settings = Settings()
+        assert settings.llm_stub_mode is False
+
+
+def test_validate_llm_config_openai_all_ok():
+    """Test LLM config validation with valid OpenAI configuration."""
+    env = {
+        "LLM_PROVIDER": "openai",
+        "OPENAI_MODEL": "gpt-5.1",
+        "OPENAI_API_KEY": "sk-test-key",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_llm_config()
+        assert result["provider"] == "ok"
+        assert result["model"] == "ok"
+        assert result["api_key"] == "ok"
+        assert result["system_prompt"] == "using_default"
+
+
+def test_validate_llm_config_anthropic_all_ok():
+    """Test LLM config validation with valid Anthropic configuration."""
+    env = {
+        "LLM_PROVIDER": "anthropic",
+        "CLAUDE_MODEL": "claude-sonnet-4.5",
+        "CLAUDE_API_KEY": "sk-ant-test-key",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_llm_config()
+        assert result["provider"] == "ok"
+        assert result["model"] == "ok"
+        assert result["api_key"] == "ok"
+        assert result["system_prompt"] == "using_default"
+
+
+def test_validate_llm_config_missing_api_key():
+    """Test LLM config validation with missing API key."""
+    with patch.dict(os.environ, {"LLM_PROVIDER": "openai"}, clear=True):
+        settings = Settings()
+        result = settings.validate_llm_config()
+        assert result["api_key"] == "missing"
+
+
+def test_validate_llm_config_with_prompt_file(tmp_path):
+    """Test LLM config validation with existing prompt file."""
+    prompt_file = tmp_path / "system.txt"
+    prompt_file.write_text("Test system prompt")
+
+    env = {
+        "LLM_PROVIDER": "openai",
+        "SYSTEM_PROMPT_PATH": str(prompt_file),
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_llm_config()
+        assert result["system_prompt"] == "ok"
+
+
+def test_validate_llm_config_prompt_file_not_found():
+    """Test LLM config validation with non-existent prompt file."""
+    env = {
+        "LLM_PROVIDER": "openai",
+        "SYSTEM_PROMPT_PATH": "/nonexistent/path/prompt.txt",
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_llm_config()
+        assert result["system_prompt"] == "file_not_found"
+
+
+def test_validate_llm_config_prompt_path_is_directory(tmp_path):
+    """Test LLM config validation when prompt path is a directory."""
+    env = {
+        "LLM_PROVIDER": "openai",
+        "SYSTEM_PROMPT_PATH": str(tmp_path),
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_llm_config()
+        assert result["system_prompt"] == "not_a_file"
+
+
+def test_validate_llm_config_prompt_file_empty(tmp_path):
+    """Test LLM config validation with empty prompt file."""
+    prompt_file = tmp_path / "empty.txt"
+    prompt_file.write_text("")
+
+    env = {
+        "LLM_PROVIDER": "openai",
+        "SYSTEM_PROMPT_PATH": str(prompt_file),
+    }
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        result = settings.validate_llm_config()
+        assert result["system_prompt"] == "empty_file"
+
+
+def test_get_system_prompt_default():
+    """Test getting default system prompt when no path configured."""
+    with patch.dict(os.environ, {}, clear=True):
+        settings = Settings()
+        prompt = settings.get_system_prompt()
+        assert prompt is not None
+        assert len(prompt) > 0
+        assert "AI assistant" in prompt or "specification" in prompt
+
+
+def test_get_system_prompt_from_file(tmp_path):
+    """Test loading system prompt from configured file."""
+    prompt_file = tmp_path / "system.txt"
+    expected_content = "Custom system prompt for testing"
+    prompt_file.write_text(expected_content)
+
+    env = {"SYSTEM_PROMPT_PATH": str(prompt_file)}
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        prompt = settings.get_system_prompt()
+        assert prompt == expected_content
+
+
+def test_get_system_prompt_caching(tmp_path):
+    """Test that system prompt is cached after first load."""
+    prompt_file = tmp_path / "system.txt"
+    prompt_file.write_text("Initial content")
+
+    env = {"SYSTEM_PROMPT_PATH": str(prompt_file)}
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+
+        # First call loads from file
+        prompt1 = settings.get_system_prompt()
+        assert prompt1 == "Initial content"
+
+        # Modify file
+        prompt_file.write_text("Modified content")
+
+        # Second call should return cached value
+        prompt2 = settings.get_system_prompt()
+        assert prompt2 == "Initial content"  # Still cached
+
+
+def test_clear_prompt_cache(tmp_path):
+    """Test clearing the prompt cache."""
+    prompt_file = tmp_path / "system.txt"
+    prompt_file.write_text("Initial content")
+
+    env = {"SYSTEM_PROMPT_PATH": str(prompt_file)}
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+
+        # Load prompt
+        prompt1 = settings.get_system_prompt()
+        assert prompt1 == "Initial content"
+
+        # Modify file and clear cache
+        prompt_file.write_text("New content")
+        settings.clear_prompt_cache()
+
+        # Should reload from file
+        prompt2 = settings.get_system_prompt()
+        assert prompt2 == "New content"
+
+
+def test_get_system_prompt_file_not_found():
+    """Test fallback to default prompt when configured file doesn't exist."""
+    env = {"SYSTEM_PROMPT_PATH": "/nonexistent/prompt.txt"}
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        prompt = settings.get_system_prompt()
+        # Should fall back to default
+        assert prompt is not None
+        assert len(prompt) > 0
+
+
+def test_get_system_prompt_empty_file(tmp_path):
+    """Test fallback to default when prompt file is empty."""
+    prompt_file = tmp_path / "empty.txt"
+    prompt_file.write_text("")
+
+    env = {"SYSTEM_PROMPT_PATH": str(prompt_file)}
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        prompt = settings.get_system_prompt()
+        # Should fall back to default
+        assert prompt is not None
+        assert len(prompt) > 0
+
+
+def test_get_system_prompt_read_error(tmp_path):
+    """Test fallback to default when file cannot be read."""
+    prompt_file = tmp_path / "system.txt"
+    prompt_file.write_text("Test content")
+
+    env = {"SYSTEM_PROMPT_PATH": str(prompt_file)}
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+
+        # Mock read_text to raise an exception
+        def mock_read_text(*args, **kwargs):
+            raise PermissionError("Permission denied")
+
+        with patch("pathlib.Path.read_text", side_effect=mock_read_text):
+            prompt = settings.get_system_prompt()
+            # Should fall back to default
+            assert prompt is not None
+            assert len(prompt) > 0
+
+
+def test_get_system_prompt_large_file(tmp_path):
+    """Test that large prompt files are handled correctly."""
+    prompt_file = tmp_path / "large.txt"
+    # Create a large prompt (100KB)
+    large_content = "A" * 100_000
+    prompt_file.write_text(large_content)
+
+    env = {"SYSTEM_PROMPT_PATH": str(prompt_file)}
+    with patch.dict(os.environ, env, clear=True):
+        settings = Settings()
+        prompt = settings.get_system_prompt()
+        assert len(prompt) == 100_000
+        assert prompt == large_content
