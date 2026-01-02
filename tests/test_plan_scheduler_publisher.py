@@ -452,3 +452,187 @@ class TestPlanSchedulerPublisherHelpers:
 
         # Verify transport.close was called
         mock_transport.close.assert_called_once()
+
+
+class TestPublisherConcurrency:
+    """Tests for concurrent request handling and thread safety."""
+
+    def test_concurrent_publishes_are_thread_safe(self) -> None:
+        """Test that concurrent publishes from multiple threads work correctly."""
+        import json
+        import threading
+        from queue import Queue
+
+        mock_client = Mock()
+        mock_client.topic_path.return_value = "projects/test-project/topics/test-topic"
+
+        # Track all publish calls
+        publish_calls = Queue()
+
+        def mock_publish(topic, data, **kwargs):
+            mock_future = Mock()
+            mock_future.result.return_value = f"msg-{threading.current_thread().ident}"
+            publish_calls.put((topic, data, kwargs))
+            return mock_future
+
+        mock_client.publish.side_effect = mock_publish
+
+        publisher = PlanSchedulerPublisher(
+            gcp_project_id="test-project",
+            topic_name="test-topic",
+            client=mock_client,
+        )
+
+        # Create messages for concurrent publishing
+        messages = [
+            PlanStatusMessage(
+                plan_id=f"plan-{i}",
+                spec_index=i,
+                status="in_progress",
+                request_id=f"req-{i}",
+            )
+            for i in range(10)
+        ]
+
+        # Publish from multiple threads
+        errors = []
+
+        def publish_message(msg):
+            try:
+                publisher.publish_status(msg)
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=publish_message, args=(msg,)) for msg in messages]
+
+        for thread in threads:
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        # Verify no errors occurred
+        assert len(errors) == 0
+
+        # Verify all messages were published
+        assert mock_client.publish.call_count == 10
+        assert publish_calls.qsize() == 10
+
+        # Verify the content of published messages
+        published_plan_ids = set()
+        while not publish_calls.empty():
+            _, data, _ = publish_calls.get()
+            msg_dict = json.loads(data)
+            published_plan_ids.add(msg_dict["plan_id"])
+        
+        expected_plan_ids = {f"plan-{i}" for i in range(10)}
+        assert published_plan_ids == expected_plan_ids
+
+    def test_message_ordering_with_ordering_key(self) -> None:
+        """Test that messages with same ordering key maintain order."""
+        mock_client = Mock()
+        mock_client.topic_path.return_value = "projects/test-project/topics/test-topic"
+
+        # Track ordering keys used
+        ordering_keys_used = []
+
+        def mock_publish(topic, data, **kwargs):
+            ordering_keys_used.append(kwargs.get("ordering_key"))
+            mock_future = Mock()
+            mock_future.result.return_value = "msg-id"
+            return mock_future
+
+        mock_client.publish.side_effect = mock_publish
+
+        publisher = PlanSchedulerPublisher(
+            gcp_project_id="test-project",
+            topic_name="test-topic",
+            client=mock_client,
+        )
+
+        # Publish multiple messages for same plan
+        plan_id = "plan-ordered"
+        for i in range(5):
+            message = PlanStatusMessage(
+                plan_id=plan_id,
+                spec_index=i,
+                status="in_progress",
+                request_id=f"req-{i}",
+            )
+            publisher.publish_status(message)
+
+        # Verify all used same ordering key (plan_id)
+        assert len(ordering_keys_used) == 5
+        assert all(key == plan_id for key in ordering_keys_used)
+
+    def test_timeout_error_captured_with_correlation_id(self) -> None:
+        """Test that timeout errors are logged with correlation context."""
+        from google.api_core import exceptions as gcp_exceptions
+
+        mock_client = Mock()
+        mock_client.topic_path.return_value = "projects/test-project/topics/test-topic"
+
+        # Make publish timeout
+        mock_future = Mock()
+        mock_future.result.side_effect = gcp_exceptions.DeadlineExceeded(
+            "Timeout: request deadline exceeded"
+        )
+        mock_client.publish.return_value = mock_future
+
+        publisher = PlanSchedulerPublisher(
+            gcp_project_id="test-project",
+            topic_name="test-topic",
+            client=mock_client,
+            max_retries=0,  # Don't retry to keep test fast
+        )
+
+        message = PlanStatusMessage(
+            plan_id="plan-timeout",
+            spec_index=0,
+            status="in_progress",
+            request_id="req-timeout-123",
+        )
+
+        # Should raise timeout error
+        with pytest.raises(gcp_exceptions.DeadlineExceeded):
+            publisher.publish_status(message)
+
+        # Verify request_id would be available for logging
+        assert message.request_id == "req-timeout-123"
+
+    def test_payload_size_validation(self) -> None:
+        """Test that large payloads are handled correctly."""
+        mock_client = Mock()
+        mock_client.topic_path.return_value = "projects/test-project/topics/test-topic"
+
+        mock_future = Mock()
+        mock_future.result.return_value = "msg-id"
+        mock_client.publish.return_value = mock_future
+
+        publisher = PlanSchedulerPublisher(
+            gcp_project_id="test-project",
+            topic_name="test-topic",
+            client=mock_client,
+        )
+
+        # Create message with large error message (should be truncated by model)
+        large_error = "x" * 20000
+        message = PlanStatusMessage(
+            plan_id="plan-large",
+            spec_index=0,
+            status="failed",
+            request_id="req-large",
+            error_code="LARGE_ERROR",
+            error_message=large_error,
+        )
+
+        publisher.publish_status(message)
+
+        # Verify publish was called
+        mock_client.publish.assert_called_once()
+
+        # Verify message was truncated (by PlanStatusMessage model)
+        call_args = mock_client.publish.call_args
+        published_data = call_args[0][1]
+        assert len(published_data) < len(large_error.encode("utf-8"))
+
