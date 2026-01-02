@@ -488,7 +488,7 @@ def test_compile_with_unsupported_provider(test_client: TestClient) -> None:
         for attr in dir(real_settings):
             if not attr.startswith("_"):
                 setattr(mock_settings, attr, getattr(real_settings, attr))
-        
+
         # Override the provider
         mock_settings.llm_provider = "unsupported_provider"
         mock_settings.llm_stub_mode = True
