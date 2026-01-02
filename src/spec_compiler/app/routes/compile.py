@@ -32,6 +32,7 @@ from spec_compiler.models import (
     SystemPromptConfig,
 )
 from spec_compiler.models.compile import CompileRequest, CompileResponse
+from spec_compiler.models.plan_status import PlanStatusMessage
 from spec_compiler.services.github_auth import GitHubAuthClient, MintingError
 from spec_compiler.services.github_repo import (
     GitHubFileError,
@@ -46,9 +47,126 @@ from spec_compiler.services.llm_client import (
     LlmConfigurationError,
     create_llm_client,
 )
+from spec_compiler.services.plan_scheduler_publisher import (
+    ConfigurationError,
+    PlanSchedulerPublisher,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+# Global publisher instance (initialized on first use)
+_publisher: PlanSchedulerPublisher | None = None
+_publisher_init_failed = False
+
+
+def get_publisher() -> PlanSchedulerPublisher | None:
+    """
+    Get or create the PlanSchedulerPublisher instance.
+    
+    Returns None if publisher configuration is invalid or initialization failed.
+    Logs errors but doesn't raise to prevent blocking the compile endpoint.
+    """
+    global _publisher, _publisher_init_failed
+    
+    # Return None if we already know initialization failed
+    if _publisher_init_failed:
+        return None
+    
+    # Return existing publisher if already initialized
+    if _publisher is not None:
+        return _publisher
+    
+    # Try to initialize publisher
+    try:
+        _publisher = PlanSchedulerPublisher(
+            gcp_project_id=settings.gcp_project_id,
+            topic_name=settings.pubsub_topic_plan_status,
+            credentials_path=settings.pubsub_credentials_path,
+        )
+        logger.info("PlanSchedulerPublisher initialized successfully for compile endpoint")
+        return _publisher
+    except ConfigurationError as e:
+        # Log configuration error but don't fail
+        logger.warning(
+            "PlanSchedulerPublisher not configured, status publishing disabled",
+            error=str(e),
+        )
+        _publisher_init_failed = True
+        return None
+    except Exception as e:
+        # Log unexpected error but don't fail
+        logger.error(
+            "Failed to initialize PlanSchedulerPublisher, status publishing disabled",
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+        _publisher_init_failed = True
+        return None
+
+
+def publish_status_safe(
+    status: str,
+    plan_id: str,
+    spec_index: int,
+    request_id: str,
+    error_code: str | None = None,
+    error_message: str | None = None,
+) -> None:
+    """
+    Safely publish a plan status message, catching and logging any errors.
+    
+    This function ensures that publisher failures never prevent the main
+    compile response from being returned.
+    
+    Args:
+        status: Status value (in_progress, succeeded, failed)
+        plan_id: Plan identifier
+        spec_index: Spec index within the plan
+        request_id: Request correlation ID
+        error_code: Optional error code for failed status
+        error_message: Optional error message for failed status
+    """
+    publisher = get_publisher()
+    if publisher is None:
+        # Publisher not configured or initialization failed
+        logger.debug(
+            "Skipping status publish (publisher not available)",
+            status=status,
+            plan_id=plan_id,
+            spec_index=spec_index,
+            request_id=request_id,
+        )
+        return
+    
+    try:
+        message = PlanStatusMessage(
+            plan_id=plan_id,
+            spec_index=spec_index,
+            status=status,  # type: ignore[arg-type]
+            request_id=request_id,
+            error_code=error_code,
+            error_message=error_message,
+        )
+        publisher.publish_status(message)
+        logger.info(
+            "Published plan status message",
+            status=status,
+            plan_id=plan_id,
+            spec_index=spec_index,
+            request_id=request_id,
+        )
+    except Exception as e:
+        # Log error but don't raise - publisher failures must not break compile
+        logger.error(
+            "Failed to publish plan status message",
+            status=status,
+            plan_id=plan_id,
+            spec_index=spec_index,
+            request_id=request_id,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
 
 
 def _fetch_and_log_context_file(
@@ -424,6 +542,14 @@ async def compile_spec(
         spec_data_size=len(json.dumps(compile_request.spec_data)),
     )
 
+    # Publish in_progress status after validation
+    publish_status_safe(
+        status="in_progress",
+        plan_id=compile_request.plan_id,
+        spec_index=compile_request.spec_index,
+        request_id=request_id,
+    )
+
     # Initialize GitHub clients
     auth_client = GitHubAuthClient()
 
@@ -461,6 +587,16 @@ async def compile_spec(
             error=str(e),
             status_code=e.status_code,
             context=e.context,
+        )
+
+        # Publish failed status before returning error
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="minting_error",
+            error_message=f"Token minting service error: {str(e)[:500]}",
         )
 
         # Map minting errors to appropriate HTTP status codes
@@ -556,6 +692,17 @@ async def compile_spec(
             error=str(e),
             exc_info=True,  # Log full traceback for debugging
         )
+        
+        # Publish failed status before returning error
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="llm_configuration_error",
+            error_message=f"LLM service configuration error: {str(e)[:500]}",
+        )
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -625,6 +772,17 @@ async def compile_spec(
             error_type=type(e).__name__,
             exc_info=True,  # Log full traceback for debugging
         )
+        
+        # Publish failed status before returning error
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="llm_request_build_error",
+            error_message=f"Failed to build LLM request: {str(e)[:500]}",
+        )
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -665,6 +823,17 @@ async def compile_spec(
             spec_index=compile_request.spec_index,
             exc_info=True,  # Log full traceback for debugging
         )
+        
+        # Publish failed status before returning error
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="llm_api_error",
+            error_message=f"LLM service API error: {str(e)[:500]}",
+        )
+        
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
@@ -683,6 +852,17 @@ async def compile_spec(
             error_type=type(e).__name__,
             exc_info=True,  # Log full traceback for debugging
         )
+        
+        # Publish failed status before returning error
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="llm_service_unexpected_error",
+            error_message=f"Unexpected LLM service error: {str(e)[:500]}",
+        )
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -744,6 +924,17 @@ async def compile_spec(
             content_length=len(llm_response.content) if llm_response.content else 0,
             exc_info=True,  # Log full traceback for debugging
         )
+        
+        # Publish failed status before returning error
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="llm_response_parse_error",
+            error_message=f"Invalid LLM response format: {str(e)[:500]}",
+        )
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -754,6 +945,14 @@ async def compile_spec(
                 "message": "LLM returned invalid response format. Please retry or contact support.",
             },
         ) from None
+
+    # Publish succeeded status after successful completion
+    publish_status_safe(
+        status="succeeded",
+        plan_id=compile_request.plan_id,
+        spec_index=compile_request.spec_index,
+        request_id=request_id,
+    )
 
     # Create and return success response
     response = CompileResponse(

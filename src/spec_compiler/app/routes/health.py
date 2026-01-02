@@ -15,11 +15,18 @@
 Health check endpoint.
 
 Provides readiness and liveness probe for Cloud Run and Kubernetes.
+Also includes debug endpoints for testing (local development only).
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 
+from spec_compiler.config import settings
 from spec_compiler.logging import get_logger
+from spec_compiler.models.plan_status import PlanStatusMessage
+from spec_compiler.services.plan_scheduler_publisher import (
+    ConfigurationError,
+    PlanSchedulerPublisher,
+)
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -37,3 +44,83 @@ async def health_check() -> dict[str, str]:
     """
     logger.debug("Health check requested")
     return {"status": "ok"}
+
+
+@router.post("/debug/status")
+async def debug_publish_status() -> dict[str, str]:
+    """
+    Debug endpoint to test status message publishing.
+    
+    Only available in development/non-production environments for safety.
+    Publishes a sample status message to verify Pub/Sub configuration.
+    
+    Returns:
+        Dictionary with status and message
+        
+    Raises:
+        HTTPException: 403 if not in development environment
+        HTTPException: 500 if publisher configuration is invalid
+        HTTPException: 503 if publish fails
+    """
+    # Only allow in non-production environments
+    if settings.is_production:
+        logger.warning("Debug status endpoint accessed in production environment")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Debug endpoints are disabled in production",
+        )
+    
+    logger.info("Debug status publish requested")
+    
+    # Try to create publisher
+    try:
+        publisher = PlanSchedulerPublisher(
+            gcp_project_id=settings.gcp_project_id,
+            topic_name=settings.pubsub_topic_plan_status,
+            credentials_path=settings.pubsub_credentials_path,
+        )
+    except ConfigurationError as e:
+        logger.error("Publisher configuration error", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "publisher_not_configured",
+                "message": str(e),
+            },
+        ) from None
+    except Exception as e:
+        logger.error("Failed to initialize publisher", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "publisher_init_failed",
+                "message": str(e),
+            },
+        ) from None
+    
+    # Create and publish test message
+    try:
+        test_message = PlanStatusMessage(
+            plan_id="debug-test-plan",
+            spec_index=0,
+            status="in_progress",
+            request_id="debug-test-request",
+        )
+        publisher.publish_status(test_message)
+        
+        logger.info("Debug status message published successfully")
+        return {
+            "status": "published",
+            "message": "Test status message published successfully",
+            "plan_id": test_message.plan_id,
+            "spec_index": test_message.spec_index,
+        }
+    except Exception as e:
+        logger.error("Failed to publish debug status message", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "publish_failed",
+                "message": str(e),
+            },
+        ) from None
