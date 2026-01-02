@@ -154,10 +154,10 @@ class PlanStatusMessage(BaseModel):
         # Pattern matches common API key prefixes followed by long strings
         # This avoids redacting UUIDs, request IDs, or plan IDs that may appear in errors
         sanitized = re.sub(
-            r'\b(sk_live_|sk_test_|pk_live_|pk_test_|api[_-]?key[_-]?)[A-Za-z0-9_-]{20,}\b',
-            r'\1[REDACTED]',
+            r"\b(sk_live_|sk_test_|pk_live_|pk_test_|api[_-]?key[_-]?)[A-Za-z0-9_-]{20,}\b",
+            r"\1[REDACTED]",
             v,
-            flags=re.IGNORECASE
+            flags=re.IGNORECASE,
         )
 
         return sanitized

@@ -240,7 +240,7 @@ class OpenAiResponsesClient(LlmClient):
                             f"request_id={request_id}"
                         )
                         if attempt < self.max_retries - 1:
-                            backoff = RETRY_BACKOFF_BASE ** attempt
+                            backoff = RETRY_BACKOFF_BASE**attempt
                             logger.info(f"Backing off {backoff}s before retry")
                             time.sleep(backoff)
                             continue
@@ -263,7 +263,7 @@ class OpenAiResponsesClient(LlmClient):
                     f"for request_id={request_id}"
                 )
                 if attempt < self.max_retries - 1:
-                    backoff = RETRY_BACKOFF_BASE ** attempt
+                    backoff = RETRY_BACKOFF_BASE**attempt
                     logger.info(f"Backing off {backoff}s before retry")
                     time.sleep(backoff)
                     continue
@@ -282,7 +282,7 @@ class OpenAiResponsesClient(LlmClient):
                     ) from e
                 # Retry on server errors if attempts remain
                 if attempt < self.max_retries - 1:
-                    backoff = RETRY_BACKOFF_BASE ** attempt
+                    backoff = RETRY_BACKOFF_BASE**attempt
                     time.sleep(backoff)
                     continue
 
@@ -302,9 +302,7 @@ class OpenAiResponsesClient(LlmClient):
             error_msg += f": {last_exception}"
         raise LlmApiError(error_msg) from last_exception
 
-    def _parse_response(
-        self, api_response: dict[str, Any], request_id: str
-    ) -> LlmResponseEnvelope:
+    def _parse_response(self, api_response: dict[str, Any], request_id: str) -> LlmResponseEnvelope:
         """
         Parse OpenAI API response into LlmResponseEnvelope.
 

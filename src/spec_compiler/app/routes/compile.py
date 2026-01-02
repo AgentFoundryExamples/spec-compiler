@@ -63,20 +63,20 @@ _publisher_init_failed = False
 def get_publisher() -> PlanSchedulerPublisher | None:
     """
     Get or create the PlanSchedulerPublisher instance.
-    
+
     Returns None if publisher configuration is invalid or initialization failed.
     Logs errors but doesn't raise to prevent blocking the compile endpoint.
     """
     global _publisher, _publisher_init_failed
-    
+
     # Return None if we already know initialization failed
     if _publisher_init_failed:
         return None
-    
+
     # Return existing publisher if already initialized
     if _publisher is not None:
         return _publisher
-    
+
     # Try to initialize publisher
     try:
         _publisher = PlanSchedulerPublisher(
@@ -115,10 +115,10 @@ def publish_status_safe(
 ) -> None:
     """
     Safely publish a plan status message, catching and logging any errors.
-    
+
     This function ensures that publisher failures never prevent the main
     compile response from being returned.
-    
+
     Args:
         status: Status value (in_progress, succeeded, failed)
         plan_id: Plan identifier
@@ -138,7 +138,7 @@ def publish_status_safe(
             request_id=request_id,
         )
         return
-    
+
     try:
         message = PlanStatusMessage(
             plan_id=plan_id,
@@ -692,7 +692,7 @@ async def compile_spec(
             error=str(e),
             exc_info=True,  # Log full traceback for debugging
         )
-        
+
         # Publish failed status before returning error
         publish_status_safe(
             status="failed",
@@ -702,7 +702,7 @@ async def compile_spec(
             error_code="llm_configuration_error",
             error_message=f"LLM service configuration error: {str(e)[:500]}",
         )
-        
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -772,7 +772,7 @@ async def compile_spec(
             error_type=type(e).__name__,
             exc_info=True,  # Log full traceback for debugging
         )
-        
+
         # Publish failed status before returning error
         publish_status_safe(
             status="failed",
@@ -782,7 +782,7 @@ async def compile_spec(
             error_code="llm_request_build_error",
             error_message=f"Failed to build LLM request: {str(e)[:500]}",
         )
-        
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -823,7 +823,7 @@ async def compile_spec(
             spec_index=compile_request.spec_index,
             exc_info=True,  # Log full traceback for debugging
         )
-        
+
         # Publish failed status before returning error
         publish_status_safe(
             status="failed",
@@ -833,7 +833,7 @@ async def compile_spec(
             error_code="llm_api_error",
             error_message=f"LLM service API error: {str(e)[:500]}",
         )
-        
+
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
@@ -852,7 +852,7 @@ async def compile_spec(
             error_type=type(e).__name__,
             exc_info=True,  # Log full traceback for debugging
         )
-        
+
         # Publish failed status before returning error
         publish_status_safe(
             status="failed",
@@ -862,7 +862,7 @@ async def compile_spec(
             error_code="llm_service_unexpected_error",
             error_message=f"Unexpected LLM service error: {str(e)[:500]}",
         )
-        
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -924,7 +924,7 @@ async def compile_spec(
             content_length=len(llm_response.content) if llm_response.content else 0,
             exc_info=True,  # Log full traceback for debugging
         )
-        
+
         # Publish failed status before returning error
         publish_status_safe(
             status="failed",
@@ -934,7 +934,7 @@ async def compile_spec(
             error_code="llm_response_parse_error",
             error_message=f"Invalid LLM response format: {str(e)[:500]}",
         )
-        
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={

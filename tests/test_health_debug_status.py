@@ -43,9 +43,9 @@ class TestDebugStatusEndpoint:
         try:
             # Temporarily set to production
             settings.app_env = "production"
-            
+
             response = test_client.post("/debug/status")
-            
+
             assert response.status_code == 403
             data = response.json()
             assert "detail" in data
@@ -61,16 +61,16 @@ class TestDebugStatusEndpoint:
         try:
             # Ensure we're in development mode
             settings.app_env = "development"
-            
+
             response = test_client.post("/debug/status")
-            
+
             # Should succeed
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "published"
             assert "plan_id" in data
             assert data["plan_id"] == "debug-test-plan"
-            
+
             # Verify publish_status was called
             assert mock_publisher.publish_status.call_count == 1
             msg = mock_publisher.publish_status.call_args[0][0]
@@ -81,21 +81,19 @@ class TestDebugStatusEndpoint:
         finally:
             settings.app_env = original_env
 
-    def test_debug_status_returns_500_on_config_error(
-        self, test_client: TestClient
-    ) -> None:
+    def test_debug_status_returns_500_on_config_error(self, test_client: TestClient) -> None:
         """Test that debug endpoint returns 500 when publisher not configured."""
         from spec_compiler.services.plan_scheduler_publisher import ConfigurationError
-        
+
         original_env = settings.app_env
         try:
             settings.app_env = "development"
-            
+
             with patch("spec_compiler.app.routes.health.PlanSchedulerPublisher") as mock_cls:
                 mock_cls.side_effect = ConfigurationError("Not configured")
-                
+
                 response = test_client.post("/debug/status")
-                
+
                 assert response.status_code == 500
                 data = response.json()
                 assert "detail" in data
@@ -110,12 +108,12 @@ class TestDebugStatusEndpoint:
         original_env = settings.app_env
         try:
             settings.app_env = "development"
-            
+
             # Make publish_status raise an exception
             mock_publisher.publish_status.side_effect = Exception("Pub/Sub error")
-            
+
             response = test_client.post("/debug/status")
-            
+
             assert response.status_code == 503
             data = response.json()
             assert "detail" in data

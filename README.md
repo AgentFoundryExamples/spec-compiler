@@ -184,7 +184,7 @@ The following environment variables are available (see `.env.example` for a comp
 #### Google Cloud Configuration
 
 ##### Pub/Sub Status Publishing
-The service can publish plan status updates to Google Cloud Pub/Sub for consumption by plan-scheduler. Configuration requires:
+The service publishes plan status updates to Google Cloud Pub/Sub throughout the compilation lifecycle for consumption by plan-scheduler. Configuration requires:
 
 - **`GCP_PROJECT_ID`**: **REQUIRED** for Pub/Sub publishing. Google Cloud Project ID where the Pub/Sub topic exists (e.g., `my-project-id`).
 - **`PUBSUB_TOPIC_PLAN_STATUS`**: **REQUIRED** for status publishing. Pub/Sub topic name for plan status updates (e.g., `plan-status-updates`). Topic must exist in the specified GCP project.
@@ -200,15 +200,47 @@ Status messages conform to the `PlanStatusMessage` schema defined in `plan-sched
 - **Max payload size**: 10MB (10485760 bytes)
 - **Ordering key**: `plan_id` (ensures messages for the same plan are processed in order)
 
+**Compilation Lifecycle Integration:**
+The compile endpoint publishes status messages at three key points:
+1. **`in_progress`**: Published immediately after request validation, before GitHub token minting or LLM work begins
+2. **`succeeded`**: Published after successful LLM compilation and parsing, before returning HTTP 202 response
+3. **`failed`**: Published on any error path (minting failures, LLM configuration errors, LLM API errors, parsing failures, unhandled exceptions)
+
+**Error Handling and Resilience:**
+- Publisher failures **never prevent** compile responses from being returned to clients
+- All publisher errors are logged with request_id correlation but don't raise exceptions
+- If publisher is not configured (missing `GCP_PROJECT_ID` or `PUBSUB_TOPIC_PLAN_STATUS`), status publishing is silently disabled
+- Unhandled exceptions in middleware also attempt to publish `failed` status if plan context is available
+- Error messages in `failed` status are truncated to 10KB and sanitized to prevent secrets leakage
+
 **Status Event Flow:**
-1. `spec-compiler` publishes status updates → Pub/Sub topic (`PUBSUB_TOPIC_PLAN_STATUS`)
-2. `plan-scheduler` subscribes to the topic and processes status updates
-3. Status updates track compilation progress: `in_progress` (started) → `succeeded`/`failed` (completed)
+1. Client sends compile request → `spec-compiler` validates payload
+2. `spec-compiler` publishes `in_progress` status → Pub/Sub topic (`PUBSUB_TOPIC_PLAN_STATUS`)
+3. `spec-compiler` performs GitHub token minting, repo context fetching, and LLM compilation
+4. On success: `spec-compiler` publishes `succeeded` status → Pub/Sub
+5. On failure: `spec-compiler` publishes `failed` status (with error details) → Pub/Sub
+6. `plan-scheduler` subscribes to the topic and processes status updates to track compilation progress
 
 **Configuration Validation:**
 - Use `settings.validate_pubsub_config()` to check configuration at startup
 - Missing `GCP_PROJECT_ID` or `PUBSUB_TOPIC_PLAN_STATUS` will result in validation errors
 - Invalid credentials path will be reported but won't block startup (falls back to ADC)
+
+**Testing Status Publishing:**
+A debug endpoint is available for testing status publishing in development environments:
+```bash
+# Only works when APP_ENV != "production"
+curl -X POST http://localhost:8080/debug/status
+
+# Response:
+# {
+#   "status": "published",
+#   "message": "Test status message published successfully",
+#   "plan_id": "debug-test-plan",
+#   "spec_index": 0
+# }
+```
+This endpoint is automatically disabled in production for security.
 
 ##### Other Cloud Configuration
 - **`DOWNSTREAM_LOG_SINK`**: **OPTIONAL**. Downstream log sink for Cloud Logging (e.g., `projects/my-project/logs/app-logs`). Not yet used - reserved for future logging integrations.
@@ -412,6 +444,9 @@ When implementing actual GitHub API integration:
 ### Health & Monitoring
 - **`GET /health`**: Health check endpoint returning `{"status": "ok"}`. Used by Cloud Run and Docker health checks.
 - **`GET /version`**: Version information including app version, git SHA (if available), and environment.
+
+### Debug (Development Only)
+- **`POST /debug/status`**: Test endpoint for status message publishing. Publishes a sample `in_progress` status to verify Pub/Sub configuration. Automatically disabled in production (`APP_ENV=production`). Returns 403 Forbidden in production, 200 OK with publish confirmation in development.
 
 ### Documentation
 - **`GET /docs`**: Interactive API documentation (Swagger UI). Automatically generated from OpenAPI schema.

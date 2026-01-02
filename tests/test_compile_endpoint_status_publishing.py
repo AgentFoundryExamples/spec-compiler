@@ -23,8 +23,6 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from spec_compiler.models.plan_status import PlanStatusMessage
-
 
 @pytest.fixture
 def mock_publisher():
@@ -63,14 +61,15 @@ class TestStatusPublishingSuccess:
         assert response.status_code == 202
         # Verify publish_status was called
         assert mock_publisher.publish_status.call_count >= 1
-        
+
         # Find the in_progress call
         in_progress_calls = [
-            call for call in mock_publisher.publish_status.call_args_list
+            call
+            for call in mock_publisher.publish_status.call_args_list
             if call[0][0].status == "in_progress"
         ]
         assert len(in_progress_calls) == 1
-        
+
         # Verify message fields
         msg = in_progress_calls[0][0][0]
         assert msg.plan_id == "plan-test"
@@ -93,17 +92,18 @@ class TestStatusPublishingSuccess:
         response = test_client.post("/compile-spec", json=payload)
 
         assert response.status_code == 202
-        
+
         # Verify both in_progress and succeeded were published
         assert mock_publisher.publish_status.call_count >= 2
-        
+
         # Find the succeeded call
         succeeded_calls = [
-            call for call in mock_publisher.publish_status.call_args_list
+            call
+            for call in mock_publisher.publish_status.call_args_list
             if call[0][0].status == "succeeded"
         ]
         assert len(succeeded_calls) == 1
-        
+
         # Verify message fields
         msg = succeeded_calls[0][0][0]
         assert msg.plan_id == "plan-success"
@@ -131,7 +131,7 @@ class TestStatusPublishingSuccess:
         )
 
         assert response.status_code == 202
-        
+
         # Verify all status messages have the same request_id
         for call in mock_publisher.publish_status.call_args_list:
             msg = call[0][0]
@@ -151,7 +151,7 @@ class TestStatusPublishingFailure:
     ) -> None:
         """Test that failed status is published when token minting fails."""
         from spec_compiler.services.github_auth import MintingError
-        
+
         # Mock minting error
         mock_auth_instance = Mock()
         mock_auth_client_cls.return_value = mock_auth_instance
@@ -171,14 +171,15 @@ class TestStatusPublishingFailure:
 
         # Should still return an error response
         assert response.status_code in (500, 502, 503)
-        
+
         # Verify failed status was published
         failed_calls = [
-            call for call in mock_publisher.publish_status.call_args_list
+            call
+            for call in mock_publisher.publish_status.call_args_list
             if call[0][0].status == "failed"
         ]
         assert len(failed_calls) >= 1
-        
+
         # Verify message fields
         msg = failed_calls[0][0][0]
         assert msg.plan_id == "plan-minting-fail"
@@ -196,7 +197,7 @@ class TestStatusPublishingFailure:
     ) -> None:
         """Test that failed status is published on LLM configuration error."""
         from spec_compiler.services.llm_client import LlmConfigurationError
-        
+
         # Mock LLM configuration error
         mock_create_client.side_effect = LlmConfigurationError("LLM not configured")
 
@@ -212,14 +213,15 @@ class TestStatusPublishingFailure:
 
         # Should return 500
         assert response.status_code == 500
-        
+
         # Verify failed status was published
         failed_calls = [
-            call for call in mock_publisher.publish_status.call_args_list
+            call
+            for call in mock_publisher.publish_status.call_args_list
             if call[0][0].status == "failed"
         ]
         assert len(failed_calls) >= 1
-        
+
         msg = failed_calls[0][0][0]
         assert msg.plan_id == "plan-llm-config-fail"
         assert msg.error_code == "llm_configuration_error"
@@ -229,7 +231,7 @@ class TestStatusPublishingFailure:
     ) -> None:
         """Test that failed status is published on LLM API error."""
         from spec_compiler.services.llm_client import LlmApiError
-        
+
         with patch("spec_compiler.app.routes.compile.create_llm_client") as mock_create:
             mock_client = Mock()
             mock_create.return_value = mock_client
@@ -247,14 +249,15 @@ class TestStatusPublishingFailure:
 
             # Should return 503
             assert response.status_code == 503
-            
+
             # Verify failed status was published
             failed_calls = [
-                call for call in mock_publisher.publish_status.call_args_list
+                call
+                for call in mock_publisher.publish_status.call_args_list
                 if call[0][0].status == "failed"
             ]
             assert len(failed_calls) >= 1
-            
+
             msg = failed_calls[0][0][0]
             assert msg.plan_id == "plan-llm-api-fail"
             assert msg.error_code == "llm_api_error"
@@ -307,10 +310,10 @@ class TestPublisherFailureIsolation:
     ) -> None:
         """Test that error responses are returned even when publish fails."""
         from spec_compiler.services.llm_client import LlmConfigurationError
-        
+
         # Make both LLM and publisher fail
         mock_publisher.publish_status.side_effect = Exception("Pub/Sub error")
-        
+
         with patch("spec_compiler.app.routes.compile.create_llm_client") as mock_create:
             mock_create.side_effect = LlmConfigurationError("LLM error")
 
@@ -350,15 +353,13 @@ class TestStatusPublishingEdgeCases:
         response = test_client.post("/compile-spec", json=payload)
 
         assert response.status_code == 202
-        
+
         # Verify request_id was generated
         data = response.json()
         assert "request_id" in data
         assert data["request_id"] is not None
 
-    def test_zero_spec_index_is_valid(
-        self, test_client: TestClient, mock_publisher: Mock
-    ) -> None:
+    def test_zero_spec_index_is_valid(self, test_client: TestClient, mock_publisher: Mock) -> None:
         """Test that spec_index=0 is valid for status publishing."""
         payload = {
             "plan_id": "plan-zero-index",
@@ -371,7 +372,7 @@ class TestStatusPublishingEdgeCases:
         response = test_client.post("/compile-spec", json=payload)
 
         assert response.status_code == 202
-        
+
         # Verify status messages were published with spec_index=0
         for call in mock_publisher.publish_status.call_args_list:
             msg = call[0][0]
@@ -383,10 +384,10 @@ class TestStatusPublishingEdgeCases:
     ) -> None:
         """Test that large error messages are truncated in status messages."""
         from spec_compiler.services.llm_client import LlmConfigurationError
-        
+
         # Create a very long error message
         long_error = "Error: " + "X" * 10000
-        
+
         with patch("spec_compiler.app.routes.compile.create_llm_client") as mock_create:
             mock_create.side_effect = LlmConfigurationError(long_error)
 
@@ -401,13 +402,16 @@ class TestStatusPublishingEdgeCases:
             response = test_client.post("/compile-spec", json=payload)
 
             assert response.status_code == 500
-            
+
             # Verify error message was truncated in status message
             failed_calls = [
-                call for call in mock_publisher.publish_status.call_args_list
+                call
+                for call in mock_publisher.publish_status.call_args_list
                 if call[0][0].status == "failed"
             ]
             if failed_calls:
                 msg = failed_calls[0][0][0]
                 # PlanStatusMessage validator should truncate to MAX_ERROR_MESSAGE_LENGTH
-                assert len(msg.error_message) <= 10000 + 100  # Allow some buffer for truncation marker
+                assert (
+                    len(msg.error_message) <= 10000 + 100
+                )  # Allow some buffer for truncation marker

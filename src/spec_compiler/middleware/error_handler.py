@@ -40,24 +40,24 @@ _publisher_init_failed = False
 def get_publisher() -> PlanSchedulerPublisher | None:
     """
     Get or create the PlanSchedulerPublisher instance.
-    
+
     Returns None if publisher configuration is invalid or initialization failed.
     Logs errors but doesn't raise to prevent blocking error handling.
     """
     global _publisher, _publisher_init_failed
-    
+
     # Return None if we already know initialization failed
     if _publisher_init_failed:
         return None
-    
+
     # Return existing publisher if already initialized
     if _publisher is not None:
         return _publisher
-    
+
     # Try to initialize publisher
     try:
         from spec_compiler.config import settings
-        
+
         _publisher = PlanSchedulerPublisher(
             gcp_project_id=settings.gcp_project_id,
             topic_name=settings.pubsub_topic_plan_status,
@@ -84,9 +84,9 @@ def publish_failed_status_safe(
 ) -> None:
     """
     Safely publish a failed status message, catching and logging any errors.
-    
+
     This function ensures that publisher failures never prevent error responses.
-    
+
     Args:
         plan_id: Plan identifier
         spec_index: Spec index within the plan
@@ -96,7 +96,7 @@ def publish_failed_status_safe(
     publisher = get_publisher()
     if publisher is None:
         return
-    
+
     try:
         message = PlanStatusMessage(
             plan_id=plan_id,

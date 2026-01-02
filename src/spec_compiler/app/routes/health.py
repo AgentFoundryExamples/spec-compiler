@@ -50,13 +50,13 @@ async def health_check() -> dict[str, str]:
 async def debug_publish_status() -> dict[str, str | int]:
     """
     Debug endpoint to test status message publishing.
-    
+
     Only available in development/non-production environments for safety.
     Publishes a sample status message to verify Pub/Sub configuration.
-    
+
     Returns:
         Dictionary with status and message
-        
+
     Raises:
         HTTPException: 403 if not in development environment
         HTTPException: 500 if publisher configuration is invalid
@@ -69,9 +69,9 @@ async def debug_publish_status() -> dict[str, str | int]:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Debug endpoints are disabled in production",
         )
-    
+
     logger.info("Debug status publish requested")
-    
+
     # Try to create publisher
     try:
         publisher = PlanSchedulerPublisher(
@@ -97,7 +97,7 @@ async def debug_publish_status() -> dict[str, str | int]:
                 "message": str(e),
             },
         ) from None
-    
+
     # Create and publish test message
     try:
         test_message = PlanStatusMessage(
@@ -107,7 +107,7 @@ async def debug_publish_status() -> dict[str, str | int]:
             request_id="debug-test-request",
         )
         publisher.publish_status(test_message)
-        
+
         logger.info("Debug status message published successfully")
         return {
             "status": "published",

@@ -209,9 +209,7 @@ class PlanSchedulerPublisher:
                     credentials_path=credentials_path,
                 )
                 # Use credentials from file
-                credentials = service_account.Credentials.from_service_account_file(
-                    str(cred_path)
-                )
+                credentials = service_account.Credentials.from_service_account_file(str(cred_path))
                 return pubsub_v1.PublisherClient(credentials=credentials)
             else:
                 logger.info(
@@ -427,9 +425,7 @@ class PlanSchedulerPublisher:
             # but we can try to stop the client gracefully
             try:
                 # In newer versions, there might be a transport.close()
-                if hasattr(self.client, "transport") and hasattr(
-                    self.client.transport, "close"
-                ):
+                if hasattr(self.client, "transport") and hasattr(self.client.transport, "close"):
                     self.client.transport.close()
             except Exception as e:
                 logger.warning("Error closing Pub/Sub client", error=str(e))
