@@ -252,6 +252,96 @@ The service defines the following models for GitHub token handling:
 3. **IAM Authentication**: All minting service calls require Cloud Run IAM authentication via GCP identity tokens.
 4. **Single User Context**: The current minting service design supports a single-user OAuth token (not multi-tenant).
 
+#### Token Caching and Performance
+
+The `GitHubAuthClient` includes built-in token caching to reduce calls to the minting service and improve performance.
+
+**How Token Caching Works:**
+
+1. **In-Memory Cache**: Tokens are stored in-memory per repository (`owner/repo` key)
+2. **Expiry Awareness**: Cached tokens are validated before reuse
+3. **Automatic Refresh**: Expired or near-expired tokens are automatically refreshed
+4. **Configurable Buffer**: Default 5-minute safety buffer before expiry (configurable)
+
+**Caching Behavior:**
+
+```python
+from spec_compiler.services.github_auth import GitHubAuthClient
+
+# Default: caching enabled with 5-minute expiry buffer
+client = GitHubAuthClient(
+    minting_service_base_url="https://minting.example.com",
+    auth_header="token",
+    enable_caching=True,  # Default
+    cache_expiry_buffer_seconds=300,  # 5 minutes (default)
+)
+
+# First call - fetches from minting service
+token1 = client.mint_user_to_server_token("owner", "repo")
+
+# Second call - returns cached token (no API call)
+token2 = client.mint_user_to_server_token("owner", "repo")
+
+# Force refresh - bypasses cache
+token3 = client.mint_user_to_server_token("owner", "repo", force_refresh=True)
+
+# Clear cache for specific repo
+client.clear_cache("owner", "repo")
+
+# Clear cache for all repos of an owner
+client.clear_cache("owner")
+
+# Clear entire cache
+client.clear_cache()
+```
+
+**Token Validation:**
+
+Tokens are validated before returning from cache:
+- **Non-expiring tokens**: Always valid (when `expires_at` is `null`)
+- **Future expiry**: Valid if expiry is more than buffer time in the future
+- **Near expiry**: Invalid if expiry is within buffer time (triggers refresh)
+- **Past expiry**: Invalid (triggers refresh)
+- **Parse errors**: Treated as invalid (triggers refresh)
+
+**Disabling Cache:**
+
+```python
+# Disable caching for testing or troubleshooting
+client = GitHubAuthClient(
+    minting_service_base_url="https://minting.example.com",
+    auth_header="token",
+    enable_caching=False,  # Every call hits minting service
+)
+```
+
+**Cache Expiry Buffer Configuration:**
+
+Adjust the expiry buffer based on your needs:
+
+```python
+# Longer buffer for high-latency environments (10 minutes)
+client = GitHubAuthClient(
+    minting_service_base_url="https://minting.example.com",
+    auth_header="token",
+    cache_expiry_buffer_seconds=600,  # 10 minutes
+)
+
+# Shorter buffer for low-latency environments (1 minute)
+client = GitHubAuthClient(
+    minting_service_base_url="https://minting.example.com",
+    auth_header="token",
+    cache_expiry_buffer_seconds=60,  # 1 minute
+)
+```
+
+**Production Considerations:**
+
+- **Memory Usage**: Cache is in-memory and grows with number of unique `owner/repo` combinations accessed
+- **Multi-Instance Deployments**: Each instance maintains its own cache (no shared state)
+- **Token Refresh**: Minting service handles actual token refresh logic; cache only decides when to request new tokens
+- **Security**: Cached tokens are held in memory only and not persisted to disk
+
 #### Future Implementation
 
 When implementing actual GitHub API integration:
@@ -399,7 +489,7 @@ When a compile request is received, the service:
 
 **Token Minting Failures:**
 - **500 Internal Server Error**: Minting service not configured (`MINTING_SERVICE_BASE_URL` missing)
-- **502 Bad Gateway**: Minting service returned a 4xx error (client error)
+- **502 Bad Gateway**: Minting service returned a 4xx error (client error, auth issues, etc.)
 - **503 Service Unavailable**: Minting service returned a 5xx error (temporary failure)
 
 Error responses include structured JSON with `error`, `request_id`, `plan_id`, `spec_index`, and `message` fields.
@@ -597,6 +687,101 @@ Repository context for LLM requests:
 }
 ```
 
+**Detailed Contract:**
+
+The `RepoContextPayload` model provides structured repository context to LLM compilation requests. It is populated by fetching three JSON files from the `.github/repo-analysis-output/` directory in the target repository:
+
+1. **`tree`** (list[dict]): File tree structure from `tree.json`
+   - Each entry typically contains: `path`, `type`, `mode`, `sha`, `url`
+   - Used to give LLMs understanding of project structure
+   - Fallback when unavailable: `[{"path": ".", "type": "tree", "mode": "040000", "sha": "unavailable", "url": "unavailable", "note": "Repository tree data unavailable"}]`
+
+2. **`dependencies`** (list[dict]): Dependency information from `dependencies.json`
+   - Each entry typically contains: `name`, `version`, `ecosystem`
+   - Used to inform LLMs about project dependencies and versions
+   - Fallback when unavailable: `[{"name": "unknown", "version": "unknown", "ecosystem": "unknown", "note": "Dependency data unavailable"}]`
+
+3. **`file_summaries`** (list[dict]): File summaries from `file-summaries.json`
+   - Each entry typically contains: `path`, `summary`, `lines`
+   - Provides LLMs with high-level understanding of key files
+   - Fallback when unavailable: `[{"path": "unknown", "summary": "File summary data unavailable", "lines": 0, "note": "Unable to fetch or summarize repository files"}]`
+
+**Usage Example:**
+
+```python
+from spec_compiler.models import RepoContextPayload
+
+# Creating a RepoContextPayload instance
+repo_context = RepoContextPayload(
+    tree=[
+        {"path": "src/main.py", "type": "blob", "mode": "100644"},
+        {"path": "tests/", "type": "tree", "mode": "040000"},
+    ],
+    dependencies=[
+        {"name": "fastapi", "version": "0.100.0", "ecosystem": "pip"},
+        {"name": "pydantic", "version": "2.0.0", "ecosystem": "pip"},
+    ],
+    file_summaries=[
+        {"path": "src/main.py", "summary": "FastAPI application entry point", "lines": 150},
+        {"path": "README.md", "summary": "Project documentation and setup instructions", "lines": 200},
+    ],
+)
+
+# RepoContextPayload is JSON-serializable
+import json
+json_str = json.dumps(repo_context.dict())
+
+# Used in LlmRequestEnvelope
+from spec_compiler.models import LlmRequestEnvelope, SystemPromptConfig
+
+llm_request = LlmRequestEnvelope(
+    request_id="550e8400-e29b-41d4-a716-446655440000",
+    model="gpt-5.1",
+    system_prompt=SystemPromptConfig(
+        template="You are a code compiler assistant.",
+        variables={},
+        max_tokens=4000,
+    ),
+    user_prompt="Compile this specification...",
+    repo_context=repo_context,  # Provides context to LLM
+    metadata={"task": "compile"},
+)
+```
+
+**Fallback Behavior:**
+
+When repository analysis files are missing or malformed, the compile endpoint uses fallback data:
+
+```python
+from spec_compiler.services.github_repo import (
+    create_fallback_tree,
+    create_fallback_dependencies,
+    create_fallback_file_summaries,
+)
+
+# Get fallback structures when files are unavailable
+fallback_tree = create_fallback_tree()
+fallback_deps = create_fallback_dependencies()
+fallback_summaries = create_fallback_file_summaries()
+
+# These ensure the payload remains well-formed even with no repository data
+fallback_context = RepoContextPayload(
+    tree=fallback_tree,
+    dependencies=fallback_deps,
+    file_summaries=fallback_summaries,
+)
+```
+
+**Partial Context Handling:**
+
+The compile endpoint handles partial failures gracefully:
+- If only `tree.json` is missing: Uses fallback tree, but includes real dependencies and summaries
+- If all files are missing: Uses all fallback data, but compilation proceeds
+- If JSON is malformed: Treats as missing and uses fallback
+- If GitHub returns 403/500: Treats as missing and uses fallback
+
+This resilience ensures that LLM compilation can proceed even when repository analysis is incomplete or unavailable.
+
 #### LlmRequestEnvelope
 
 Envelope for LLM API requests:
@@ -681,6 +866,197 @@ When integrating actual LLM services, the workflow should:
 - The stubbed envelopes allow testing of the API contract without LLM dependencies
 - Tests verify that envelopes are created and logged correctly
 - When LLM integration is added, existing tests should be updated to mock LLM API calls rather than relying on stubs
+
+## Testing GitHub Integration
+
+The service includes comprehensive test coverage for GitHub token minting and repository context fetching. This section explains how to run tests and monitor GitHub integration behavior.
+
+### Running Tests
+
+Run the full test suite to validate GitHub integration:
+
+```bash
+# All tests
+PYTHONPATH=src pytest tests/ -v
+
+# GitHub service tests only
+PYTHONPATH=src pytest tests/test_services_github.py -v
+PYTHONPATH=src pytest tests/test_github_auth.py -v
+PYTHONPATH=src pytest tests/test_github_repo.py -v
+
+# Compile endpoint tests with repo context
+PYTHONPATH=src pytest tests/test_compile_endpoint_repo_context.py -v
+
+# With coverage report
+PYTHONPATH=src pytest tests/ --cov=src/spec_compiler --cov-report=html
+```
+
+### Test Coverage Areas
+
+**Unit Tests (`test_github_auth.py`):**
+- Token minting success with various response formats
+- Error handling (4xx, 5xx, network errors)
+- Token caching behavior and expiry validation
+- Header injection prevention
+- Response sanitization (token redaction)
+
+**Unit Tests (`test_github_repo.py`):**
+- JSON file fetching with base64 encoding
+- 404 handling for missing files
+- Invalid JSON detection (malformed content)
+- Invalid base64 decoding
+- Non-dict JSON rejection
+- Header injection prevention
+- Fallback helper functions
+
+**Integration Tests (`test_services_github.py`):**
+- Full workflow: mint token → fetch files → parse JSON
+- Simultaneous missing and malformed files
+- Partial success scenarios
+- Error sanitization across services
+- Deterministic behavior validation
+
+**Endpoint Tests (`test_compile_endpoint_repo_context.py`):**
+- Successful repo context population
+- Minting error handling (500/502/503 responses)
+- Fallback usage for missing files
+- Partial file availability
+- Structured logging validation
+
+### Monitoring GitHub Integration in Production
+
+**Key Metrics to Monitor:**
+
+1. **Token Minting Success Rate**
+   - Log messages: `minting_token_success`, `minting_token_failed`
+   - Alert on: High failure rate or repeated 5xx errors
+   - Action: Check minting service availability and IAM permissions
+
+2. **Repo Context Fetch Success Rate**
+   - Log messages: `repo_context_*_success`, `repo_context_*_error`
+   - Alert on: High fallback usage rates
+   - Action: Verify repository analysis files exist and are valid
+
+3. **Token Cache Hit Rate**
+   - Monitor API call frequency to minting service
+   - High cache hit rate = fewer minting service calls
+   - Low cache hit rate = potential token expiry issues
+
+4. **Fallback Data Usage**
+   - Log messages: `repo_context_*_error`, `*_not_list`, `*_invalid_json`
+   - Track which files frequently fall back
+   - Action: Fix repository analysis generation or file formats
+
+**Log Queries (Google Cloud Logging):**
+
+```bash
+# Token minting failures
+resource.type="cloud_run_revision" 
+jsonPayload.event="minting_token_failed"
+
+# Repo context fallback usage
+resource.type="cloud_run_revision"
+jsonPayload.event=~"repo_context_.*_error"
+
+# Compile requests with full fallback
+resource.type="cloud_run_revision"
+jsonPayload.event="fetching_repo_context_unexpected_error"
+
+# Successful repo context fetches
+resource.type="cloud_run_revision"
+jsonPayload.event="fetching_repo_context_success"
+severity="INFO"
+```
+
+**Debugging Token Minting Issues:**
+
+```bash
+# Check minting service configuration
+curl -I https://your-minting-service.run.app/api/token
+
+# Test with identity token (Cloud Run IAM)
+TOKEN=$(gcloud auth print-identity-token)
+curl -X POST https://your-minting-service.run.app/api/token \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"force_refresh": false}'
+
+# Validate GitHub API access with token
+curl -H "Authorization: Bearer gho_..." \
+  https://api.github.com/repos/owner/repo/contents/.github/repo-analysis-output/tree.json
+```
+
+**Troubleshooting Common Issues:**
+
+1. **"Minting service URL not configured"**
+   - Symptom: HTTP 500 on compile requests
+   - Fix: Set `MINTING_SERVICE_BASE_URL` in environment
+
+2. **"Minting service returned status 403/401"**
+   - Symptom: HTTP 502 on compile requests
+   - Fix: Update `MINTING_SERVICE_AUTH_HEADER` with valid identity token
+   - Verify Cloud Run IAM permissions (`roles/run.invoker`)
+
+3. **"Repository tree data unavailable"**
+   - Symptom: Fallback tree data used
+   - Causes: File doesn't exist, permission denied, invalid JSON
+   - Action: Check if `.github/repo-analysis-output/tree.json` exists in repo
+   - Verify repository is accessible with minted token
+
+4. **All files using fallback data**
+   - Symptom: All three files (tree, dependencies, file-summaries) use fallbacks
+   - Causes: Repository analysis not run, files not committed, wrong path
+   - Action: Run repository analysis workflow to generate files
+   - Verify files are committed to `.github/repo-analysis-output/`
+
+5. **Token cache not working**
+   - Symptom: Every request hits minting service
+   - Possible causes: Tokens expiring quickly, `enable_caching=False`
+   - Action: Check token expiry times, verify cache configuration
+
+### Local Testing Without Minting Service
+
+For local development without a deployed minting service:
+
+```python
+# In your test or local script
+from unittest.mock import patch, MagicMock
+from spec_compiler.models import GitHubAuthToken
+
+# Mock the GitHubAuthClient
+with patch("spec_compiler.app.routes.compile.GitHubAuthClient") as MockAuth:
+    mock_client = MagicMock()
+    MockAuth.return_value = mock_client
+    
+    # Mock successful token minting
+    mock_client.mint_user_to_server_token.return_value = GitHubAuthToken(
+        access_token="gho_test_token",
+        token_type="bearer",
+    )
+    
+    # Now make compile requests - they'll use the mocked token
+    # Your compile request code here...
+```
+
+Or use the test client fixtures from `tests/conftest.py`:
+
+```python
+from fastapi.testclient import TestClient
+from spec_compiler.app.main import app
+
+client = TestClient(app)
+
+# Mock GitHub services for testing
+from tests.test_compile_endpoint_repo_context import (
+    mock_github_auth_client,
+    mock_github_repo_client,
+)
+
+# Use pytest fixtures in your tests
+def test_my_scenario(test_client, mock_github_auth_client):
+    # Test with mocked GitHub services
+    pass
+```
 
 ## Structured Logging & Observability
 
