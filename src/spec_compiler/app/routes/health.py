@@ -51,7 +51,7 @@ async def debug_publish_status() -> dict[str, str | int]:
     """
     Debug endpoint to test status message publishing.
 
-    Only available in development/non-production environments for safety.
+    Only available in development environments for safety.
     Publishes a sample status message to verify Pub/Sub configuration.
 
     Returns:
@@ -62,12 +62,15 @@ async def debug_publish_status() -> dict[str, str | int]:
         HTTPException: 500 if publisher configuration is invalid
         HTTPException: 503 if publish fails
     """
-    # Only allow in non-production environments
-    if settings.is_production:
-        logger.warning("Debug status endpoint accessed in production environment")
+    # Only allow in development environment
+    if settings.app_env != "development":
+        logger.warning(
+            "Debug status endpoint accessed in non-development environment",
+            app_env=settings.app_env,
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Debug endpoints are disabled in production",
+            detail="Debug endpoints are only enabled in development environment",
         )
 
     logger.info("Debug status publish requested")

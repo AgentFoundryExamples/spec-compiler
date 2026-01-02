@@ -38,7 +38,7 @@ class TestDebugStatusEndpoint:
     """Tests for /debug/status endpoint."""
 
     def test_debug_status_disabled_in_production(self, test_client: TestClient) -> None:
-        """Test that debug endpoint is disabled in production."""
+        """Test that debug endpoint is disabled in non-development environments."""
         original_env = settings.app_env
         try:
             # Temporarily set to production
@@ -49,7 +49,7 @@ class TestDebugStatusEndpoint:
             assert response.status_code == 403
             data = response.json()
             assert "detail" in data
-            assert "production" in data["detail"].lower()
+            assert "development" in data["detail"].lower()
         finally:
             settings.app_env = original_env
 

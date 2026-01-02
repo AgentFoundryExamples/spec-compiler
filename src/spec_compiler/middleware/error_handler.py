@@ -27,53 +27,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.responses import JSONResponse
 
 from spec_compiler.models.plan_status import PlanStatusMessage
-from spec_compiler.services.plan_scheduler_publisher import (
-    ConfigurationError,
-    PlanSchedulerPublisher,
-)
-
-# Global publisher instance (initialized on first use)
-_publisher: PlanSchedulerPublisher | None = None
-_publisher_init_failed = False
-
-
-def get_publisher() -> PlanSchedulerPublisher | None:
-    """
-    Get or create the PlanSchedulerPublisher instance.
-
-    Returns None if publisher configuration is invalid or initialization failed.
-    Logs errors but doesn't raise to prevent blocking error handling.
-    """
-    global _publisher, _publisher_init_failed
-
-    # Return None if we already know initialization failed
-    if _publisher_init_failed:
-        return None
-
-    # Return existing publisher if already initialized
-    if _publisher is not None:
-        return _publisher
-
-    # Try to initialize publisher
-    try:
-        from spec_compiler.config import settings
-
-        _publisher = PlanSchedulerPublisher(
-            gcp_project_id=settings.gcp_project_id,
-            topic_name=settings.pubsub_topic_plan_status,
-            credentials_path=settings.pubsub_credentials_path,
-        )
-        logger = structlog.get_logger(__name__)
-        logger.info("PlanSchedulerPublisher initialized successfully for error handler")
-        return _publisher
-    except ConfigurationError:
-        # Log configuration error but don't fail
-        _publisher_init_failed = True
-        return None
-    except Exception:
-        # Log unexpected error but don't fail
-        _publisher_init_failed = True
-        return None
+from spec_compiler.services.plan_scheduler_publisher import get_publisher
 
 
 def publish_failed_status_safe(
@@ -154,6 +108,16 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             client_host=request.client.host if request.client else None,
         )
 
+        # Cache body for error handling if it's a compile request
+        # This prevents body consumption issues when we need to extract plan context during error handling
+        if request.method == "POST" and request.url.path == "/compile-spec":
+            try:
+                body = await request.body()
+                # Store the raw body in state. It can be parsed later if needed.
+                request.state.raw_body = body
+            except Exception:
+                request.state.raw_body = None  # Body could not be read
+
         try:
             # Process request through the rest of the middleware chain
             response = await call_next(request)
@@ -198,12 +162,11 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             plan_id = None
             spec_index = None
             try:
-                # Attempt to read and parse body
+                # Attempt to read and parse body from cached state
                 if request.method == "POST" and request.url.path == "/compile-spec":
-                    # Try to get the body - it might have been consumed already
-                    body = await request.body()
-                    if body:
-                        body_dict = json.loads(body)
+                    raw_body = getattr(request.state, "raw_body", None)
+                    if raw_body:
+                        body_dict = json.loads(raw_body)
                         plan_id = body_dict.get("plan_id")
                         spec_index = body_dict.get("spec_index")
             except Exception:
@@ -216,7 +179,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                     plan_id=plan_id,
                     spec_index=spec_index,
                     request_id=request_id,
-                    error_message=f"Unhandled exception: {type(exc).__name__}: {str(exc)[:500]}",
+                    error_message=f"Unhandled exception: {type(exc).__name__}: {str(exc)[:1000]}",
                 )
 
             # Create safe error message (don't leak internal details)

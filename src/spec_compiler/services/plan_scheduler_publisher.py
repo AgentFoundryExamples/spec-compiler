@@ -37,6 +37,63 @@ DEFAULT_BASE_DELAY = 0.5  # seconds
 DEFAULT_MAX_DELAY = 5.0  # seconds
 DEFAULT_PUBLISH_TIMEOUT = 10.0  # seconds
 
+# Global publisher instance (initialized on first use)
+_publisher: "PlanSchedulerPublisher | None" = None
+_publisher_init_failed = False
+
+
+def get_publisher() -> "PlanSchedulerPublisher | None":
+    """
+    Get or create the singleton PlanSchedulerPublisher instance.
+
+    Returns None if publisher configuration is invalid or initialization failed.
+    Logs errors but doesn't raise to prevent blocking the calling code.
+
+    This function provides a centralized way to access the publisher across
+    the application (compile endpoint, error handler middleware, etc.).
+
+    Returns:
+        PlanSchedulerPublisher instance or None if unavailable
+    """
+    global _publisher, _publisher_init_failed
+
+    # Return None if we already know initialization failed
+    if _publisher_init_failed:
+        return None
+
+    # Return existing publisher if already initialized
+    if _publisher is not None:
+        return _publisher
+
+    # Try to initialize publisher
+    try:
+        from spec_compiler.config import settings
+
+        _publisher = PlanSchedulerPublisher(
+            gcp_project_id=settings.gcp_project_id,
+            topic_name=settings.pubsub_topic_plan_status,
+            credentials_path=settings.pubsub_credentials_path,
+        )
+        logger.info("PlanSchedulerPublisher initialized successfully")
+        return _publisher
+    except ConfigurationError as e:
+        # Log configuration error but don't fail
+        logger.warning(
+            "PlanSchedulerPublisher not configured, status publishing disabled",
+            error=str(e),
+        )
+        _publisher_init_failed = True
+        return None
+    except Exception as e:
+        # Log unexpected error but don't fail
+        logger.error(
+            "Failed to initialize PlanSchedulerPublisher, status publishing disabled",
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+        _publisher_init_failed = True
+        return None
+
 
 class ConfigurationError(Exception):
     """
