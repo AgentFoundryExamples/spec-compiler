@@ -4,7 +4,7 @@ Heuristic summaries of source files based on filenames, extensions, and paths.
 
 Schema Version: 2.0
 
-Total files: 37
+Total files: 41
 
 ## src/spec_compiler/__init__.py
 **Language:** Python  
@@ -110,8 +110,8 @@ Total files: 37
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
 **Summary:** Python module initialization (role: module-init)  
-**Size:** 2.17 KB  
-**LOC:** 56  
+**Size:** 2.25 KB  
+**LOC:** 58  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/models/compile.py
@@ -132,13 +132,22 @@ Total files: 37
 **LOC:** 258  
 **TODOs/FIXMEs:** 0  
 
+## src/spec_compiler/models/plan_status.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Summary:** Python core implementation  
+**Size:** 6.04 KB  
+**LOC:** 132  
+**TODOs/FIXMEs:** 0  
+
 ## src/spec_compiler/services/__init__.py
 **Language:** Python  
 **Role:** module-init  
 **Role Justification:** module initialization file '__init__'  
 **Summary:** Python module initialization (role: module-init)  
-**Size:** 1.58 KB  
-**LOC:** 39  
+**Size:** 1.75 KB  
+**LOC:** 45  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/services/github_auth.py
@@ -184,6 +193,15 @@ Total files: 37
 **Summary:** Python core implementation  
 **Size:** 16.37 KB  
 **LOC:** 299  
+**TODOs/FIXMEs:** 0  
+
+## src/spec_compiler/services/plan_scheduler_publisher.py
+**Language:** Python  
+**Role:** implementation  
+**Role Justification:** general implementation file (default classification)  
+**Summary:** Python core implementation  
+**Size:** 16.72 KB  
+**LOC:** 333  
 **TODOs/FIXMEs:** 0  
 
 ## tests/__init__.py
@@ -319,6 +337,24 @@ Total files: 37
 **Summary:** Python test file (role: test)  
 **Size:** 27.57 KB  
 **LOC:** 585  
+**TODOs/FIXMEs:** 0  
+
+## tests/test_plan_scheduler_publisher.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 16.70 KB  
+**LOC:** 345  
+**TODOs/FIXMEs:** 0  
+
+## tests/test_plan_status_model.py
+**Language:** Python  
+**Role:** test  
+**Role Justification:** filename starts with 'test_'  
+**Summary:** Python test file (role: test)  
+**Size:** 12.16 KB  
+**LOC:** 272  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_services_github.py

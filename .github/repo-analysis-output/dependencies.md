@@ -8,16 +8,16 @@ Includes classification of external dependencies as stdlib vs third-party.
 
 ## Statistics
 
-- **Total files**: 37
-- **Intra-repo dependencies**: 66
-- **External stdlib dependencies**: 26
-- **External third-party dependencies**: 24
+- **Total files**: 41
+- **Intra-repo dependencies**: 72
+- **External stdlib dependencies**: 27
+- **External third-party dependencies**: 27
 
 ## External Dependencies
 
 ### Standard Library / Core Modules
 
-Total: 26 unique modules
+Total: 27 unique modules
 
 - `abc.ABC`
 - `abc.abstractmethod`
@@ -32,18 +32,18 @@ Total: 26 unique modules
 - `logging`
 - `os`
 - `pathlib.Path`
+- `random`
 - `re`
 - `sys`
 - `tempfile`
 - `threading`
 - `threading.Lock`
 - `time`
-- `typing.Annotated`
-- ... and 6 more (see JSON for full list)
+- ... and 7 more (see JSON for full list)
 
 ### Third-Party Packages
 
-Total: 24 unique packages
+Total: 27 unique packages
 
 - `fastapi.APIRouter`
 - `fastapi.FastAPI`
@@ -54,6 +54,9 @@ Total: 24 unique packages
 - `fastapi.middleware.cors.CORSMiddleware`
 - `fastapi.status`
 - `fastapi.testclient.TestClient`
+- `google.api_core.exceptions`
+- `google.cloud.pubsub_v1`
+- `google.oauth2.service_account`
 - `httpx`
 - `pydantic.BaseModel`
 - `pydantic.Field`
@@ -62,10 +65,7 @@ Total: 24 unique packages
 - `pydantic_settings.BaseSettings`
 - `pydantic_settings.SettingsConfigDict`
 - `pytest`
-- `starlette.middleware.base.BaseHTTPMiddleware`
-- `starlette.middleware.base.RequestResponseEndpoint`
-- `starlette.responses.JSONResponse`
-- ... and 4 more (see JSON for full list)
+- ... and 7 more (see JSON for full list)
 
 ## Most Depended Upon Files (Intra-Repo)
 
@@ -77,18 +77,18 @@ Total: 24 unique packages
 - `src/spec_compiler/services/github_repo.py` (5 dependents)
 - `src/spec_compiler/services/llm_client.py` (5 dependents)
 - `src/spec_compiler/models/compile.py` (4 dependents)
+- `src/spec_compiler/models/plan_status.py` (4 dependents)
 - `src/spec_compiler/services/openai_responses.py` (3 dependents)
-- `src/spec_compiler/app/routes/compile.py` (2 dependents)
 
 ## Files with Most Dependencies (Intra-Repo)
 
 - `src/spec_compiler/app/routes/compile.py` (7 dependencies)
 - `src/spec_compiler/app/main.py` (6 dependencies)
-- `src/spec_compiler/services/__init__.py` (4 dependencies)
+- `src/spec_compiler/services/__init__.py` (5 dependencies)
 - `src/spec_compiler/services/openai_responses.py` (4 dependencies)
 - `tests/test_compile_endpoint_llm_integration.py` (4 dependencies)
 - `tests/test_compile_endpoint_repo_context.py` (4 dependencies)
+- `src/spec_compiler/models/__init__.py` (3 dependencies)
 - `src/spec_compiler/services/github_auth.py` (3 dependencies)
 - `src/spec_compiler/services/llm_client.py` (3 dependencies)
 - `tests/test_compile_endpoint.py` (3 dependencies)
-- `tests/test_models_helpers.py` (3 dependencies)

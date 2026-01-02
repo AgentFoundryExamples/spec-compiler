@@ -204,6 +204,25 @@
       }
     },
     {
+      "id": "src/spec_compiler/models/plan_status.py",
+      "path": "src/spec_compiler/models/plan_status.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "datetime.UTC",
+          "datetime.datetime",
+          "json",
+          "re",
+          "typing.Literal"
+        ],
+        "third-party": [
+          "pydantic.BaseModel",
+          "pydantic.Field",
+          "pydantic.field_validator"
+        ]
+      }
+    },
+    {
       "id": "src/spec_compiler/services/__init__.py",
       "path": "src/spec_compiler/services/__init__.py",
       "type": "file",
@@ -282,6 +301,24 @@
         ],
         "third-party": [
           "httpx"
+        ]
+      }
+    },
+    {
+      "id": "src/spec_compiler/services/plan_scheduler_publisher.py",
+      "path": "src/spec_compiler/services/plan_scheduler_publisher.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "pathlib.Path",
+          "random",
+          "time"
+        ],
+        "third-party": [
+          "google.api_core.exceptions",
+          "google.cloud.pubsub_v1",
+          "google.oauth2.service_account",
+          "structlog"
         ]
       }
     },
@@ -504,6 +541,39 @@
       }
     },
     {
+      "id": "tests/test_plan_scheduler_publisher.py",
+      "path": "tests/test_plan_scheduler_publisher.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "os",
+          "tempfile",
+          "unittest.mock.Mock",
+          "unittest.mock.patch"
+        ],
+        "third-party": [
+          "google.api_core.exceptions",
+          "pytest"
+        ]
+      }
+    },
+    {
+      "id": "tests/test_plan_status_model.py",
+      "path": "tests/test_plan_status_model.py",
+      "type": "file",
+      "external_dependencies": {
+        "stdlib": [
+          "datetime.UTC",
+          "datetime.datetime",
+          "json"
+        ],
+        "third-party": [
+          "pydantic.ValidationError",
+          "pytest"
+        ]
+      }
+    },
+    {
       "id": "tests/test_services_github.py",
       "path": "tests/test_services_github.py",
       "type": "file",
@@ -625,6 +695,10 @@
       "target": "src/spec_compiler/models/llm.py"
     },
     {
+      "source": "src/spec_compiler/models/__init__.py",
+      "target": "src/spec_compiler/models/plan_status.py"
+    },
+    {
       "source": "src/spec_compiler/services/__init__.py",
       "target": "src/spec_compiler/services/github_auth.py"
     },
@@ -639,6 +713,10 @@
     {
       "source": "src/spec_compiler/services/__init__.py",
       "target": "src/spec_compiler/services/openai_responses.py"
+    },
+    {
+      "source": "src/spec_compiler/services/__init__.py",
+      "target": "src/spec_compiler/services/plan_scheduler_publisher.py"
     },
     {
       "source": "src/spec_compiler/services/github_auth.py",
@@ -687,6 +765,10 @@
     {
       "source": "src/spec_compiler/services/openai_responses.py",
       "target": "src/spec_compiler/services/llm_input.py"
+    },
+    {
+      "source": "src/spec_compiler/services/plan_scheduler_publisher.py",
+      "target": "src/spec_compiler/models/plan_status.py"
     },
     {
       "source": "tests/conftest.py",
@@ -785,6 +867,18 @@
       "target": "src/spec_compiler/models/llm.py"
     },
     {
+      "source": "tests/test_plan_scheduler_publisher.py",
+      "target": "src/spec_compiler/models/plan_status.py"
+    },
+    {
+      "source": "tests/test_plan_scheduler_publisher.py",
+      "target": "src/spec_compiler/services/plan_scheduler_publisher.py"
+    },
+    {
+      "source": "tests/test_plan_status_model.py",
+      "target": "src/spec_compiler/models/plan_status.py"
+    },
+    {
       "source": "tests/test_services_github.py",
       "target": "src/spec_compiler/services/github_auth.py"
     },
@@ -820,6 +914,7 @@
       "logging",
       "os",
       "pathlib.Path",
+      "random",
       "re",
       "sys",
       "tempfile",
@@ -844,6 +939,9 @@
       "fastapi.middleware.cors.CORSMiddleware",
       "fastapi.status",
       "fastapi.testclient.TestClient",
+      "google.api_core.exceptions",
+      "google.cloud.pubsub_v1",
+      "google.oauth2.service_account",
       "httpx",
       "pydantic.BaseModel",
       "pydantic.Field",
@@ -860,7 +958,7 @@
       "structlog.types.Processor",
       "uvicorn"
     ],
-    "stdlib_count": 26,
-    "third-party_count": 24
+    "stdlib_count": 27,
+    "third-party_count": 27
   }
 }
