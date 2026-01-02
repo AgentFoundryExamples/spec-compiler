@@ -49,8 +49,30 @@ class TestStubLlmClient:
         client = StubLlmClient(sample_file_path=custom_path)
         assert client.sample_file_path == custom_path
 
-    def test_generate_response_returns_sample_data(self) -> None:
+    def test_initialization_with_provider_and_model(self) -> None:
+        """Test that stub client accepts provider and model parameters."""
+        client = StubLlmClient(provider="anthropic", model="claude-3-5-sonnet-20241022")
+        assert client.provider == "anthropic"
+        assert client.model == "claude-3-5-sonnet-20241022"
+
+    @patch("spec_compiler.services.llm_client.settings")
+    def test_initialization_uses_settings_for_provider_and_model(self, mock_settings: Mock) -> None:
+        """Test that stub client uses settings when provider/model not provided."""
+        mock_settings.llm_provider = "openai"
+        mock_settings.openai_model = "gpt-5.1"
+        mock_settings.claude_model = "claude-3-5-sonnet-20241022"
+
+        client = StubLlmClient()
+
+        assert client.provider == "openai"
+        assert client.model == "gpt-5.1"
+
+    @patch("spec_compiler.services.llm_client.settings")
+    def test_generate_response_returns_sample_data(self, mock_settings: Mock) -> None:
         """Test that stub client returns parsed sample data."""
+        mock_settings.llm_provider = "openai"
+        mock_settings.openai_model = "gpt-5.1"
+
         client = StubLlmClient()
         request = LlmRequestEnvelope(request_id="test-req-123")
 
@@ -59,15 +81,20 @@ class TestStubLlmClient:
         assert isinstance(response, LlmResponseEnvelope)
         assert response.request_id == "test-req-123"
         assert response.status == "success"
-        assert response.model == "stub-model"
+        assert response.model == "gpt-5.1"
         assert response.content != ""
         assert response.usage is not None
         assert response.usage["total_tokens"] == 0
         assert response.metadata is not None
         assert response.metadata["stub_mode"] is True
+        assert response.metadata["provider"] == "openai"
 
-    def test_generate_response_parses_sample_structure(self) -> None:
+    @patch("spec_compiler.services.llm_client.settings")
+    def test_generate_response_parses_sample_structure(self, mock_settings: Mock) -> None:
         """Test that stub client validates sample structure."""
+        mock_settings.llm_provider = "openai"
+        mock_settings.openai_model = "gpt-5.1"
+
         client = StubLlmClient()
         request = LlmRequestEnvelope(request_id="test-parse")
 
@@ -76,8 +103,20 @@ class TestStubLlmClient:
         # Should have metadata from parsed output
         assert "version" in response.metadata
         assert "issue_count" in response.metadata
+        assert "provider" in response.metadata
         assert response.metadata["version"] == "af/1.1"
         assert response.metadata["issue_count"] == 4
+        assert response.metadata["provider"] == "openai"
+
+    def test_generate_response_with_anthropic_provider(self) -> None:
+        """Test that stub client uses Anthropic model when provider is anthropic."""
+        client = StubLlmClient(provider="anthropic", model="claude-3-5-sonnet-20241022")
+        request = LlmRequestEnvelope(request_id="test-anthropic")
+
+        response = client.generate_response(request)
+
+        assert response.model == "claude-3-5-sonnet-20241022"
+        assert response.metadata["provider"] == "anthropic"
 
     def test_generate_response_with_missing_file(self) -> None:
         """Test that missing sample file raises error."""
@@ -456,14 +495,22 @@ class TestCreateLlmClient:
 
         assert isinstance(client, OpenAiResponsesClient)
 
+    @patch("spec_compiler.services.anthropic_llm_client.settings")
     @patch("spec_compiler.services.llm_client.settings")
-    def test_create_client_anthropic_not_implemented(self, mock_settings: Mock) -> None:
-        """Test that anthropic provider raises not implemented error."""
-        mock_settings.llm_provider = "anthropic"
-        mock_settings.llm_stub_mode = False
+    def test_create_client_anthropic(
+        self, mock_llm_settings: Mock, mock_anthropic_settings: Mock
+    ) -> None:
+        """Test that Anthropic client is created for anthropic provider."""
+        from spec_compiler.services.anthropic_llm_client import ClaudeLlmClient
 
-        with pytest.raises(LlmConfigurationError, match="not yet implemented"):
-            create_llm_client()
+        mock_llm_settings.llm_provider = "anthropic"
+        mock_llm_settings.llm_stub_mode = False
+        mock_anthropic_settings.claude_api_key = "test-key"
+        mock_anthropic_settings.claude_model = "claude-3-5-sonnet-20241022"
+
+        client = create_llm_client()
+
+        assert isinstance(client, ClaudeLlmClient)
 
     @patch("spec_compiler.services.llm_client.settings")
     def test_create_client_unknown_provider(self, mock_settings: Mock) -> None:
@@ -520,6 +567,7 @@ class TestLlmClientIntegration:
         """Test that factory-created stub client works correctly."""
         mock_settings.llm_provider = "openai"
         mock_settings.llm_stub_mode = True
+        mock_settings.openai_model = "gpt-5.1"
 
         client = create_llm_client()
         request = LlmRequestEnvelope(request_id="factory-test")
@@ -529,3 +577,4 @@ class TestLlmClientIntegration:
         assert response.request_id == "factory-test"
         assert response.status == "success"
         assert response.metadata["stub_mode"] is True
+        assert response.metadata["provider"] == "openai"
