@@ -276,10 +276,10 @@ def test_openai_model_from_env():
 
 
 def test_claude_model_default():
-    """Test that Claude model defaults to claude-3-5-sonnet-20241022."""
+    """Test that Claude model defaults to claude-sonnet-4-5-20250929."""
     with patch.dict(os.environ, {}, clear=True):
         settings = Settings()
-        assert settings.claude_model == "claude-3-5-sonnet-20241022"
+        assert settings.claude_model == "claude-sonnet-4-5-20250929"
 
 
 def test_claude_model_from_env():
@@ -341,7 +341,7 @@ def test_validate_llm_config_anthropic_all_ok():
     """Test LLM config validation with valid Anthropic configuration."""
     env = {
         "LLM_PROVIDER": "anthropic",
-        "CLAUDE_MODEL": "claude-3-5-sonnet-20241022",
+        "CLAUDE_MODEL": "claude-sonnet-4-5-20250929",
         "CLAUDE_API_KEY": "sk-ant-test-key",
     }
     with patch.dict(os.environ, env, clear=True):

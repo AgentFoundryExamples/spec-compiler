@@ -525,7 +525,7 @@ The following environment variables are available (see `.env.example` for a comp
   - `openai`: Use OpenAI GPT-5 models via Responses API (requires `OPENAI_API_KEY`)
   - `anthropic`: Use Anthropic Claude models via official `anthropic` SDK (requires `CLAUDE_API_KEY`)
 - **`OPENAI_MODEL`**: OpenAI model name when using OpenAI provider (default: `gpt-5.1`). Recommended: `gpt-5.1` (uses Responses API `/v1/responses`, see [LLMs.md](LLMs.md)).
-- **`CLAUDE_MODEL`**: Anthropic Claude model name when using Anthropic provider (default: `claude-3-5-sonnet-20241022`). This is Claude 3.5 Sonnet (uses official Anthropic SDK with Messages API, see [LLMs.md](LLMs.md)).
+- **`CLAUDE_MODEL`**: Anthropic Claude model name when using Anthropic provider (default: `claude-sonnet-4-5-20250929`). This is Claude Sonnet 4.5 (uses official Anthropic SDK with Messages API, see [LLMs.md](LLMs.md)). For regions without 4.5 availability, you can override to use `claude-3-5-sonnet-20241022`.
 
 ##### OpenAI Configuration (Optional)
 - **`OPENAI_API_BASE`**: Custom base URL for OpenAI API (default: `https://api.openai.com/v1`). Useful for proxies or custom endpoints.
@@ -745,7 +745,7 @@ When `LLM_STUB_MODE=true`:
 **Stub Response Characteristics**:
 - Status: `success`
 - Content: Full compiled spec JSON from sample file
-- Model: Reflects configured provider (e.g., `gpt-5.1` for OpenAI, `claude-3-5-sonnet-20241022` for Anthropic)
+- Model: Reflects configured provider (e.g., `gpt-5.1` for OpenAI, `claude-sonnet-4-5-20250929` for Anthropic)
 - Usage: Synthetic token counts (all zeros)
 - Metadata: Includes `stub_mode: true`, sample file path, version, issue count
 
@@ -798,7 +798,7 @@ OPENAI_API_KEY=sk-your-key-here  # Only needed if LLM_STUB_MODE=false
 
 # OR use Anthropic Claude (stub or real)
 LLM_PROVIDER=anthropic
-CLAUDE_MODEL=claude-3-5-sonnet-20241022
+CLAUDE_MODEL=claude-sonnet-4-5-20250929
 CLAUDE_API_KEY=sk-ant-your-key-here  # Only needed if LLM_STUB_MODE=false
 
 # Stub mode works with either provider
@@ -819,11 +819,11 @@ Restart the service after changing providers.
   - Real API calls require `OPENAI_API_KEY` when `LLM_STUB_MODE=false`
   - Supports organization/project IDs, custom base URLs, timeouts, and retry logic
 
-- **Anthropic Claude Integration**: Uses official `anthropic` Python SDK with Messages API for `claude-3-5-sonnet-20241022` (see [LLMs.md](LLMs.md))
+- **Anthropic Claude Integration**: Uses official `anthropic` Python SDK with Messages API for `claude-sonnet-4-5-20250929` (Claude Sonnet 4.5, see [LLMs.md](LLMs.md))
   - API Key Format: `sk-ant-...`
   - SDK: `anthropic==0.75.0` (official Anthropic Python package)
   - API Method: `client.messages.create()` (Messages API)
-  - Model: Claude 3.5 Sonnet (latest as of 2024-10-22)
+  - Model: Claude Sonnet 4.5 (latest as of 2025-09-29)
   - Real API calls require `CLAUDE_API_KEY` when `LLM_STUB_MODE=false`
   - Supports custom base URLs, timeouts, and retries
 
@@ -876,7 +876,7 @@ Restart the service after changing providers.
 
 2. **Model not found or unsupported**
    - Symptom: API errors about model availability
-   - Fix: Verify model name is correct (default: `claude-3-5-sonnet-20241022`)
+   - Fix: Verify model name is correct (default: `claude-sonnet-4-5-20250929`, fallback: `claude-3-5-sonnet-20241022`)
    - Check: [Anthropic model documentation](https://docs.anthropic.com/claude/docs/models-overview)
 
 3. **Content filtering or moderation errors**
@@ -1840,7 +1840,7 @@ from anthropic import Anthropic
 input_structure = composer.compose_separated(...)
 
 response = client.messages.create(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5-20250929",
     system=input_structure.system_prompt,      # System prompt here
     messages=[
         {

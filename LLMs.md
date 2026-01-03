@@ -17,7 +17,7 @@ When implementing OpenAI integration, the target API should be the **Responses A
 
 When implementing Anthropic integration, the target API should be the **Messages API** (API version `2023-06-01` or newer) since it is the most long term compatible option. The Claude Sonnet 4 and Opus 4 series models are supportive of the Messages API and these are the models we want to use when implementing AI integration.
 
-- Target model: Sonnet 4.5
+- Target model: Sonnet 4.5 (`claude-sonnet-4-5-20250929` or alias `claude-sonnet-4-5`)
 - Use the official `anthropic` Python package or `@anthropic-ai/sdk` for JS/TS
 
 **Do NOT use:** Text Completions API (deprecated), Claude 2.x or older models
