@@ -61,6 +61,20 @@ class TestClaudeLlmClient:
         assert client.max_retries == 5
         assert client.timeout == 60.0
 
+    def test_initialization_uses_default_model_from_settings(self) -> None:
+        """Test that client uses Sonnet 4.5 default model from settings when none provided."""
+        with patch("spec_compiler.services.anthropic_llm_client.settings") as mock_settings:
+            mock_settings.claude_api_key = "test-key"
+            mock_settings.claude_model = "claude-sonnet-4-5-20250929"
+            mock_settings.claude_api_base = None
+            mock_settings.llm_max_retries = 3
+            mock_settings.llm_timeout = 120.0
+
+            client = ClaudeLlmClient()
+            
+            assert client.model == "claude-sonnet-4-5-20250929"
+            assert client.api_key == "test-key"
+
     def test_build_request_payload_structure(self) -> None:
         """Test request payload has correct Messages API structure."""
         client = ClaudeLlmClient(api_key="test-key", model="claude-sonnet-4-5-20250929")
