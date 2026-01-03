@@ -11,7 +11,7 @@ Includes classification of external dependencies as stdlib vs third-party.
 - **Total files**: 50
 - **Intra-repo dependencies**: 103
 - **External stdlib dependencies**: 28
-- **External third-party dependencies**: 41
+- **External third-party dependencies**: 42
 
 ## External Dependencies
 
@@ -43,7 +43,7 @@ Total: 28 unique modules
 
 ### Third-Party Packages
 
-Total: 41 unique packages
+Total: 42 unique packages
 
 - `anthropic.APIError`
 - `anthropic.APITimeoutError`
@@ -53,6 +53,7 @@ Total: 41 unique packages
 - `anthropic.types.Usage`
 - `anthropic.types.content_block.ContentBlock`
 - `fastapi.APIRouter`
+- `fastapi.BackgroundTasks`
 - `fastapi.FastAPI`
 - `fastapi.HTTPException`
 - `fastapi.Header`
@@ -64,8 +65,7 @@ Total: 41 unique packages
 - `google.api_core.exceptions`
 - `google.cloud.pubsub_v1`
 - `google.oauth2.service_account`
-- `httpx`
-- ... and 21 more (see JSON for full list)
+- ... and 22 more (see JSON for full list)
 
 ## Most Depended Upon Files (Intra-Repo)
 

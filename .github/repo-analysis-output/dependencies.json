@@ -58,6 +58,7 @@
         ],
         "third-party": [
           "fastapi.APIRouter",
+          "fastapi.BackgroundTasks",
           "fastapi.HTTPException",
           "fastapi.Header",
           "fastapi.Request",
@@ -1229,6 +1230,7 @@
       "anthropic.types.Usage",
       "anthropic.types.content_block.ContentBlock",
       "fastapi.APIRouter",
+      "fastapi.BackgroundTasks",
       "fastapi.FastAPI",
       "fastapi.HTTPException",
       "fastapi.Header",
@@ -1264,6 +1266,6 @@
       "uvicorn"
     ],
     "stdlib_count": 28,
-    "third-party_count": 41
+    "third-party_count": 42
   }
 }
