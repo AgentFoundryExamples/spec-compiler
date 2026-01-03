@@ -75,6 +75,49 @@ class TestClaudeLlmClient:
             assert client.model == "claude-sonnet-4-5-20250929"
             assert client.api_key == "test-key"
 
+    def test_sdk_request_payload_uses_default_model(self) -> None:
+        """Test that SDK request payload contains default Sonnet 4.5 model when no override provided."""
+        with patch("spec_compiler.services.anthropic_llm_client.settings") as mock_settings:
+            mock_settings.claude_api_key = "test-key"
+            mock_settings.claude_model = "claude-sonnet-4-5-20250929"
+            mock_settings.claude_api_base = None
+            mock_settings.llm_max_retries = 3
+            mock_settings.llm_timeout = 120.0
+
+            client = ClaudeLlmClient()
+            
+            # Mock successful response
+            mock_content = Mock(spec=ContentBlock)
+            mock_content.text = '{"version": "1.0", "issues": []}'
+            
+            mock_usage = Mock(spec=Usage)
+            mock_usage.input_tokens = 100
+            mock_usage.output_tokens = 50
+            
+            mock_response = Mock(spec=Message)
+            mock_response.id = "msg_123"
+            mock_response.content = [mock_content]
+            mock_response.model = "claude-sonnet-4-5-20250929"
+            mock_response.role = "assistant"
+            mock_response.stop_reason = "end_turn"
+            mock_response.usage = mock_usage
+
+            with patch.object(client.client.messages, "create", return_value=mock_response) as mock_create:
+                request = LlmRequestEnvelope(
+                    request_id="req-123",
+                    system_prompt=SystemPromptConfig(template="Test prompt", max_tokens=1000),
+                    metadata={"spec_data": {"test": "data"}},
+                )
+                
+                client.generate_response(request)
+                
+                # Verify that messages.create was called with the default model in the payload
+                mock_create.assert_called_once()
+                call_kwargs = mock_create.call_args[1]
+                assert call_kwargs["model"] == "claude-sonnet-4-5-20250929"
+                assert "messages" in call_kwargs
+                assert call_kwargs["system"] == "Test prompt"
+
     def test_build_request_payload_structure(self) -> None:
         """Test request payload has correct Messages API structure."""
         client = ClaudeLlmClient(api_key="test-key", model="claude-sonnet-4-5-20250929")

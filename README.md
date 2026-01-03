@@ -527,6 +527,12 @@ The following environment variables are available (see `.env.example` for a comp
 - **`OPENAI_MODEL`**: OpenAI model name when using OpenAI provider (default: `gpt-5.1`). Recommended: `gpt-5.1` (uses Responses API `/v1/responses`, see [LLMs.md](LLMs.md)).
 - **`CLAUDE_MODEL`**: Anthropic Claude model name when using Anthropic provider (default: `claude-sonnet-4-5-20250929`). This is Claude Sonnet 4.5 (uses official Anthropic SDK with Messages API, see [LLMs.md](LLMs.md)). For regions without 4.5 availability, you can override to use `claude-3-5-sonnet-20241022`.
 
+**Pricing & Performance (Sonnet 4.5 vs 3.5):**
+- **Pricing**: Sonnet 4.5 maintains the same pricing as 3.5 Sonnet ($3 per million input tokens, $15 per million output tokens)
+- **Performance**: Sonnet 4.5 offers improved coding capabilities, better agentic task performance, and enhanced reasoning with similar latency to 3.5 Sonnet
+- **Context Window**: Both support 200K token context window
+- **Regional Availability**: Sonnet 4.5 is widely available via Anthropic API, AWS Bedrock, and Google Vertex AI. For regions without 4.5 support, override with `CLAUDE_MODEL=claude-3-5-sonnet-20241022`
+
 ##### OpenAI Configuration (Optional)
 - **`OPENAI_API_BASE`**: Custom base URL for OpenAI API (default: `https://api.openai.com/v1`). Useful for proxies or custom endpoints.
 - **`OPENAI_ORGANIZATION`**: OpenAI organization ID (format: `org-xxxxxxxxxxxxxx`). For users belonging to multiple organizations, specify which organization to bill.
