@@ -9,15 +9,15 @@ Includes classification of external dependencies as stdlib vs third-party.
 ## Statistics
 
 - **Total files**: 50
-- **Intra-repo dependencies**: 103
-- **External stdlib dependencies**: 28
+- **Intra-repo dependencies**: 105
+- **External stdlib dependencies**: 29
 - **External third-party dependencies**: 42
 
 ## External Dependencies
 
 ### Standard Library / Core Modules
 
-Total: 28 unique modules
+Total: 29 unique modules
 
 - `abc.ABC`
 - `abc.abstractmethod`
@@ -39,7 +39,7 @@ Total: 28 unique modules
 - `tempfile`
 - `threading`
 - `threading.Lock`
-- ... and 8 more (see JSON for full list)
+- ... and 9 more (see JSON for full list)
 
 ### Third-Party Packages
 
@@ -85,10 +85,10 @@ Total: 42 unique packages
 - `src/spec_compiler/app/routes/compile.py` (10 dependencies)
 - `src/spec_compiler/app/main.py` (6 dependencies)
 - `src/spec_compiler/services/__init__.py` (6 dependencies)
+- `tests/test_services_llm.py` (5 dependencies)
 - `src/spec_compiler/app/routes/health.py` (4 dependencies)
+- `src/spec_compiler/services/anthropic_llm_client.py` (4 dependencies)
 - `src/spec_compiler/services/llm_client.py` (4 dependencies)
 - `src/spec_compiler/services/openai_responses.py` (4 dependencies)
 - `tests/test_compile_endpoint_llm_integration.py` (4 dependencies)
 - `tests/test_compile_endpoint_repo_context.py` (4 dependencies)
-- `tests/test_services_llm.py` (4 dependencies)
-- `src/spec_compiler/models/__init__.py` (3 dependencies)

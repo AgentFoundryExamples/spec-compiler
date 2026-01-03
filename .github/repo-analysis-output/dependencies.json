@@ -242,7 +242,6 @@
       "type": "file",
       "external_dependencies": {
         "stdlib": [
-          "json",
           "logging",
           "time",
           "typing.Any"
@@ -325,7 +324,8 @@
       "external_dependencies": {
         "stdlib": [
           "json",
-          "typing.Any"
+          "typing.Any",
+          "typing.NamedTuple"
         ],
         "third-party": []
       }
@@ -336,10 +336,8 @@
       "type": "file",
       "external_dependencies": {
         "stdlib": [
-          "json",
           "logging",
-          "time",
-          "typing.Any"
+          "time"
         ],
         "third-party": [
           "openai.APIError",
@@ -622,7 +620,10 @@
       "path": "tests/test_llm_input.py",
       "type": "file",
       "external_dependencies": {
-        "stdlib": [],
+        "stdlib": [
+          "json",
+          "re"
+        ],
         "third-party": [
           "pytest"
         ]
@@ -759,12 +760,10 @@
         "stdlib": [
           "pathlib.Path",
           "tempfile",
-          "unittest.mock.MagicMock",
           "unittest.mock.Mock",
           "unittest.mock.patch"
         ],
         "third-party": [
-          "httpx",
           "openai.APIError",
           "openai.APITimeoutError",
           "openai.RateLimitError",
@@ -932,6 +931,10 @@
     {
       "source": "src/spec_compiler/services/anthropic_llm_client.py",
       "target": "src/spec_compiler/services/llm_client.py"
+    },
+    {
+      "source": "src/spec_compiler/services/anthropic_llm_client.py",
+      "target": "src/spec_compiler/services/llm_input.py"
     },
     {
       "source": "src/spec_compiler/services/downstream_sender.py",
@@ -1187,6 +1190,10 @@
     },
     {
       "source": "tests/test_services_llm.py",
+      "target": "src/spec_compiler/services/llm_input.py"
+    },
+    {
+      "source": "tests/test_services_llm.py",
       "target": "src/spec_compiler/services/anthropic_llm_client.py"
     }
   ],
@@ -1216,6 +1223,7 @@
       "typing.Annotated",
       "typing.Any",
       "typing.Literal",
+      "typing.NamedTuple",
       "unittest.mock.MagicMock",
       "unittest.mock.Mock",
       "unittest.mock.patch",
@@ -1265,7 +1273,7 @@
       "structlog.types.Processor",
       "uvicorn"
     ],
-    "stdlib_count": 28,
+    "stdlib_count": 29,
     "third-party_count": 42
   }
 }

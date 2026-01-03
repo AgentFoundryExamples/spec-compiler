@@ -155,8 +155,8 @@ Total files: 50
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 14.85 KB  
-**LOC:** 288  
+**Size:** 15.43 KB  
+**LOC:** 294  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/services/downstream_sender.py
@@ -200,8 +200,8 @@ Total files: 50
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 7.45 KB  
-**LOC:** 167  
+**Size:** 13.64 KB  
+**LOC:** 299  
 **TODOs/FIXMEs:** 1  
 
 ## src/spec_compiler/services/openai_responses.py
@@ -209,8 +209,8 @@ Total files: 50
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 15.57 KB  
-**LOC:** 293  
+**Size:** 16.61 KB  
+**LOC:** 311  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/services/plan_scheduler_publisher.py
@@ -281,8 +281,8 @@ Total files: 50
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 16.51 KB  
-**LOC:** 317  
+**Size:** 17.06 KB  
+**LOC:** 331  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_compile_endpoint_repo_context.py
@@ -371,8 +371,8 @@ Total files: 50
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 13.70 KB  
-**LOC:** 319  
+**Size:** 25.29 KB  
+**LOC:** 564  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_logging.py
@@ -452,6 +452,6 @@ Total files: 50
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 23.78 KB  
-**LOC:** 460  
+**Size:** 23.71 KB  
+**LOC:** 442  
 **TODOs/FIXMEs:** 0  
