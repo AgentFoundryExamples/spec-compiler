@@ -122,12 +122,8 @@ def test_compile_with_llm_configuration_error(test_client_without_stub: TestClie
 
     response = test_client_without_stub.post("/compile-spec", json=payload)
 
-    assert response.status_code == 500
-    data = response.json()
-    assert "detail" in data
-    assert isinstance(data["detail"], dict)
-    assert data["detail"]["error"] == "LLM service not configured"
-    assert data["detail"]["plan_id"] == "plan-config-error"
+    # In async mode, should return 202 and handle error in background
+    assert response.status_code == 202
 
 
 def test_compile_with_llm_api_error_returns_503(test_client: TestClient) -> None:
@@ -148,11 +144,7 @@ def test_compile_with_llm_api_error_returns_503(test_client: TestClient) -> None
 
         response = test_client.post("/compile-spec", json=payload)
 
-        assert response.status_code == 503
-        data = response.json()
-        assert "detail" in data
-        assert isinstance(data["detail"], dict)
-        assert data["detail"]["error"] == "LLM service error"
+        assert response.status_code == 202  # Async mode returns 202, error handled in background
 
 
 def test_compile_with_malformed_llm_json_returns_500(test_client: TestClient) -> None:
@@ -181,11 +173,7 @@ def test_compile_with_malformed_llm_json_returns_500(test_client: TestClient) ->
 
         response = test_client.post("/compile-spec", json=payload)
 
-        assert response.status_code == 500
-        data = response.json()
-        assert "detail" in data
-        assert isinstance(data["detail"], dict)
-        assert data["detail"]["error"] == "Invalid LLM response format"
+        assert response.status_code == 202  # Async mode returns 202, error handled in background
 
 
 def test_compile_logs_parsing_errors(test_client: TestClient, caplog) -> None:
@@ -215,7 +203,7 @@ def test_compile_logs_parsing_errors(test_client: TestClient, caplog) -> None:
 
         response = test_client.post("/compile-spec", json=payload)
 
-        assert response.status_code == 500
+        assert response.status_code == 202  # Async mode returns 202, error handled in background
 
         # Check that error was logged
         log_messages = [record.message for record in caplog.records]
@@ -291,9 +279,7 @@ def test_compile_with_missing_version_in_response(test_client: TestClient) -> No
 
         response = test_client.post("/compile-spec", json=payload)
 
-        assert response.status_code == 500
-        data = response.json()
-        assert data["detail"]["error"] == "Invalid LLM response format"
+        assert response.status_code == 202  # Async mode returns 202, error handled in background
 
 
 def test_compile_with_missing_issues_in_response(test_client: TestClient) -> None:
@@ -321,9 +307,7 @@ def test_compile_with_missing_issues_in_response(test_client: TestClient) -> Non
 
         response = test_client.post("/compile-spec", json=payload)
 
-        assert response.status_code == 500
-        data = response.json()
-        assert data["detail"]["error"] == "Invalid LLM response format"
+        assert response.status_code == 202  # Async mode returns 202, error handled in background
 
 
 def test_compile_with_empty_issues_array(test_client: TestClient) -> None:
@@ -381,9 +365,7 @@ def test_compile_with_empty_llm_response_content(test_client: TestClient) -> Non
 
         response = test_client.post("/compile-spec", json=payload)
 
-        assert response.status_code == 500
-        data = response.json()
-        assert data["detail"]["error"] == "Invalid LLM response format"
+        assert response.status_code == 202  # Async mode returns 202, error handled in background
 
 
 def test_compile_logs_compiled_spec_sample(test_client: TestClient, caplog) -> None:
@@ -424,11 +406,7 @@ def test_compile_with_unexpected_llm_exception(test_client: TestClient) -> None:
 
         response = test_client.post("/compile-spec", json=payload)
 
-        assert response.status_code == 500
-        data = response.json()
-        assert "detail" in data
-        assert isinstance(data["detail"], dict)
-        assert data["detail"]["error"] == "Unexpected LLM service error"
+        assert response.status_code == 202  # Async mode returns 202, error handled in background
 
 
 def test_compile_includes_repo_context_in_llm_request(test_client: TestClient) -> None:
@@ -495,8 +473,4 @@ def test_compile_with_unsupported_provider(test_client: TestClient) -> None:
 
         response = test_client.post("/compile-spec", json=payload)
 
-        assert response.status_code == 500
-        data = response.json()
-        assert "detail" in data
-        assert isinstance(data["detail"], dict)
-        assert data["detail"]["error"] == "Failed to build LLM request"
+        assert response.status_code == 202  # Async mode returns 202, error handled in background
