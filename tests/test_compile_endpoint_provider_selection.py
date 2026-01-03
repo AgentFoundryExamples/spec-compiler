@@ -61,7 +61,9 @@ def test_client_provider(request) -> TestClient:
         patch("spec_compiler.app.routes.compile.GitHubRepoClient") as mock_repo_class,
         patch("spec_compiler.config.settings.llm_provider", config["llm_provider"]),
         patch("spec_compiler.config.settings.llm_stub_mode", False),
-        patch(f"spec_compiler.config.settings.{config['api_key_setting']}", config["api_key_value"]),
+        patch(
+            f"spec_compiler.config.settings.{config['api_key_setting']}", config["api_key_value"]
+        ),
     ):
         # Setup auth client mock
         mock_auth_instance = MagicMock()
@@ -228,9 +230,7 @@ class TestProviderSelection:
             # Verify Claude client was created
             mock_claude.assert_called_once()
 
-    def test_provider_logged_in_completion_message(
-        self, test_client: TestClient, caplog
-    ) -> None:
+    def test_provider_logged_in_completion_message(self, test_client: TestClient, caplog) -> None:
         """Test that provider is logged in completion message."""
         caplog.set_level(logging.INFO)
 
@@ -247,9 +247,7 @@ class TestProviderSelection:
         assert response.status_code == 202
 
         # Check that provider was logged (in background task)
-        log_records = [
-            r for r in caplog.records if "background_compile_complete" in r.message
-        ]
+        log_records = [r for r in caplog.records if "background_compile_complete" in r.message]
         # In stub mode, the provider will be logged
         assert len(log_records) > 0
 
@@ -258,7 +256,11 @@ class TestProviderSelection:
     "provider,client_path,model_name",
     [
         ("openai", "spec_compiler.services.openai_responses.OpenAiResponsesClient", "gpt-5.1"),
-        ("anthropic", "spec_compiler.services.anthropic_llm_client.ClaudeLlmClient", "claude-3-5-sonnet-20241022"),
+        (
+            "anthropic",
+            "spec_compiler.services.anthropic_llm_client.ClaudeLlmClient",
+            "claude-3-5-sonnet-20241022",
+        ),
     ],
 )
 class TestParametrizedProviderSelection:
@@ -342,7 +344,9 @@ class TestProviderConfigurationErrors:
 
         with (
             patch("spec_compiler.services.llm_client.settings") as mock_settings,
-            patch("spec_compiler.services.anthropic_llm_client.settings") as mock_anthropic_settings,
+            patch(
+                "spec_compiler.services.anthropic_llm_client.settings"
+            ) as mock_anthropic_settings,
         ):
             mock_settings.llm_provider = "anthropic"
             mock_settings.llm_stub_mode = False
@@ -380,6 +384,11 @@ class TestProviderEnvironmentIsolation:
             mock_settings.llm_stub_mode = False
             mock_openai_settings.openai_api_key = "test-key"
             mock_openai_settings.openai_model = "gpt-5.1"
+            mock_openai_settings.openai_organization = None
+            mock_openai_settings.openai_project = None
+            mock_openai_settings.openai_api_base = "https://api.openai.com/v1"
+            mock_openai_settings.llm_max_retries = 3
+            mock_openai_settings.llm_timeout = 120.0
 
             client = create_llm_client()
             assert client.__class__.__name__ == "OpenAiResponsesClient"
@@ -387,12 +396,17 @@ class TestProviderEnvironmentIsolation:
         # Test Anthropic
         with (
             patch("spec_compiler.services.llm_client.settings") as mock_settings,
-            patch("spec_compiler.services.anthropic_llm_client.settings") as mock_anthropic_settings,
+            patch(
+                "spec_compiler.services.anthropic_llm_client.settings"
+            ) as mock_anthropic_settings,
         ):
             mock_settings.llm_provider = "anthropic"
             mock_settings.llm_stub_mode = False
             mock_anthropic_settings.claude_api_key = "test-key"
             mock_anthropic_settings.claude_model = "claude-3-5-sonnet-20241022"
+            mock_anthropic_settings.claude_api_base = None
+            mock_anthropic_settings.llm_max_retries = 3
+            mock_anthropic_settings.llm_timeout = 120.0
 
             client = create_llm_client()
             assert client.__class__.__name__ == "ClaudeLlmClient"
