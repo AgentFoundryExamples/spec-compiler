@@ -21,7 +21,6 @@ This implementation targets the Messages API (API version 2023-06-01 or newer) a
 specified in LLMs.md, which is the recommended long-term API for Claude Sonnet/Opus 4+ models.
 """
 
-import json
 import logging
 import time
 from typing import Any
@@ -32,6 +31,7 @@ from anthropic.types import Message
 from spec_compiler.config import settings
 from spec_compiler.models.llm import LlmRequestEnvelope, LlmResponseEnvelope
 from spec_compiler.services.llm_client import LlmApiError, LlmClient, LlmConfigurationError
+from spec_compiler.services.llm_input import LlmInputComposer
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +104,9 @@ class ClaudeLlmClient(LlmClient):
         Returns:
             Dictionary representing the API request parameters
         """
+        # Use the new separated composition approach
+        composer = LlmInputComposer()
+
         # Prepare repository context data
         tree_json = payload.repo_context.tree if payload.repo_context else []
         dependencies_json = payload.repo_context.dependencies if payload.repo_context else []
@@ -112,23 +115,14 @@ class ClaudeLlmClient(LlmClient):
         # Get system prompt from settings or payload
         system_prompt = payload.system_prompt.template or settings.get_system_prompt()
 
-        # Build user content without system prompt for Anthropic
-        # (system prompt is sent separately via 'system' parameter)
-        # Compose only the repository context and spec data sections
-        sections = [
-            "=== REPOSITORY TREE ===",
-            json.dumps(tree_json, indent=2),
-            "",
-            "=== DEPENDENCIES ===",
-            json.dumps(dependencies_json, indent=2),
-            "",
-            "=== FILE SUMMARIES ===",
-            json.dumps(file_summaries_json, indent=2),
-            "",
-            "=== SPECIFICATION DATA ===",
-            json.dumps(payload.metadata.get("spec_data", {}), indent=2),
-        ]
-        user_content = "\n".join(sections)
+        # Compose with separated structure (NEW approach)
+        input_structure = composer.compose_separated(
+            system_prompt=system_prompt,
+            tree_json=tree_json,
+            dependencies_json=dependencies_json,
+            file_summaries_json=file_summaries_json,
+            spec_data=payload.metadata.get("spec_data", {}),
+        )
 
         # Build the request payload according to Anthropic Messages API structure
         # Messages API uses:
@@ -141,10 +135,10 @@ class ClaudeLlmClient(LlmClient):
             "messages": [
                 {
                     "role": "user",
-                    "content": user_content,
+                    "content": input_structure.user_content,  # User content without system prompt
                 }
             ],
-            "system": system_prompt,
+            "system": input_structure.system_prompt,  # System prompt passed separately
             "max_tokens": payload.system_prompt.max_tokens or 4096,
         }
 

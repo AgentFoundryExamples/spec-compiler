@@ -32,18 +32,16 @@ long term compatible option. The GPT 5 series models are supportive of the
 responses API."
 """
 
-import json
 import logging
 import time
-from typing import Any
 
-from openai import OpenAI, APIError, APITimeoutError, RateLimitError
+from openai import APIError, APITimeoutError, OpenAI, RateLimitError
 from openai.types.responses.response import Response
 
 from spec_compiler.config import settings
 from spec_compiler.models.llm import LlmRequestEnvelope, LlmResponseEnvelope
 from spec_compiler.services.llm_client import LlmApiError, LlmClient, LlmConfigurationError
-from spec_compiler.services.llm_input import LlmInputComposer
+from spec_compiler.services.llm_input import LlmInputComposer, LlmInputStructure
 
 logger = logging.getLogger(__name__)
 
@@ -104,14 +102,14 @@ class OpenAiResponsesClient(LlmClient):
             "timeout": self.timeout,
             "max_retries": 0,  # We handle retries ourselves for better control
         }
-        
+
         if self.organization_id:
             client_kwargs["organization"] = self.organization_id
         if self.project_id:
             client_kwargs["project"] = self.project_id
         if self.base_url:
             client_kwargs["base_url"] = self.base_url
-            
+
         self.client = OpenAI(**client_kwargs)
 
         logger.info(
@@ -119,15 +117,18 @@ class OpenAiResponsesClient(LlmClient):
             f"max_retries={self.max_retries}, timeout={self.timeout}s"
         )
 
-    def _compose_input_content(self, payload: LlmRequestEnvelope) -> str:
+    def _compose_input_structure(self, payload: LlmRequestEnvelope) -> LlmInputStructure:
         """
-        Compose the input content for the Responses API.
+        Compose the input structure for the Responses API.
+
+        Returns separated system prompt and user content, where the system prompt
+        will be passed via the 'instructions' parameter and user content via 'input'.
 
         Args:
             payload: Request envelope with all necessary data
 
         Returns:
-            Composed input string
+            LlmInputStructure with separated system_prompt and user_content
         """
         composer = LlmInputComposer()
 
@@ -139,8 +140,8 @@ class OpenAiResponsesClient(LlmClient):
         # Get system prompt from settings or payload
         system_prompt = payload.system_prompt.template or settings.get_system_prompt()
 
-        # Compose the user content (includes system prompt and repo context)
-        return composer.compose_user_content(
+        # Compose with separated structure (NEW approach)
+        return composer.compose_separated(
             system_prompt=system_prompt,
             tree_json=tree_json,
             dependencies_json=dependencies_json,
@@ -288,9 +289,11 @@ class OpenAiResponsesClient(LlmClient):
 
             # Get the first output item
             first_output = api_response.output[0]
-            
+
             # Extract text content
-            content_text = getattr(first_output, "text", None) or getattr(first_output, "content", "")
+            content_text = getattr(first_output, "text", None) or getattr(
+                first_output, "content", ""
+            )
             if not content_text:
                 raise LlmApiError("Response output contains no text content")
 
@@ -306,7 +309,8 @@ class OpenAiResponsesClient(LlmClient):
             # Build metadata
             metadata = {
                 "response_id": api_response.id,
-                "created": getattr(api_response, "created", None) or getattr(api_response, "created_at", None),
+                "created": getattr(api_response, "created", None)
+                or getattr(api_response, "created_at", None),
                 "model": api_response.model or self.model,
                 "provider": "openai",
             }
@@ -349,12 +353,9 @@ class OpenAiResponsesClient(LlmClient):
         )
 
         try:
-            # Get system prompt
-            instructions = payload.system_prompt.template or settings.get_system_prompt()
-            
-            # Compose input content
-            input_content = self._compose_input_content(payload)
-            
+            # Compose input with separated system prompt and user content
+            input_structure = self._compose_input_structure(payload)
+
             # Get max tokens
             max_tokens = payload.system_prompt.max_tokens or 15000
 
@@ -367,8 +368,12 @@ class OpenAiResponsesClient(LlmClient):
             )
 
             # Make request with retry logic
+            # Pass system_prompt via 'instructions' and user_content via 'input'
             api_response = self._make_request_with_retry(
-                instructions, input_content, max_tokens, payload.request_id
+                input_structure.system_prompt,  # System prompt goes to instructions
+                input_structure.user_content,  # User content goes to input
+                max_tokens,
+                payload.request_id,
             )
 
             # Parse and return response
