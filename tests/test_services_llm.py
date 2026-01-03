@@ -191,30 +191,28 @@ class TestOpenAiResponsesClient:
         assert client.timeout == 60.0
 
     def test_build_headers_basic(self) -> None:
-        """Test building basic HTTP headers."""
+        """Test that SDK client is properly initialized."""
         client = OpenAiResponsesClient(api_key="test-key")
-        headers = client._build_headers()
-
-        assert headers["Authorization"] == "Bearer test-key"
-        assert headers["Content-Type"] == "application/json"
-        assert "OpenAI-Organization" not in headers
-        assert "OpenAI-Project" not in headers
+        
+        # Verify SDK client is created
+        assert client.client is not None
+        assert client.organization_id is None
+        assert client.project_id is None
 
     def test_build_headers_with_org_and_project(self) -> None:
-        """Test building headers with organization and project IDs."""
+        """Test that SDK client uses organization and project IDs."""
         client = OpenAiResponsesClient(
             api_key="test-key",
             organization_id="org-123",
             project_id="proj-456",
         )
-        headers = client._build_headers()
+        
+        # Verify settings are stored
+        assert client.organization_id == "org-123"
+        assert client.project_id == "proj-456"
 
-        assert headers["Authorization"] == "Bearer test-key"
-        assert headers["OpenAI-Organization"] == "org-123"
-        assert headers["OpenAI-Project"] == "proj-456"
-
-    def test_build_request_body_structure(self) -> None:
-        """Test request body has correct Responses API structure."""
+    def test_compose_input_content_structure(self) -> None:
+        """Test input content composition for Responses API."""
         client = OpenAiResponsesClient(api_key="test-key", model="gpt-5.1")
 
         request = LlmRequestEnvelope(
@@ -223,43 +221,34 @@ class TestOpenAiResponsesClient:
             metadata={"spec_data": {"test": "data"}},
         )
 
-        body = client._build_request_body(request)
+        content = client._compose_input_content(request)
 
-        # Verify structure
-        assert body["model"] == "gpt-5.1"
-        assert "input" in body
-        assert isinstance(body["input"], list)
-        assert len(body["input"]) > 0
-        assert body["input"][0]["role"] == "user"
-        assert "content" in body["input"][0]
-        assert isinstance(body["input"][0]["content"], list)
-        assert body["input"][0]["content"][0]["type"] == "input_text"
-        assert "text" in body["input"][0]["content"][0]
-        assert body["response_format"] == {"type": "json_object"}
-        assert body["max_output_tokens"] == 1000
+        # Verify content is a string
+        assert isinstance(content, str)
+        assert len(content) > 0
 
     def test_parse_response_success(self) -> None:
-        """Test parsing successful API response."""
+        """Test parsing successful SDK Response object."""
+        from openai.types.responses.response import Response, ResponseUsage
+        from openai.types.responses.response_output_text import ResponseOutputText
+        
         client = OpenAiResponsesClient(api_key="test-key")
 
-        api_response = {
-            "id": "resp_abc123",
-            "object": "response",
-            "created_at": 1234567890,
-            "status": "completed",
-            "output": [
-                {
-                    "type": "message",
-                    "content": [
-                        {"type": "output_text", "text": '{"version": "1.0", "issues": []}'}
-                    ],
-                }
-            ],
-            "usage": {
-                "input_tokens": 100,
-                "output_tokens": 50,
-            },
-        }
+        # Create a mock Response object matching SDK structure
+        mock_output = Mock(spec=ResponseOutputText)
+        mock_output.text = '{"version": "1.0", "issues": []}'
+        
+        mock_usage = Mock(spec=ResponseUsage)
+        mock_usage.input_tokens = 100
+        mock_usage.output_tokens = 50
+        mock_usage.total_tokens = 150
+        
+        api_response = Mock(spec=Response)
+        api_response.id = "resp_abc123"
+        api_response.model = "gpt-5.1"
+        api_response.output = [mock_output]
+        api_response.usage = mock_usage
+        api_response.created = 1234567890
 
         response = client._parse_response(api_response, "req-123")
 
@@ -275,172 +264,199 @@ class TestOpenAiResponsesClient:
 
     def test_parse_response_with_no_output(self) -> None:
         """Test parsing response with missing output raises error."""
+        from openai.types.responses.response import Response
+        
         client = OpenAiResponsesClient(api_key="test-key")
 
-        api_response = {"id": "resp_123", "output": []}
+        api_response = Mock(spec=Response)
+        api_response.id = "resp_123"
+        api_response.output = []
 
         with pytest.raises(LlmApiError, match="contains no output"):
             client._parse_response(api_response, "req-123")
 
     def test_parse_response_with_no_content(self) -> None:
         """Test parsing response with missing content raises error."""
+        from openai.types.responses.response import Response
+        
         client = OpenAiResponsesClient(api_key="test-key")
 
-        api_response = {"output": [{"type": "message", "content": []}]}
+        mock_output = Mock()
+        mock_output.text = None
+        mock_output.content = ""
+        
+        api_response = Mock(spec=Response)
+        api_response.output = [mock_output]
 
-        with pytest.raises(LlmApiError, match="contains no content"):
+        with pytest.raises(LlmApiError, match="contains no text content"):
             client._parse_response(api_response, "req-123")
 
-    @patch("httpx.Client")
-    def test_make_request_with_retry_success(self, mock_client_class: Mock) -> None:
-        """Test successful API request."""
+    @patch("time.sleep")
+    def test_make_request_with_retry_success(self, mock_sleep: Mock) -> None:
+        """Test successful SDK API request."""
+        from openai.types.responses.response import Response
+        
         client = OpenAiResponsesClient(api_key="test-key")
 
-        # Mock successful response
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"output": "success"}
+        # Mock successful SDK response
+        mock_response = Mock(spec=Response)
+        mock_response.id = "resp_abc"
+        mock_response.model = "gpt-5.1"
+        
+        with patch.object(client.client.responses, "create", return_value=mock_response):
+            result = client._make_request_with_retry(
+                instructions="test instructions",
+                input_content="test input",
+                max_tokens=1000,
+                request_id="req-123"
+            )
 
-        mock_client_instance = MagicMock()
-        mock_client_instance.post.return_value = mock_response
-        mock_client_class.return_value.__enter__.return_value = mock_client_instance
-        mock_client_class.return_value.__exit__.return_value = None
+            assert result == mock_response
+            mock_sleep.assert_not_called()
 
-        headers = {"Authorization": "Bearer test-key"}
-        body = {"model": "gpt-5.1"}
-
-        result = client._make_request_with_retry(headers, body, "req-123")
-
-        assert result == {"output": "success"}
-        mock_client_instance.post.assert_called_once()
-
-    @patch("httpx.Client")
-    @patch("time.sleep")  # Mock sleep to avoid delays in tests
-    def test_make_request_with_retry_on_server_error(
-        self, mock_sleep: Mock, mock_client_class: Mock
-    ) -> None:
-        """Test retry on server error (5xx)."""
+    @patch("time.sleep")
+    def test_make_request_with_retry_on_rate_limit(self, mock_sleep: Mock) -> None:
+        """Test retry on rate limit error."""
+        from openai import RateLimitError
+        from openai.types.responses.response import Response
+        
         client = OpenAiResponsesClient(api_key="test-key", max_retries=2)
 
-        # First attempt returns 503, second attempt succeeds
-        mock_response_error = Mock()
-        mock_response_error.status_code = 503
-
-        mock_response_success = Mock()
-        mock_response_success.status_code = 200
-        mock_response_success.json.return_value = {"output": "success"}
-
-        mock_client_instance = MagicMock()
-        mock_client_instance.post.side_effect = [mock_response_error, mock_response_success]
-        mock_client_class.return_value.__enter__.return_value = mock_client_instance
-        mock_client_class.return_value.__exit__.return_value = None
-
-        headers = {"Authorization": "Bearer test-key"}
-        body = {"model": "gpt-5.1"}
-
-        result = client._make_request_with_retry(headers, body, "req-123")
-
-        assert result == {"output": "success"}
-        assert mock_client_instance.post.call_count == 2
-        mock_sleep.assert_called_once()
-
-    @patch("httpx.Client")
-    def test_make_request_with_client_error_no_retry(self, mock_client_class: Mock) -> None:
-        """Test that client errors (4xx) are not retried."""
-        client = OpenAiResponsesClient(api_key="test-key", max_retries=3)
-
-        # Mock 400 error
-        mock_response = Mock()
-        mock_response.status_code = 400
-        mock_response.text = "Bad request"
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Bad request", request=Mock(), response=mock_response
+        # First attempt raises RateLimitError, second succeeds
+        mock_response = Mock(spec=Response)
+        rate_limit_error = RateLimitError(
+            "Rate limit exceeded",
+            response=Mock(status_code=429),
+            body={"error": {"message": "Rate limit"}},
         )
 
-        mock_client_instance = MagicMock()
-        mock_client_instance.post.return_value = mock_response
-        mock_client_class.return_value.__enter__.return_value = mock_client_instance
-        mock_client_class.return_value.__exit__.return_value = None
+        with patch.object(
+            client.client.responses,
+            "create",
+            side_effect=[rate_limit_error, mock_response]
+        ):
+            result = client._make_request_with_retry(
+                instructions="test",
+                input_content="test",
+                max_tokens=1000,
+                request_id="req-123"
+            )
 
-        headers = {"Authorization": "Bearer test-key"}
-        body = {"model": "gpt-5.1"}
+            assert result == mock_response
+            mock_sleep.assert_called_once()
 
-        with pytest.raises(LlmApiError, match="Client error from OpenAI API"):
-            client._make_request_with_retry(headers, body, "req-123")
-
-        # Should only be called once (no retries on 4xx)
-        mock_client_instance.post.assert_called_once()
-
-    @patch("httpx.Client")
     @patch("time.sleep")
-    def test_make_request_exhausts_retries(self, mock_sleep: Mock, mock_client_class: Mock) -> None:
-        """Test that request fails after exhausting retries."""
+    def test_make_request_with_client_error_no_retry(self, mock_sleep: Mock) -> None:
+        """Test that client errors (4xx) are not retried."""
+        from openai import APIError
+        
         client = OpenAiResponsesClient(api_key="test-key", max_retries=3)
 
-        # All attempts return 503
-        mock_response = Mock()
-        mock_response.status_code = 503
+        # Create APIError with 400 status code
+        api_error = APIError(
+            "Bad request",
+            request=Mock(),
+            body={"error": {"message": "Bad request"}},
+        )
+        api_error.status_code = 400
 
-        mock_client_instance = MagicMock()
-        mock_client_instance.post.return_value = mock_response
-        mock_client_class.return_value.__enter__.return_value = mock_client_instance
-        mock_client_class.return_value.__exit__.return_value = None
+        with patch.object(
+            client.client.responses,
+            "create",
+            side_effect=api_error
+        ):
+            with pytest.raises(LlmApiError, match="Client error from OpenAI"):
+                client._make_request_with_retry(
+                    instructions="test",
+                    input_content="test",
+                    max_tokens=1000,
+                    request_id="req-123"
+                )
 
-        headers = {"Authorization": "Bearer test-key"}
-        body = {"model": "gpt-5.1"}
+            # Should not sleep (no retries on 4xx)
+            mock_sleep.assert_not_called()
 
-        with pytest.raises(LlmApiError, match="failed after 3 attempts"):
-            client._make_request_with_retry(headers, body, "req-123")
-
-        assert mock_client_instance.post.call_count == 3
-
-    @patch("httpx.Client")
     @patch("time.sleep")
-    def test_make_request_with_timeout(self, mock_sleep: Mock, mock_client_class: Mock) -> None:
+    def test_make_request_exhausts_retries(self, mock_sleep: Mock) -> None:
+        """Test that request fails after exhausting retries."""
+        from openai import APITimeoutError
+        
+        client = OpenAiResponsesClient(api_key="test-key", max_retries=3)
+
+        # All attempts raise timeout
+        with patch.object(
+            client.client.responses,
+            "create",
+            side_effect=APITimeoutError("Timeout")
+        ):
+            with pytest.raises(LlmApiError, match="failed after 3 attempts"):
+                client._make_request_with_retry(
+                    instructions="test",
+                    input_content="test",
+                    max_tokens=1000,
+                    request_id="req-123"
+                )
+
+            # Sleep should be called twice (between attempts 1-2 and 2-3)
+            assert mock_sleep.call_count == 2
+
+    @patch("time.sleep")
+    def test_make_request_with_timeout(self, mock_sleep: Mock) -> None:
         """Test handling of timeout errors."""
+        from openai import APITimeoutError
+        
         client = OpenAiResponsesClient(api_key="test-key", max_retries=2)
 
-        mock_client_instance = MagicMock()
-        mock_client_instance.post.side_effect = httpx.TimeoutException("Request timeout")
-        mock_client_class.return_value.__enter__.return_value = mock_client_instance
-        mock_client_class.return_value.__exit__.return_value = None
+        with patch.object(
+            client.client.responses,
+            "create",
+            side_effect=APITimeoutError("Request timeout")
+        ):
+            with pytest.raises(LlmApiError, match="failed after 2 attempts"):
+                client._make_request_with_retry(
+                    instructions="test",
+                    input_content="test",
+                    max_tokens=1000,
+                    request_id="req-123"
+                )
 
-        headers = {"Authorization": "Bearer test-key"}
-        body = {"model": "gpt-5.1"}
+            assert mock_sleep.call_count == 1
 
-        with pytest.raises(LlmApiError, match="failed after 2 attempts"):
-            client._make_request_with_retry(headers, body, "req-123")
-
-        assert mock_client_instance.post.call_count == 2
-
-    @patch("spec_compiler.services.openai_responses.OpenAiResponsesClient._make_request_with_retry")
-    @patch("spec_compiler.services.openai_responses.OpenAiResponsesClient._parse_response")
-    def test_generate_response_integration(self, mock_parse: Mock, mock_request: Mock) -> None:
-        """Test full generate_response flow."""
+    def test_generate_response_integration(self) -> None:
+        """Test full generate_response flow with SDK."""
+        from openai.types.responses.response import Response
+        
         client = OpenAiResponsesClient(api_key="test-key", model="gpt-5.1")
 
-        # Mock request and parse
-        mock_request.return_value = {"output": "api response"}
-        mock_parse.return_value = LlmResponseEnvelope(
-            request_id="req-123",
-            status="success",
-            content="generated content",
-            model="gpt-5.1",
-            usage={"total_tokens": 150},
-        )
+        # Mock SDK response
+        mock_output = Mock()
+        mock_output.text = "generated content"
+        
+        mock_usage = Mock()
+        mock_usage.input_tokens = 100
+        mock_usage.output_tokens = 50
+        mock_usage.total_tokens = 150
+        
+        mock_response = Mock(spec=Response)
+        mock_response.id = "resp_abc"
+        mock_response.model = "gpt-5.1"
+        mock_response.output = [mock_output]
+        mock_response.usage = mock_usage
+        mock_response.created = 1234567890
 
-        request = LlmRequestEnvelope(
-            request_id="req-123",
-            metadata={"spec_data": {}},
-        )
+        with patch.object(client.client.responses, "create", return_value=mock_response):
+            request = LlmRequestEnvelope(
+                request_id="req-123",
+                metadata={"spec_data": {}},
+            )
 
-        response = client.generate_response(request)
+            response = client.generate_response(request)
 
-        assert response.request_id == "req-123"
-        assert response.status == "success"
-        assert response.content == "generated content"
-        mock_request.assert_called_once()
-        mock_parse.assert_called_once()
+            assert response.request_id == "req-123"
+            assert response.status == "success"
+            assert response.content == "generated content"
+            assert response.metadata["provider"] == "openai"
+            assert "latency_ms" in response.metadata
 
 
 class TestCreateLlmClient:
@@ -476,6 +492,11 @@ class TestCreateLlmClient:
         mock_llm_settings.llm_stub_mode = False
         mock_openai_settings.openai_api_key = "test-key"
         mock_openai_settings.openai_model = "gpt-5.1"
+        mock_openai_settings.openai_api_base = None
+        mock_openai_settings.openai_organization = None
+        mock_openai_settings.openai_project = None
+        mock_openai_settings.llm_timeout = 120.0
+        mock_openai_settings.llm_max_retries = 3
 
         client = create_llm_client()
 
@@ -490,6 +511,11 @@ class TestCreateLlmClient:
         mock_llm_settings.llm_stub_mode = False
         mock_openai_settings.openai_api_key = "test-key"
         mock_openai_settings.openai_model = "gpt-5.1"
+        mock_openai_settings.openai_api_base = None
+        mock_openai_settings.openai_organization = None
+        mock_openai_settings.openai_project = None
+        mock_openai_settings.llm_timeout = 120.0
+        mock_openai_settings.llm_max_retries = 3
 
         client = create_llm_client(provider="openai")
 
@@ -507,6 +533,9 @@ class TestCreateLlmClient:
         mock_llm_settings.llm_stub_mode = False
         mock_anthropic_settings.claude_api_key = "test-key"
         mock_anthropic_settings.claude_model = "claude-3-5-sonnet-20241022"
+        mock_anthropic_settings.claude_api_base = None
+        mock_anthropic_settings.llm_timeout = 120.0
+        mock_anthropic_settings.llm_max_retries = 3
 
         client = create_llm_client()
 
@@ -530,6 +559,11 @@ class TestCreateLlmClient:
         mock_llm_settings.llm_stub_mode = False
         mock_openai_settings.openai_api_key = "test-key"
         mock_openai_settings.openai_model = "gpt-5.1"
+        mock_openai_settings.openai_api_base = None
+        mock_openai_settings.openai_organization = None
+        mock_openai_settings.openai_project = None
+        mock_openai_settings.llm_timeout = 120.0
+        mock_openai_settings.llm_max_retries = 3
 
         client = create_llm_client(provider="OpenAI")
 

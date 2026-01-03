@@ -521,10 +521,11 @@ The following environment variables are available (see `.env.example` for a comp
 - The service validates provider/model configuration at startup and logs warnings for missing API keys
 
 **Implementation Notes:**
-- **OpenAI**: Uses `httpx` to call Responses API directly (`/v1/responses`)
-  - Official SDK doesn't support Responses API yet (as of January 2026)
-  - Manual HTTP implementation ensures we use the recommended long-term API
-  - Custom retry logic with exponential backoff
+- **OpenAI**: Uses official `openai` Python SDK v2.14.0 with Responses API
+  - SDK provides native support via `client.responses.create()`
+  - Uses `instructions` for system prompt, `input` for user message, `text="json"` for structured output
+  - Custom retry logic with exponential backoff for better control
+  - Targets `/v1/responses` endpoint through official SDK
 - **Anthropic**: Uses official `anthropic` SDK
   - Full SDK support with automatic retries
   - Type-safe request/response handling
@@ -773,14 +774,15 @@ Restart the service after changing providers.
 
 **Provider-Specific Notes**:
 
-- **OpenAI Integration**: Uses Responses API (`POST /v1/responses`) for `gpt-5.1` model (see [LLMs.md](LLMs.md))
+- **OpenAI Integration**: Uses official `openai` Python SDK v2.14.0 with Responses API for `gpt-5.1` model (see [LLMs.md](LLMs.md))
   - API Key Format: `sk-...`
-  - API Endpoint: `https://api.openai.com/v1/responses`
-  - Request Format: `{"model": "gpt-5.1", "input": [...], "instructions": "...", "max_output_tokens": N}`
-  - Response Format: `{"id": "...", "output": [...], "usage": {...}}`
-  - Implementation: Direct HTTP calls via `httpx` (SDK doesn't support Responses API yet)
+  - SDK: `openai==2.14.0` (official OpenAI Python package)
+  - API Method: `client.responses.create()` (Responses API)
+  - API Endpoint: `https://api.openai.com/v1/responses` (accessed via SDK)
+  - Request Parameters: `instructions` (system prompt), `input` (user content), `max_output_tokens`, `text="json"`
+  - Response Format: Response object with `output` field containing structured data
   - Real API calls require `OPENAI_API_KEY` when `LLM_STUB_MODE=false`
-  - Supports organization/project IDs, timeouts, and custom retry logic
+  - Supports organization/project IDs, custom base URLs, timeouts, and retry logic
 
 - **Anthropic Claude Integration**: Uses official `anthropic` Python SDK with Messages API for `claude-3-5-sonnet-20241022` (see [LLMs.md](LLMs.md))
   - API Key Format: `sk-ant-...`
@@ -794,7 +796,7 @@ Restart the service after changing providers.
   - OpenAI Responses API is the recommended long-term API for GPT-5+ (launched August 2025)
   - Replaces older Chat Completions and Assistant APIs
   - Provides better streaming, tool calling, and conversation management
-  - SDK support pending - using httpx until official SDK updated
+  - SDK v2.14.0+ provides native support via `client.responses.create()`
 
 - **Stub Mode**: Works identically for both providers
   - Returns same sample data regardless of provider setting
