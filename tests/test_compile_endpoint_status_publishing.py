@@ -169,10 +169,18 @@ class TestStatusPublishingFailure:
 
         response = test_client.post("/compile-spec", json=payload)
 
-        # Should still return an error response
-        assert response.status_code in (500, 502, 503)
+        # In async mode, should return 202 and handle error in background
+        assert response.status_code == 202
+        
+        # Verify in_progress status was published first
+        in_progress_calls = [
+            call
+            for call in mock_publisher.publish_status.call_args_list
+            if call[0][0].status == "in_progress"
+        ]
+        assert len(in_progress_calls) >= 1
 
-        # Verify failed status was published
+        # Verify failed status was published (in background task)
         failed_calls = [
             call
             for call in mock_publisher.publish_status.call_args_list
@@ -211,10 +219,10 @@ class TestStatusPublishingFailure:
 
         response = test_client.post("/compile-spec", json=payload)
 
-        # Should return 500
-        assert response.status_code == 500
+        # In async mode, should return 202 and handle error in background
+        assert response.status_code == 202
 
-        # Verify failed status was published
+        # Verify failed status was published (in background task)
         failed_calls = [
             call
             for call in mock_publisher.publish_status.call_args_list
@@ -247,10 +255,10 @@ class TestStatusPublishingFailure:
 
             response = test_client.post("/compile-spec", json=payload)
 
-            # Should return 503
-            assert response.status_code == 503
+            # In async mode, should return 202 and handle error in background
+            assert response.status_code == 202
 
-            # Verify failed status was published
+            # Verify failed status was published (in background task)
             failed_calls = [
                 call
                 for call in mock_publisher.publish_status.call_args_list
@@ -327,11 +335,11 @@ class TestPublisherFailureIsolation:
 
             response = test_client.post("/compile-spec", json=payload)
 
-            # Should return the LLM error, not masked by publisher error
-            assert response.status_code == 500
-            data = response.json()
-            assert "detail" in data
-            assert data["detail"]["error"] == "LLM service not configured"
+            # In async mode, should return 202; errors happen in background
+            assert response.status_code == 202
+            
+            # Publisher errors in background should be logged but not propagate
+            # The response is already sent before the error occurs
 
 
 class TestStatusPublishingEdgeCases:
@@ -401,9 +409,10 @@ class TestStatusPublishingEdgeCases:
 
             response = test_client.post("/compile-spec", json=payload)
 
-            assert response.status_code == 500
+            # In async mode, should return 202 and handle error in background
+            assert response.status_code == 202
 
-            # Verify error message was truncated in status message
+            # Verify error message was truncated in status message (background task)
             failed_calls = [
                 call
                 for call in mock_publisher.publish_status.call_args_list

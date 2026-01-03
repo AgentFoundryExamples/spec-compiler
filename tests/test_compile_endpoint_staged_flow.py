@@ -107,9 +107,9 @@ def test_compile_logs_llm_latency_metrics(test_client: TestClient, caplog) -> No
         "stage_call_llm_complete" in msg and "duration_seconds" in msg for msg in log_messages
     )
 
-    # Check that final completion log has LLM metrics
+    # Check that final completion log has LLM metrics (in background task)
     assert any(
-        "Compile request completed successfully" in msg
+        "background_compile_complete" in msg
         and "llm_duration_seconds" in msg
         for msg in log_messages
     )
@@ -151,9 +151,9 @@ def test_compile_logs_provider_and_model_info(test_client: TestClient, caplog) -
         for msg in log_messages
     )
 
-    # Check that provider/model are logged in final completion
+    # Check that provider/model are logged in final completion (in background task)
     assert any(
-        "Compile request completed successfully" in msg
+        "background_compile_complete" in msg
         and "llm_provider" in msg
         and "llm_model" in msg
         for msg in log_messages

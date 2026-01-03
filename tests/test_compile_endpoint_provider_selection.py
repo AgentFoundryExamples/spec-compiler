@@ -246,9 +246,9 @@ class TestProviderSelection:
 
         assert response.status_code == 202
 
-        # Check that provider was logged
+        # Check that provider was logged (in background task)
         log_records = [
-            r for r in caplog.records if "Compile request completed successfully" in r.message
+            r for r in caplog.records if "background_compile_complete" in r.message
         ]
         # In stub mode, the provider will be logged
         assert len(log_records) > 0
