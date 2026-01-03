@@ -14,7 +14,7 @@ structlog==24.4.0
 httpx==0.28.1
 
 # OpenAI SDK for LLM integration
-openai==1.58.1
+openai==2.14.0
 
 # Anthropic SDK for Claude integration
 anthropic==0.75.0

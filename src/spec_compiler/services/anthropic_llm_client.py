@@ -53,8 +53,9 @@ class ClaudeLlmClient(LlmClient):
         self,
         api_key: str | None = None,
         model: str | None = None,
-        max_retries: int = DEFAULT_MAX_RETRIES,
-        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        base_url: str | None = None,
+        max_retries: int | None = None,
+        timeout: float | None = None,
     ):
         """
         Initialize the Anthropic Claude client.
@@ -62,8 +63,9 @@ class ClaudeLlmClient(LlmClient):
         Args:
             api_key: Anthropic API key. If None, uses CLAUDE_API_KEY from settings
             model: Model identifier (e.g., "claude-3-5-sonnet-20241022"). If None, uses CLAUDE_MODEL from settings
-            max_retries: Maximum number of retry attempts for failed requests
-            timeout: Request timeout in seconds
+            base_url: Optional base URL for API (defaults to Anthropic's default)
+            max_retries: Maximum number of retry attempts. If None, uses LLM_MAX_RETRIES from settings
+            timeout: Request timeout in seconds. If None, uses LLM_TIMEOUT from settings
 
         Raises:
             LlmConfigurationError: If API key is not configured
@@ -75,12 +77,14 @@ class ClaudeLlmClient(LlmClient):
             )
 
         self.model = model or settings.claude_model
-        self.max_retries = max_retries
-        self.timeout = timeout
+        self.base_url = base_url or settings.claude_api_base
+        self.max_retries = max_retries if max_retries is not None else settings.llm_max_retries
+        self.timeout = timeout if timeout is not None else settings.llm_timeout
 
-        # Initialize Anthropic client with custom timeout
+        # Initialize Anthropic client with custom configuration
         self.client = Anthropic(
             api_key=self.api_key,
+            base_url=self.base_url,
             max_retries=0,  # We handle retries ourselves for better control
             timeout=self.timeout,
         )
