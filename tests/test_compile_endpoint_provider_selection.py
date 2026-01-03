@@ -212,7 +212,7 @@ class TestProviderSelection:
                 request_id="test-req",
                 status="success",
                 content=json.dumps({"version": "1.0", "issues": []}),
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-5-20250929",
             )
 
             payload = {
@@ -259,7 +259,7 @@ class TestProviderSelection:
         (
             "anthropic",
             "spec_compiler.services.anthropic_llm_client.ClaudeLlmClient",
-            "claude-3-5-sonnet-20241022",
+            "claude-sonnet-4-5-20250929",
         ),
     ],
 )
@@ -403,7 +403,7 @@ class TestProviderEnvironmentIsolation:
             mock_settings.llm_provider = "anthropic"
             mock_settings.llm_stub_mode = False
             mock_anthropic_settings.claude_api_key = "test-key"
-            mock_anthropic_settings.claude_model = "claude-3-5-sonnet-20241022"
+            mock_anthropic_settings.claude_model = "claude-sonnet-4-5-20250929"
             mock_anthropic_settings.claude_api_base = None
             mock_anthropic_settings.llm_max_retries = 3
             mock_anthropic_settings.llm_timeout = 120.0
@@ -430,9 +430,9 @@ class TestProviderEnvironmentIsolation:
         with patch("spec_compiler.services.llm_client.settings") as mock_settings:
             mock_settings.llm_provider = "anthropic"
             mock_settings.llm_stub_mode = True
-            mock_settings.claude_model = "claude-3-5-sonnet-20241022"
+            mock_settings.claude_model = "claude-sonnet-4-5-20250929"
 
             client = create_llm_client()
             assert isinstance(client, StubLlmClient)
             assert client.provider == "anthropic"
-            assert client.model == "claude-3-5-sonnet-20241022"
+            assert client.model == "claude-sonnet-4-5-20250929"

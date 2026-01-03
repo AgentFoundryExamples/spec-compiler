@@ -35,9 +35,9 @@ class TestClaudeLlmClient:
 
     def test_initialization_with_api_key(self) -> None:
         """Test client initialization with API key."""
-        client = ClaudeLlmClient(api_key="test-key-123", model="claude-3-5-sonnet-20241022")
+        client = ClaudeLlmClient(api_key="test-key-123", model="claude-sonnet-4-5-20250929")
         assert client.api_key == "test-key-123"
-        assert client.model == "claude-3-5-sonnet-20241022"
+        assert client.model == "claude-sonnet-4-5-20250929"
         assert client.max_retries == 3
         assert client.timeout == 120.0
 
@@ -45,7 +45,7 @@ class TestClaudeLlmClient:
         """Test that missing API key raises configuration error."""
         with patch("spec_compiler.services.anthropic_llm_client.settings") as mock_settings:
             mock_settings.claude_api_key = None
-            mock_settings.claude_model = "claude-3-5-sonnet-20241022"
+            mock_settings.claude_model = "claude-sonnet-4-5-20250929"
 
             with pytest.raises(LlmConfigurationError, match="API key not configured"):
                 ClaudeLlmClient()
@@ -61,9 +61,66 @@ class TestClaudeLlmClient:
         assert client.max_retries == 5
         assert client.timeout == 60.0
 
+    def test_initialization_uses_default_model_from_settings(self) -> None:
+        """Test that client uses Sonnet 4.5 default model from settings when none provided."""
+        with patch("spec_compiler.services.anthropic_llm_client.settings") as mock_settings:
+            mock_settings.claude_api_key = "test-key"
+            mock_settings.claude_model = "claude-sonnet-4-5-20250929"
+            mock_settings.claude_api_base = None
+            mock_settings.llm_max_retries = 3
+            mock_settings.llm_timeout = 120.0
+
+            client = ClaudeLlmClient()
+            
+            assert client.model == "claude-sonnet-4-5-20250929"
+            assert client.api_key == "test-key"
+
+    def test_sdk_request_payload_uses_default_model(self) -> None:
+        """Test that SDK request payload contains default Sonnet 4.5 model when no override provided."""
+        with patch("spec_compiler.services.anthropic_llm_client.settings") as mock_settings:
+            mock_settings.claude_api_key = "test-key"
+            mock_settings.claude_model = "claude-sonnet-4-5-20250929"
+            mock_settings.claude_api_base = None
+            mock_settings.llm_max_retries = 3
+            mock_settings.llm_timeout = 120.0
+
+            client = ClaudeLlmClient()
+            
+            # Mock successful response
+            mock_content = Mock(spec=ContentBlock)
+            mock_content.text = '{"version": "1.0", "issues": []}'
+            
+            mock_usage = Mock(spec=Usage)
+            mock_usage.input_tokens = 100
+            mock_usage.output_tokens = 50
+            
+            mock_response = Mock(spec=Message)
+            mock_response.id = "msg_123"
+            mock_response.content = [mock_content]
+            mock_response.model = "claude-sonnet-4-5-20250929"
+            mock_response.role = "assistant"
+            mock_response.stop_reason = "end_turn"
+            mock_response.usage = mock_usage
+
+            with patch.object(client.client.messages, "create", return_value=mock_response) as mock_create:
+                request = LlmRequestEnvelope(
+                    request_id="req-123",
+                    system_prompt=SystemPromptConfig(template="Test prompt", max_tokens=1000),
+                    metadata={"spec_data": {"test": "data"}},
+                )
+                
+                client.generate_response(request)
+                
+                # Verify that messages.create was called with the default model in the payload
+                mock_create.assert_called_once()
+                call_kwargs = mock_create.call_args[1]
+                assert call_kwargs["model"] == "claude-sonnet-4-5-20250929"
+                assert "messages" in call_kwargs
+                assert call_kwargs["system"] == "Test prompt"
+
     def test_build_request_payload_structure(self) -> None:
         """Test request payload has correct Messages API structure."""
-        client = ClaudeLlmClient(api_key="test-key", model="claude-3-5-sonnet-20241022")
+        client = ClaudeLlmClient(api_key="test-key", model="claude-sonnet-4-5-20250929")
 
         request = LlmRequestEnvelope(
             request_id="req-123",
@@ -74,7 +131,7 @@ class TestClaudeLlmClient:
         payload = client._build_request_payload(request)
 
         # Verify structure
-        assert payload["model"] == "claude-3-5-sonnet-20241022"
+        assert payload["model"] == "claude-sonnet-4-5-20250929"
         assert "messages" in payload
         assert isinstance(payload["messages"], list)
         assert len(payload["messages"]) > 0
@@ -85,7 +142,7 @@ class TestClaudeLlmClient:
 
     def test_build_request_payload_uses_default_system_prompt(self) -> None:
         """Test that default system prompt is used when not provided."""
-        client = ClaudeLlmClient(api_key="test-key", model="claude-3-5-sonnet-20241022")
+        client = ClaudeLlmClient(api_key="test-key", model="claude-sonnet-4-5-20250929")
 
         with patch("spec_compiler.services.anthropic_llm_client.settings") as mock_settings:
             # Create a mock object that has the get_system_prompt method
@@ -119,7 +176,7 @@ class TestClaudeLlmClient:
         api_response = Mock(spec=Message)
         api_response.id = "msg_abc123"
         api_response.content = [mock_content]
-        api_response.model = "claude-3-5-sonnet-20241022"
+        api_response.model = "claude-sonnet-4-5-20250929"
         api_response.role = "assistant"
         api_response.stop_reason = "end_turn"
         api_response.usage = mock_usage
@@ -178,14 +235,14 @@ class TestClaudeLlmClient:
         mock_response = Mock(spec=Message)
         mock_response.id = "msg_123"
         mock_response.content = [mock_content]
-        mock_response.model = "claude-3-5-sonnet-20241022"
+        mock_response.model = "claude-sonnet-4-5-20250929"
         mock_response.role = "assistant"
         mock_response.stop_reason = "end_turn"
         mock_response.usage = mock_usage
 
         with patch.object(client.client.messages, "create", return_value=mock_response):
             request_params = {
-                "model": "claude-3-5-sonnet-20241022",
+                "model": "claude-sonnet-4-5-20250929",
                 "messages": [{"role": "user", "content": "test"}],
                 "system": "test system",
                 "max_tokens": 1024,
@@ -213,7 +270,7 @@ class TestClaudeLlmClient:
         mock_response = Mock(spec=Message)
         mock_response.id = "msg_123"
         mock_response.content = [mock_content]
-        mock_response.model = "claude-3-5-sonnet-20241022"
+        mock_response.model = "claude-sonnet-4-5-20250929"
         mock_response.role = "assistant"
         mock_response.stop_reason = "end_turn"
         mock_response.usage = mock_usage
@@ -232,7 +289,7 @@ class TestClaudeLlmClient:
             side_effect=[rate_limit_error, mock_response],
         ):
             request_params = {
-                "model": "claude-3-5-sonnet-20241022",
+                "model": "claude-sonnet-4-5-20250929",
                 "messages": [{"role": "user", "content": "test"}],
                 "system": "test",
                 "max_tokens": 1024,
@@ -256,7 +313,7 @@ class TestClaudeLlmClient:
             side_effect=APITimeoutError("Timeout"),
         ):
             request_params = {
-                "model": "claude-3-5-sonnet-20241022",
+                "model": "claude-sonnet-4-5-20250929",
                 "messages": [{"role": "user", "content": "test"}],
                 "system": "test",
                 "max_tokens": 1024,
@@ -287,7 +344,7 @@ class TestClaudeLlmClient:
             side_effect=api_error,
         ):
             request_params = {
-                "model": "claude-3-5-sonnet-20241022",
+                "model": "claude-sonnet-4-5-20250929",
                 "messages": [{"role": "user", "content": "test"}],
                 "system": "test",
                 "max_tokens": 1024,
@@ -314,7 +371,7 @@ class TestClaudeLlmClient:
         mock_response = Mock(spec=Message)
         mock_response.id = "msg_123"
         mock_response.content = [mock_content]
-        mock_response.model = "claude-3-5-sonnet-20241022"
+        mock_response.model = "claude-sonnet-4-5-20250929"
         mock_response.role = "assistant"
         mock_response.stop_reason = "end_turn"
         mock_response.usage = mock_usage
@@ -336,7 +393,7 @@ class TestClaudeLlmClient:
 
     def test_generate_response_logs_provider_and_model(self) -> None:
         """Test that generate_response logs provider and model information."""
-        client = ClaudeLlmClient(api_key="test-key", model="claude-3-5-sonnet-20241022")
+        client = ClaudeLlmClient(api_key="test-key", model="claude-sonnet-4-5-20250929")
 
         # Mock successful response
         mock_content = Mock(spec=ContentBlock)
@@ -349,7 +406,7 @@ class TestClaudeLlmClient:
         mock_response = Mock(spec=Message)
         mock_response.id = "msg_123"
         mock_response.content = [mock_content]
-        mock_response.model = "claude-3-5-sonnet-20241022"
+        mock_response.model = "claude-sonnet-4-5-20250929"
         mock_response.role = "assistant"
         mock_response.stop_reason = "end_turn"
         mock_response.usage = mock_usage
@@ -368,7 +425,7 @@ class TestClaudeLlmClient:
                 log_calls = [str(call) for call in mock_logger.info.call_args_list]
                 log_text = " ".join(log_calls)
                 assert "anthropic" in log_text.lower()
-                assert "claude-3-5-sonnet-20241022" in log_text
+                assert "claude-sonnet-4-5-20250929" in log_text
 
     def test_generate_response_handles_api_error(self) -> None:
         """Test that generate_response properly wraps API errors."""

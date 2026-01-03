@@ -65,7 +65,7 @@ class Settings(BaseSettings):
         description="OpenAI model to use for compilations",
     )
     claude_model: str = Field(
-        default="claude-3-5-sonnet-20241022",
+        default="claude-sonnet-4-5-20250929",
         description="Anthropic Claude model to use for compilations",
     )
     

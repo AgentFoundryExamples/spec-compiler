@@ -50,16 +50,16 @@ class TestStubLlmClient:
 
     def test_initialization_with_provider_and_model(self) -> None:
         """Test that stub client accepts provider and model parameters."""
-        client = StubLlmClient(provider="anthropic", model="claude-3-5-sonnet-20241022")
+        client = StubLlmClient(provider="anthropic", model="claude-sonnet-4-5-20250929")
         assert client.provider == "anthropic"
-        assert client.model == "claude-3-5-sonnet-20241022"
+        assert client.model == "claude-sonnet-4-5-20250929"
 
     @patch("spec_compiler.services.llm_client.settings")
     def test_initialization_uses_settings_for_provider_and_model(self, mock_settings: Mock) -> None:
         """Test that stub client uses settings when provider/model not provided."""
         mock_settings.llm_provider = "openai"
         mock_settings.openai_model = "gpt-5.1"
-        mock_settings.claude_model = "claude-3-5-sonnet-20241022"
+        mock_settings.claude_model = "claude-sonnet-4-5-20250929"
 
         client = StubLlmClient()
 
@@ -109,12 +109,12 @@ class TestStubLlmClient:
 
     def test_generate_response_with_anthropic_provider(self) -> None:
         """Test that stub client uses Anthropic model when provider is anthropic."""
-        client = StubLlmClient(provider="anthropic", model="claude-3-5-sonnet-20241022")
+        client = StubLlmClient(provider="anthropic", model="claude-sonnet-4-5-20250929")
         request = LlmRequestEnvelope(request_id="test-anthropic")
 
         response = client.generate_response(request)
 
-        assert response.model == "claude-3-5-sonnet-20241022"
+        assert response.model == "claude-sonnet-4-5-20250929"
         assert response.metadata["provider"] == "anthropic"
 
     def test_generate_response_with_missing_file(self) -> None:
@@ -517,7 +517,7 @@ class TestCreateLlmClient:
         mock_llm_settings.llm_provider = "anthropic"
         mock_llm_settings.llm_stub_mode = False
         mock_anthropic_settings.claude_api_key = "test-key"
-        mock_anthropic_settings.claude_model = "claude-3-5-sonnet-20241022"
+        mock_anthropic_settings.claude_model = "claude-sonnet-4-5-20250929"
         mock_anthropic_settings.claude_api_base = None
         mock_anthropic_settings.llm_timeout = 120.0
         mock_anthropic_settings.llm_max_retries = 3
