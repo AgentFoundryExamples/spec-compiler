@@ -243,6 +243,8 @@ See `.github/workflows/ci.yml` for the complete CI configuration.
 
 The spec-compiler service processes specification compilation requests through an **asynchronous multi-stage pipeline** with comprehensive logging and status publishing. The pipeline uses a 202 Accepted workflow where the HTTP request returns immediately after validation, and all long-running operations (token minting, LLM calls, downstream sending) execute in a background task.
 
+**Production Note:** The current implementation uses FastAPI's `BackgroundTasks` for simplicity. For production deployments with long-running LLM calls (30-60s) and high reliability requirements, consider using a proper task queue system (Celery, RQ, or Cloud Tasks) to ensure task completion on application shutdown and provide retry mechanisms.
+
 ### Pipeline Architecture
 
 The compilation pipeline executes in two phases:

@@ -284,9 +284,10 @@ def test_middleware_publishes_failed_status_on_exception(
         failed_msg = failed_messages[0]
         assert failed_msg.plan_id == "plan-middleware-test"
         assert failed_msg.spec_index == 3
-        # Background task uses specific error codes, not generic "unhandled_exception"
+        # Background task uses specific error codes
         assert failed_msg.error_code == "background_unexpected_error"
-        assert "LLM client creation failed" in failed_msg.error_message
+        # Error message is sanitized to avoid exposing sensitive information
+        assert "background processing error" in failed_msg.error_message.lower()
 
 
 def test_middleware_does_not_block_response_on_publish_failure(

@@ -1134,6 +1134,14 @@ def execute_compile_background(
     This function runs asynchronously after the HTTP response has been returned.
     It executes all long-running operations (token minting, LLM calls, downstream)
     and handles errors by publishing failed status.
+    
+    **Production Considerations:**
+    - FastAPI's BackgroundTasks don't guarantee completion on application shutdown
+    - For production deployments with long-running tasks (30-60s LLM calls), consider:
+      * Using a proper task queue (Celery, RQ, Cloud Tasks)
+      * Implementing graceful shutdown handlers
+      * Adding task persistence and retry mechanisms
+    - Current implementation is suitable for development and light production loads
 
     Args:
         compile_request: Validated compile request
@@ -1191,27 +1199,35 @@ def execute_compile_background(
         )
 
     except HTTPException as e:
-        # HTTPException from stages already published failed status
-        # Just log the error
+        # HTTPException from stages - these were designed for HTTP responses
+        # Convert to generic error and publish failed status
         logger.error(
             "background_compile_failed_http",
             request_id=request_id,
             plan_id=compile_request.plan_id,
             spec_index=compile_request.spec_index,
             status_code=e.status_code,
-            detail=e.detail,
+            error_type="HTTPException",
+        )
+        
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="background_processing_error",
+            error_message=f"Background processing error occurred",
         )
 
     except Exception as e:
         # Unexpected error - publish failed status
+        # Log error type and sanitized message without full stack trace to avoid sensitive info
         logger.error(
             "background_compile_failed_unexpected",
             request_id=request_id,
             plan_id=compile_request.plan_id,
             spec_index=compile_request.spec_index,
-            error=str(e),
             error_type=type(e).__name__,
-            exc_info=True,
         )
 
         publish_status_safe(
@@ -1220,7 +1236,7 @@ def execute_compile_background(
             spec_index=compile_request.spec_index,
             request_id=request_id,
             error_code="background_unexpected_error",
-            error_message=f"Unexpected background processing error: {str(e)[:1000]}",
+            error_message=f"Unexpected background processing error",
         )
 
 
