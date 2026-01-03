@@ -245,8 +245,8 @@ Total files: 50
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 15.52 KB  
-**LOC:** 288  
+**Size:** 18.22 KB  
+**LOC:** 332  
 **TODOs/FIXMEs:** 0  
 
 ## tests/test_compile_endpoint.py
