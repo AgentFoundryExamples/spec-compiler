@@ -65,8 +65,8 @@ Total files: 50
 **Role:** configuration  
 **Role Justification:** configuration file name 'config'  
 **Summary:** Python configuration file (role: configuration)  
-**Size:** 16.65 KB  
-**LOC:** 328  
+**Size:** 17.52 KB  
+**LOC:** 354  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/logging.py
@@ -155,8 +155,8 @@ Total files: 50
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 14.49 KB  
-**LOC:** 284  
+**Size:** 14.85 KB  
+**LOC:** 288  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/services/downstream_sender.py
@@ -209,8 +209,8 @@ Total files: 50
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 16.35 KB  
-**LOC:** 297  
+**Size:** 15.57 KB  
+**LOC:** 293  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/services/plan_scheduler_publisher.py
@@ -452,6 +452,6 @@ Total files: 50
 **Role:** test  
 **Role Justification:** filename starts with 'test_'  
 **Summary:** Python test file (role: test)  
-**Size:** 23.19 KB  
-**LOC:** 432  
+**Size:** 23.78 KB  
+**LOC:** 460  
 **TODOs/FIXMEs:** 0  

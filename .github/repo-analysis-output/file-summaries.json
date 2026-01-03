@@ -95,8 +95,8 @@
       "summary": "Python configuration file (role: configuration)",
       "summary_text": "Python configuration file (role: configuration)",
       "metrics": {
-        "size_bytes": 17047,
-        "loc": 328,
+        "size_bytes": 17942,
+        "loc": 354,
         "todo_count": 0
       }
     },
@@ -235,8 +235,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 14836,
-        "loc": 284,
+        "size_bytes": 15210,
+        "loc": 288,
         "todo_count": 0
       }
     },
@@ -319,8 +319,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 16745,
-        "loc": 297,
+        "size_bytes": 15939,
+        "loc": 293,
         "todo_count": 0
       }
     },
@@ -697,8 +697,8 @@
       "summary": "Python test file (role: test)",
       "summary_text": "Python test file (role: test)",
       "metrics": {
-        "size_bytes": 23744,
-        "loc": 432,
+        "size_bytes": 24352,
+        "loc": 460,
         "todo_count": 0
       }
     }

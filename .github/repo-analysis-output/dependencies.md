@@ -11,7 +11,7 @@ Includes classification of external dependencies as stdlib vs third-party.
 - **Total files**: 50
 - **Intra-repo dependencies**: 103
 - **External stdlib dependencies**: 28
-- **External third-party dependencies**: 34
+- **External third-party dependencies**: 41
 
 ## External Dependencies
 
@@ -43,7 +43,7 @@ Total: 28 unique modules
 
 ### Third-Party Packages
 
-Total: 34 unique packages
+Total: 41 unique packages
 
 - `anthropic.APIError`
 - `anthropic.APITimeoutError`
@@ -65,7 +65,7 @@ Total: 34 unique packages
 - `google.cloud.pubsub_v1`
 - `google.oauth2.service_account`
 - `httpx`
-- ... and 14 more (see JSON for full list)
+- ... and 21 more (see JSON for full list)
 
 ## Most Depended Upon Files (Intra-Repo)
 

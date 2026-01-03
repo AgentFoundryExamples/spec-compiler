@@ -335,12 +335,17 @@
       "type": "file",
       "external_dependencies": {
         "stdlib": [
+          "json",
           "logging",
           "time",
           "typing.Any"
         ],
         "third-party": [
-          "httpx"
+          "openai.APIError",
+          "openai.APITimeoutError",
+          "openai.OpenAI",
+          "openai.RateLimitError",
+          "openai.types.responses.response.Response"
         ]
       }
     },
@@ -759,6 +764,12 @@
         ],
         "third-party": [
           "httpx",
+          "openai.APIError",
+          "openai.APITimeoutError",
+          "openai.RateLimitError",
+          "openai.types.responses.response.Response",
+          "openai.types.responses.response.ResponseUsage",
+          "openai.types.responses.response_output_text.ResponseOutputText",
           "pytest"
         ]
       }
@@ -1230,6 +1241,13 @@
       "google.cloud.pubsub_v1",
       "google.oauth2.service_account",
       "httpx",
+      "openai.APIError",
+      "openai.APITimeoutError",
+      "openai.OpenAI",
+      "openai.RateLimitError",
+      "openai.types.responses.response.Response",
+      "openai.types.responses.response.ResponseUsage",
+      "openai.types.responses.response_output_text.ResponseOutputText",
       "pydantic.BaseModel",
       "pydantic.Field",
       "pydantic.ValidationError",
@@ -1246,6 +1264,6 @@
       "uvicorn"
     ],
     "stdlib_count": 28,
-    "third-party_count": 34
+    "third-party_count": 41
   }
 }
