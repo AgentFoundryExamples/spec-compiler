@@ -1717,6 +1717,141 @@ stub = create_llm_response_stub(
 )
 ```
 
+### LLM Input Composition
+
+The service uses a structured approach to compose LLM requests that separates system prompts from user messages and embeds repository artifacts in labeled fenced blocks.
+
+#### Separated System Prompt Pattern
+
+**Key Principle**: System prompts are kept separate and never duplicated in user content.
+
+```python
+from spec_compiler.services.llm_input import LlmInputComposer
+
+composer = LlmInputComposer()
+
+# NEW: Recommended approach - returns separated structure
+input_structure = composer.compose_separated(
+    system_prompt="You are a helpful assistant.",
+    tree_json={"tree": [...]},
+    dependencies_json={"dependencies": [...]},
+    file_summaries_json={"summaries": [...]},
+    spec_data={"spec": "data"},
+)
+
+# Result: LlmInputStructure(system_prompt, user_content)
+print(input_structure.system_prompt)  # "You are a helpful assistant."
+print(input_structure.user_content)   # Fenced JSON blocks WITHOUT system prompt
+```
+
+**Why This Matters**: 
+- OpenAI Responses API uses `instructions` parameter for system prompts
+- Anthropic Messages API uses `system` parameter for system prompts
+- Including system prompt in user content causes duplication and wastes tokens
+- SDK clients receive separate system_prompt and user_content
+
+#### JSON Fencing for Repository Artifacts
+
+Repository JSON artifacts are embedded verbatim in labeled ```json fenced blocks:
+
+```
+=====TREE=====
+```json
+{
+  "tree": [
+    {"path": "src/main.py", "type": "file"}
+  ]
+}
+```
+
+=====DEPENDENCIES=====
+```json
+{
+  "dependencies": [
+    {"name": "fastapi", "version": "0.115.5"}
+  ]
+}
+```
+
+=====FILE_SUMMARIES=====
+```json
+{
+  "summaries": [
+    {"path": "README.md", "summary": "..."}
+  ]
+}
+```
+
+=====SPECIFICATION=====
+```json
+{
+  "spec": "data"
+}
+```
+```
+
+**Benefits**:
+- LLMs can easily identify and parse each artifact section
+- Complete file bodies are included (no key cherry-picking)
+- Deterministic ordering ensures reproducible prompts
+- Clear labels make debugging easier
+
+#### Backward Compatibility
+
+The old `compose_user_content()` method is deprecated but still works for backward compatibility:
+
+```python
+# DEPRECATED: Old approach (includes system prompt in user content)
+old_content = composer.compose_user_content(
+    system_prompt="...",
+    tree_json={},
+    dependencies_json={},
+    file_summaries_json={},
+    spec_data={},
+)
+# Returns single string with system prompt embedded
+```
+
+**Migration Guide**:
+- Replace `compose_user_content()` with `compose_separated()`
+- Update SDK calls to use `system_prompt` field for system parameter
+- Update SDK calls to use `user_content` field for user message
+
+#### Usage in SDK Clients
+
+**OpenAI Responses API**:
+```python
+from openai import OpenAI
+
+input_structure = composer.compose_separated(...)
+
+response = client.responses.create(
+    model="gpt-5.1",
+    instructions=input_structure.system_prompt,  # System prompt here
+    input=input_structure.user_content,          # User content here
+    text="json",
+)
+```
+
+**Anthropic Messages API**:
+```python
+from anthropic import Anthropic
+
+input_structure = composer.compose_separated(...)
+
+response = client.messages.create(
+    model="claude-3-5-sonnet-20241022",
+    system=input_structure.system_prompt,      # System prompt here
+    messages=[
+        {
+            "role": "user",
+            "content": input_structure.user_content,  # User content here
+        }
+    ],
+    max_tokens=4096,
+)
+```
+
 ## Maintainer Notes
 
 ### LLM Integration Placeholders
