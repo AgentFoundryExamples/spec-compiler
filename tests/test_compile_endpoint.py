@@ -524,7 +524,8 @@ def test_compile_request_logs_compile_receipt(test_client: TestClient, caplog) -
     # Check that compile request was logged with context
     log_messages = [record.message for record in caplog.records]
     assert any("Compile request received" in msg for msg in log_messages)
-    assert any("Compile request completed successfully" in msg for msg in log_messages)
+    # In async mode, the request is accepted and processed in background
+    assert any("Compile request accepted for async processing" in msg for msg in log_messages)
 
 
 def test_compile_endpoint_error_middleware_catches_exceptions(

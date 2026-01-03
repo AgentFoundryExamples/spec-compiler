@@ -168,13 +168,10 @@ class TestDownstreamSenderFailures:
 
             response = test_client.post("/compile-spec", json=payload)
 
-            assert response.status_code == 502
-            data = response.json()
-            assert "detail" in data
-            assert data["detail"]["error"] == "Downstream sender error"
-            assert data["detail"]["plan_id"] == "plan-downstream-error"
+            # In async mode, should return 202 and handle error in background
+            assert response.status_code == 202
 
-            # Verify failed status was published
+            # Verify failed status was published (in background task)
             failed_messages = mock_publisher.get_messages_by_status("failed")
             assert len(failed_messages) >= 1
             msg = failed_messages[0]
@@ -203,11 +200,10 @@ class TestDownstreamSenderFailures:
 
             response = test_client.post("/compile-spec", json=payload)
 
-            assert response.status_code == 502
-            data = response.json()
-            assert data["detail"]["error"] == "Downstream sender error"
+            # In async mode, should return 202 and handle error in background
+            assert response.status_code == 202
 
-            # Verify failed status was published
+            # Verify failed status was published (in background task)
             failed_messages = mock_publisher.get_messages_by_status("failed")
             assert len(failed_messages) >= 1
             msg = failed_messages[0]
@@ -234,11 +230,10 @@ class TestDownstreamSenderFailures:
 
             response = test_client.post("/compile-spec", json=payload)
 
-            assert response.status_code == 500
-            data = response.json()
-            assert data["detail"]["error"] == "Unexpected downstream error"
+            # In async mode, should return 202 and handle error in background
+            assert response.status_code == 202
 
-            # Verify failed status was published
+            # Verify failed status was published (in background task)
             failed_messages = mock_publisher.get_messages_by_status("failed")
             assert len(failed_messages) >= 1
             msg = failed_messages[0]
@@ -265,9 +260,10 @@ class TestDownstreamSenderFailures:
 
             response = test_client.post("/compile-spec", json=payload)
 
-            assert response.status_code == 502
+            # In async mode, should return 202 and handle error in background
+            assert response.status_code == 202
 
-            # Check error logging
+            # Check error logging (in background task)
             log_messages = [record.message for record in caplog.records]
             assert any("stage_send_downstream_failed" in msg for msg in log_messages)
 
@@ -436,12 +432,12 @@ class TestDownstreamIntegrationFlow:
 
                 response = test_client.post("/compile-spec", json=payload)
 
-                # Should fail at LLM stage
-                assert response.status_code == 500
+                # In async mode, should return 202 and handle error in background
+                assert response.status_code == 202
 
-                # Downstream should NOT be called
+                # Downstream should NOT be called (error happens before downstream stage)
                 mock_sender.send_compiled_spec.assert_not_called()
 
-                # Failed status should be published
+                # Failed status should be published (in background task)
                 failed_messages = mock_publisher.get_messages_by_status("failed")
                 assert len(failed_messages) >= 1

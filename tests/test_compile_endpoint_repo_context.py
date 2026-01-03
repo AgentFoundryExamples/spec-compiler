@@ -118,15 +118,8 @@ def test_compile_with_minting_error_returns_5xx(
 
     response = test_client.post("/compile-spec", json=payload)
 
-    # Should return 503 Service Unavailable for 5xx minting errors
-    assert response.status_code == 503
-    data = response.json()
-    assert "detail" in data
-    assert isinstance(data["detail"], dict)
-    assert "error" in data["detail"]
-    assert "request_id" in data["detail"]
-    assert "plan_id" in data["detail"]
-    assert data["detail"]["plan_id"] == "plan-minting-error"
+    # In async mode, should return 202 and handle error in background
+    assert response.status_code == 202
 
 
 def test_compile_with_minting_error_4xx_returns_502(
@@ -149,10 +142,7 @@ def test_compile_with_minting_error_4xx_returns_502(
 
     response = test_client.post("/compile-spec", json=payload)
 
-    assert response.status_code == 502
-    data = response.json()
-    assert "detail" in data
-    assert isinstance(data["detail"], dict)
+    assert response.status_code == 202  # Async mode returns 202, error handled in background
 
 
 def test_compile_with_minting_not_configured_returns_500(
@@ -174,10 +164,7 @@ def test_compile_with_minting_not_configured_returns_500(
 
     response = test_client.post("/compile-spec", json=payload)
 
-    assert response.status_code == 500
-    data = response.json()
-    assert "detail" in data
-    assert isinstance(data["detail"], dict)
+    assert response.status_code == 202  # Async mode returns 202, error handled in background
 
 
 def test_compile_with_missing_tree_json_uses_fallback(
@@ -354,16 +341,14 @@ def test_compile_error_response_maintains_valid_json(
 
     response = test_client.post("/compile-spec", json=payload)
 
-    # Verify response is valid JSON
-    assert response.status_code == 503
+    # In async mode, should return 202 with valid JSON
+    assert response.status_code == 202
     data = response.json()
-
-    # Verify structure is valid and doesn't have status="failed" string literal
+    
+    # Verify response structure is valid
     assert isinstance(data, dict)
-    assert "detail" in data
-    assert isinstance(data["detail"], dict)
-    # The actual CompileResponse isn't returned for 5xx errors,
-    # so we don't expect a "status" field at the top level
+    assert "status" in data
+    assert data["status"] == "accepted"
 
 
 def test_compile_logs_repo_context_metadata(

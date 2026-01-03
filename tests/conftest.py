@@ -16,6 +16,12 @@ Pytest configuration and fixtures.
 
 Provides shared test fixtures for the test suite, including publisher mocks
 for status publishing tests.
+
+**Note on Background Task Testing:**
+FastAPI's TestClient executes background tasks synchronously before returning
+the response, ensuring that all background work completes before test assertions.
+This is different from production where BackgroundTasks execute truly asynchronously.
+For production-like async testing, consider using async test clients or integration tests.
 """
 
 from unittest.mock import MagicMock, patch

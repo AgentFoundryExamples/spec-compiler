@@ -241,11 +241,15 @@ See `.github/workflows/ci.yml` for the complete CI configuration.
 
 ## Compile Pipeline
 
-The spec-compiler service processes specification compilation requests through a multi-stage pipeline with comprehensive logging and status publishing. Understanding this pipeline is essential for integrators and developers working with the service.
+The spec-compiler service processes specification compilation requests through an **asynchronous multi-stage pipeline** with comprehensive logging and status publishing. The pipeline uses a 202 Accepted workflow where the HTTP request returns immediately after validation, and all long-running operations (token minting, LLM calls, downstream sending) execute in a background task.
+
+**Production Note:** The current implementation uses FastAPI's `BackgroundTasks` for simplicity. For production deployments with long-running LLM calls (30-60s) and high reliability requirements, consider using a proper task queue system (Celery, RQ, or Cloud Tasks) to ensure task completion on application shutdown and provide retry mechanisms.
 
 ### Pipeline Architecture
 
-The compilation pipeline executes the following stages sequentially:
+The compilation pipeline executes in two phases:
+1. **Synchronous Phase**: Validates request, publishes in_progress status, and returns 202 Accepted
+2. **Asynchronous Phase**: Background worker executes token minting, LLM calls, and downstream operations
 
 ```mermaid
 sequenceDiagram
@@ -253,12 +257,13 @@ sequenceDiagram
     participant API as Compile Endpoint
     participant Validator as Stage 1: Validate
     participant StatusPub as Status Publisher
-    participant Minter as Stage 2: Mint Token
+    participant BgWorker as Background Worker
+    participant Minter as Stage 3: Mint Token
     participant GitHub as GitHub API
-    participant RepoFetch as Stage 3: Fetch Context
-    participant LLMFactory as Stage 4: Create LLM Client
-    participant LLM as Stage 5: Call LLM
-    participant Downstream as Stage 6: Send Downstream
+    participant RepoFetch as Stage 4: Fetch Context
+    participant LLMFactory as Stage 5: Create LLM Client
+    participant LLM as Stage 6: Call LLM
+    participant Downstream as Stage 7: Send Downstream
     participant Logger as Downstream Logger
     
     Client->>API: POST /compile-spec (CompileRequest)
@@ -269,40 +274,59 @@ sequenceDiagram
     StatusPub->>StatusPub: Pub/Sub topic (plan-scheduler)
     StatusPub-->>API: Status logged/published
     
-    API->>Minter: Mint GitHub token
+    API->>BgWorker: Enqueue background task
+    API->>Client: HTTP 202 Accepted (CompileResponse)
+    
+    Note over BgWorker: Async processing begins
+    
+    BgWorker->>Minter: Mint GitHub token
     Minter->>GitHub: Request user-to-server token
     GitHub-->>Minter: GitHub access token
-    Minter-->>API: Token string
+    Minter-->>BgWorker: Token string
     
-    API->>RepoFetch: Fetch repository context
+    BgWorker->>RepoFetch: Fetch repository context
     RepoFetch->>GitHub: GET .github/repo-analysis-output/tree.json
     RepoFetch->>GitHub: GET .github/repo-analysis-output/dependencies.json
     RepoFetch->>GitHub: GET .github/repo-analysis-output/file-summaries.json
     GitHub-->>RepoFetch: Analysis files (or fallback on error)
-    RepoFetch-->>API: RepoContextPayload
+    RepoFetch-->>BgWorker: RepoContextPayload
     
-    API->>LLMFactory: Create LLM client (provider + stub mode)
-    LLMFactory-->>API: Configured LLM client
+    BgWorker->>LLMFactory: Create LLM client (provider + stub mode)
+    LLMFactory-->>BgWorker: Configured LLM client
     
-    API->>LLM: Generate response (spec + context)
+    BgWorker->>LLM: Generate response (spec + context)
     LLM->>LLM: API call or stub response
-    LLM-->>API: LlmCompiledSpecOutput (parsed JSON)
+    LLM-->>BgWorker: LlmCompiledSpecOutput (parsed JSON)
     
-    API->>Downstream: Send compiled spec
+    BgWorker->>Downstream: Send compiled spec
     Downstream->>Logger: Log structured message
     Logger-->>Downstream: Logged (no actual transport)
-    Downstream-->>API: Send complete
+    Downstream-->>BgWorker: Send complete
     
-    API->>StatusPub: Publish "succeeded" status
+    BgWorker->>StatusPub: Publish "succeeded" status
     StatusPub->>StatusPub: Pub/Sub topic (plan-scheduler)
-    StatusPub-->>API: Status logged/published
+    StatusPub-->>BgWorker: Status logged/published
     
-    API->>Client: HTTP 202 Accepted (CompileResponse)
-    
-    Note over API,StatusPub: On any error: publish "failed" status
+    Note over BgWorker,StatusPub: On any error: publish "failed" status
 ```
 
 ### Stage-by-Stage Breakdown
+
+The compilation pipeline executes in two phases:
+
+**Phase 1: Synchronous (HTTP Request)**
+- Stage 1: Validate Request
+- Stage 2: Publish In-Progress Status
+- Enqueue Background Task
+- Return HTTP 202 Accepted
+
+**Phase 2: Asynchronous (Background Worker)**
+- Stage 3: Mint GitHub Token
+- Stage 4: Fetch Repository Context
+- Stage 5: Create LLM Client
+- Stage 6: Call LLM Service
+- Stage 7: Send Downstream
+- Stage 8: Publish Success/Failure Status
 
 #### Stage 1: Validate Request
 **Function**: `stage_validate_request`
@@ -324,6 +348,18 @@ sequenceDiagram
 - **Logs**: `stage_publish_in_progress`, `Published plan status message`
 - **Errors**: Logged but never block pipeline (status publishing failures are non-fatal)
 
+#### Enqueue Background Task
+- **Purpose**: Queue async processing and return response immediately
+- **Actions**:
+  - Use FastAPI BackgroundTasks to enqueue `execute_compile_background()`
+  - Return HTTP 202 Accepted with request tracking information
+- **Logs**: `enqueuing_background_task`, `Compile request accepted for async processing`
+- **Response**: CompileResponse with request_id, plan_id, spec_index, status="accepted"
+
+---
+
+**Background Worker Stages (Async Execution)**
+
 #### Stage 3: Mint GitHub Token
 **Function**: `stage_mint_token`
 - **Purpose**: Obtain GitHub user-to-server access token from minting service
@@ -333,10 +369,9 @@ sequenceDiagram
   - Cache token for subsequent requests (5-minute expiry buffer)
 - **Logs**: `stage_mint_token_start`, `minting_token_success`, `stage_mint_token_complete`
 - **Errors**: 
-  - HTTP 500: Minting service not configured (`MINTING_SERVICE_BASE_URL` missing)
-  - HTTP 502: Minting service returned 4xx error (auth/config issue)
-  - HTTP 503: Minting service returned 5xx error (temporary failure)
-  - Publishes `failed` status before returning error
+  - All errors are handled in background task
+  - Publishes `failed` status with error details
+  - Logs error but doesn't throw HTTPException to client (already responded with 202)
 
 #### Stage 4: Fetch Repository Context
 **Function**: `stage_fetch_repo_context`
@@ -359,8 +394,9 @@ sequenceDiagram
   - If provider=anthropic: return `ClaudeLlmClient` (requires `CLAUDE_API_KEY`)
 - **Logs**: `stage_create_llm_client_start`, `llm_client_created`, `stage_create_llm_client_complete`
 - **Errors**: 
-  - HTTP 500: Invalid provider or missing API key
-  - Publishes `failed` status before returning error
+  - All errors are handled in background task
+  - Publishes `failed` status with error details
+  - Logs error but doesn't throw HTTPException to client (already responded with 202)
 
 #### Stage 6: Call LLM Service
 **Function**: `stage_call_llm`
@@ -372,9 +408,9 @@ sequenceDiagram
   - Record provider, model, duration, and token usage metrics
 - **Logs**: `stage_call_llm_start`, `calling_llm_service`, `llm_service_response_received`, `llm_response_parsed_successfully`, `stage_call_llm_complete`
 - **Errors**:
-  - HTTP 503: LLM API error (network/quota/timeout)
-  - HTTP 500: Response parsing error or unexpected exception
+  - All errors are handled in background task
   - Publishes `failed` status with error details
+  - Logs error but doesn't throw HTTPException to client (already responded with 202)
 
 #### Stage 7: Send Downstream
 **Function**: `stage_send_downstream`
@@ -386,34 +422,33 @@ sequenceDiagram
   - Future: Will integrate with actual message queue or API
 - **Logs**: `stage_send_downstream_start`, `downstream_send`, `stage_send_downstream_complete`
 - **Errors**:
-  - HTTP 502: Downstream validation or sender error
-  - HTTP 500: Unexpected downstream error
-  - Publishes `failed` status before returning error
+  - All errors are handled in background task
+  - Publishes `failed` status with error details
+  - Logs error but doesn't throw HTTPException to client (already responded with 202)
 
 #### Stage 8: Publish Succeeded Status
 - **Purpose**: Notify plan-scheduler that compilation completed successfully
 - **Actions**:
   - Create `PlanStatusMessage` with status `succeeded`
   - Publish to Pub/Sub topic with `plan_id` ordering key
-- **Logs**: `stage_publish_succeeded`, `Published plan status message`
-- **Errors**: Logged but never block response (non-fatal)
-
-#### Stage 9: Return Response
-- **Purpose**: Send HTTP response to client
-- **Actions**:
-  - Create `CompileResponse` with request_id, plan_id, spec_index, status "accepted"
-  - Return HTTP 202 Accepted
-  - Log final metrics (LLM duration, provider, model, issue count)
-- **Logs**: `Compile request completed successfully`
+- **Logs**: `stage_publish_succeeded`, `background_compile_complete`
+- **Errors**: Logged but never block background task (non-fatal)
 
 ### Error Handling and Status Publishing
 
-The pipeline implements comprehensive error handling with status publishing integration:
+The pipeline implements comprehensive error handling with asynchronous status publishing:
+
+**Async Error Handling**:
+- All processing errors (minting, LLM, downstream) occur in the background task
+- HTTP 202 response is already sent to client before any processing errors
+- Background task catches all exceptions and handles gracefully
+- Failed status is published for any processing error
+- Client must poll status endpoint or listen to Pub/Sub to detect failures
 
 **Failed Status Publishing**:
-- Published automatically on any stage failure (minting, LLM, downstream)
+- Published automatically on any background stage failure (minting, LLM, downstream)
 - Includes `error_code` and `error_message` (truncated to 10KB, sanitized)
-- Never blocks HTTP error response to client
+- Never blocks background task execution
 - Logged if publisher not configured or publish fails
 
 **Status Message Schema**:

@@ -22,7 +22,7 @@ import re
 import time
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Header, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, status
 
 from spec_compiler.config import settings
 from spec_compiler.logging import get_logger
@@ -1124,6 +1124,122 @@ def stage_send_downstream(
         ) from None
 
 
+def execute_compile_background(
+    compile_request: CompileRequest,
+    request_id: str,
+) -> None:
+    """
+    Execute compile pipeline in background (stages 3-8).
+
+    This function runs asynchronously after the HTTP response has been returned.
+    It executes all long-running operations (token minting, LLM calls, downstream)
+    and handles errors by publishing failed status.
+    
+    **Production Considerations:**
+    - FastAPI's BackgroundTasks don't guarantee completion on application shutdown
+    - For production deployments with long-running tasks (30-60s LLM calls), consider:
+      * Using a proper task queue (Celery, RQ, Cloud Tasks)
+      * Implementing graceful shutdown handlers
+      * Adding task persistence and retry mechanisms
+    - Current implementation is suitable for development and light production loads
+
+    Args:
+        compile_request: Validated compile request
+        request_id: Request correlation ID
+    """
+    logger.info(
+        "background_compile_start",
+        request_id=request_id,
+        plan_id=compile_request.plan_id,
+        spec_index=compile_request.spec_index,
+    )
+
+    try:
+        # Stage 3: Mint GitHub token
+        token_str = stage_mint_token(compile_request, request_id)
+
+        # Stage 4: Fetch repository context
+        repo_context = stage_fetch_repo_context(compile_request, token_str, request_id)
+
+        # Stage 5: Create LLM client
+        llm_client = stage_create_llm_client(compile_request, request_id)
+
+        # Stage 6: Call LLM service with latency tracking
+        compiled_spec, llm_metrics = stage_call_llm(
+            llm_client, compile_request, repo_context, request_id
+        )
+
+        # Stage 7: Send downstream
+        stage_send_downstream(compiled_spec, compile_request, request_id)
+
+        # Stage 8: Publish succeeded status
+        logger.info(
+            "stage_publish_succeeded",
+            request_id=request_id,
+            stage="publish_succeeded",
+        )
+        
+        publish_status_safe(
+            status="succeeded",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+        )
+
+        logger.info(
+            "background_compile_complete",
+            request_id=request_id,
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            compiled_version=compiled_spec.version,
+            compiled_issues_count=len(compiled_spec.issues),
+            llm_provider=llm_metrics["provider"],
+            llm_model=llm_metrics["model"],
+            llm_duration_seconds=llm_metrics["duration_seconds"],
+        )
+
+    except HTTPException as e:
+        # HTTPException from stages - these were designed for HTTP responses
+        # Convert to generic error and publish failed status
+        logger.error(
+            "background_compile_failed_http",
+            request_id=request_id,
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            status_code=e.status_code,
+            error_type="HTTPException",
+        )
+        
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="background_processing_error",
+            error_message=f"Background processing error occurred",
+        )
+
+    except Exception as e:
+        # Unexpected error - publish failed status
+        # Log error type and sanitized message without full stack trace to avoid sensitive info
+        logger.error(
+            "background_compile_failed_unexpected",
+            request_id=request_id,
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            error_type=type(e).__name__,
+        )
+
+        publish_status_safe(
+            status="failed",
+            plan_id=compile_request.plan_id,
+            spec_index=compile_request.spec_index,
+            request_id=request_id,
+            error_code="background_unexpected_error",
+            error_message=f"Unexpected background processing error",
+        )
+
+
 @router.post(
     "/compile-spec",
     status_code=status.HTTP_202_ACCEPTED,
@@ -1173,31 +1289,36 @@ def stage_send_downstream(
 )
 async def compile_spec(
     request: Request,
+    background_tasks: BackgroundTasks,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> CompileResponse:
     """
-    Compile a specification with LLM integration.
+    Compile a specification with LLM integration (async 202 workflow).
 
     Executes a staged pipeline for processing specifications:
     1. Validate request and check size limits
     2. Publish in-progress status
+    3. Enqueue background task for async processing
+    4. Return HTTP 202 Accepted immediately
+
+    Background task executes:
     3. Mint GitHub access token
     4. Fetch repository context
     5. Create LLM client
     6. Call LLM with latency tracking
     7. Send compiled spec downstream
     8. Publish succeeded status
-    9. Return HTTP response
 
     Args:
         request: FastAPI request object (for accessing request_id and body)
+        background_tasks: FastAPI background tasks manager
         idempotency_key: Optional idempotency key for client-side deduplication
 
     Returns:
         CompileResponse with request tracking information
 
     Raises:
-        HTTPException: Various status codes based on failure stage
+        HTTPException: Various status codes based on validation failure
     """
     # Stage 1: Validate request
     request_id, compile_request, safe_idempotency_key = await stage_validate_request(request, idempotency_key)
@@ -1229,38 +1350,21 @@ async def compile_spec(
         request_id=request_id,
     )
 
-    # Stage 3: Mint GitHub token
-    token_str = stage_mint_token(compile_request, request_id)
-
-    # Stage 4: Fetch repository context
-    repo_context = stage_fetch_repo_context(compile_request, token_str, request_id)
-
-    # Stage 5: Create LLM client
-    llm_client = stage_create_llm_client(compile_request, request_id)
-
-    # Stage 6: Call LLM service with latency tracking
-    compiled_spec, llm_metrics = stage_call_llm(
-        llm_client, compile_request, repo_context, request_id
-    )
-
-    # Stage 7: Send downstream
-    stage_send_downstream(compiled_spec, compile_request, request_id)
-
-    # Stage 8: Publish succeeded status
+    # Stage 3: Enqueue background task for async processing
     logger.info(
-        "stage_publish_succeeded",
+        "enqueuing_background_task",
         request_id=request_id,
-        stage="publish_succeeded",
-    )
-    
-    publish_status_safe(
-        status="succeeded",
         plan_id=compile_request.plan_id,
         spec_index=compile_request.spec_index,
+    )
+    
+    background_tasks.add_task(
+        execute_compile_background,
+        compile_request=compile_request,
         request_id=request_id,
     )
 
-    # Stage 9: Return HTTP response
+    # Stage 4: Return HTTP 202 Accepted immediately
     response = CompileResponse(
         request_id=request_id,
         plan_id=compile_request.plan_id,
@@ -1270,15 +1374,10 @@ async def compile_spec(
     )
 
     logger.info(
-        "Compile request completed successfully",
+        "Compile request accepted for async processing",
         request_id=request_id,
         plan_id=compile_request.plan_id,
         spec_index=compile_request.spec_index,
-        compiled_version=compiled_spec.version,
-        compiled_issues_count=len(compiled_spec.issues),
-        llm_provider=llm_metrics["provider"],
-        llm_model=llm_metrics["model"],
-        llm_duration_seconds=llm_metrics["duration_seconds"],
     )
 
     return response

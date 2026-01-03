@@ -256,10 +256,10 @@ def test_error_handling_middleware_logs_exception_details(
 def test_middleware_publishes_failed_status_on_exception(
     test_client_with_error_routes: TestClient, mock_publisher
 ) -> None:
-    """Test that middleware publishes failed status when compile request throws exception."""
+    """Test that background task publishes failed status when exception occurs."""
     from unittest.mock import patch
 
-    # Make a request that will fail
+    # Make a request that will fail in background
     with patch("spec_compiler.app.routes.compile.create_llm_client") as mock_create:
         mock_create.side_effect = RuntimeError("LLM client creation failed")
 
@@ -273,10 +273,10 @@ def test_middleware_publishes_failed_status_on_exception(
 
         response = test_client_with_error_routes.post("/compile-spec", json=payload)
 
-        # Should return error response
-        assert response.status_code == 500
+        # In async mode, returns 202 (error happens in background)
+        assert response.status_code == 202
 
-        # Verify failed status was published
+        # Verify failed status was published from background task
         failed_messages = mock_publisher.get_messages_by_status("failed")
         assert len(failed_messages) == 1
 
@@ -284,14 +284,16 @@ def test_middleware_publishes_failed_status_on_exception(
         failed_msg = failed_messages[0]
         assert failed_msg.plan_id == "plan-middleware-test"
         assert failed_msg.spec_index == 3
-        assert failed_msg.error_code == "unhandled_exception"
-        assert "RuntimeError" in failed_msg.error_message
+        # Background task uses specific error codes
+        assert failed_msg.error_code == "background_unexpected_error"
+        # Error message is sanitized to avoid exposing sensitive information
+        assert "background processing error" in failed_msg.error_message.lower()
 
 
 def test_middleware_does_not_block_response_on_publish_failure(
     test_client_with_error_routes: TestClient, mock_publisher
 ) -> None:
-    """Test that publish failures don't prevent error responses."""
+    """Test that publish failures don't prevent responses (async mode)."""
     from unittest.mock import patch
 
     # Make publisher throw when trying to publish
@@ -308,13 +310,12 @@ def test_middleware_does_not_block_response_on_publish_failure(
             "github_repo": "repo",
         }
 
-        # Should still return error response even though publisher failed
+        # In async mode, should return 202 (error happens in background)
         response = test_client_with_error_routes.post("/compile-spec", json=payload)
 
-        assert response.status_code == 500
+        assert response.status_code == 202
         assert "request_id" in response.json()
-        # Error goes through middleware since it's unhandled
-        assert response.json()["error"] == "internal_error"
+        assert response.json()["status"] == "accepted"
 
 
 def test_middleware_handles_unparseable_request_body(
@@ -333,11 +334,11 @@ def test_middleware_handles_unparseable_request_body(
 def test_middleware_extracts_plan_context_from_body(
     test_client_with_error_routes: TestClient, mock_publisher
 ) -> None:
-    """Test that middleware can extract plan context from compile request body."""
+    """Test that background task can extract plan context and publish failed status."""
     from unittest.mock import patch
 
     with patch("spec_compiler.app.routes.compile.create_llm_client") as mock_create:
-        # Make endpoint throw after body is parsed
+        # Make endpoint throw after body is parsed (in background)
         mock_create.side_effect = RuntimeError("Simulated failure")
 
         payload = {
@@ -350,9 +351,10 @@ def test_middleware_extracts_plan_context_from_body(
 
         response = test_client_with_error_routes.post("/compile-spec", json=payload)
 
-        assert response.status_code == 500
+        # In async mode, returns 202 (error happens in background)
+        assert response.status_code == 202
 
-        # Verify plan context was extracted and used
+        # Verify plan context was extracted and used in background task
         failed_messages = mock_publisher.get_messages_by_status("failed")
         assert len(failed_messages) == 1
 
@@ -364,7 +366,7 @@ def test_middleware_extracts_plan_context_from_body(
 def test_middleware_status_publishing_idempotent_across_errors(
     test_client_with_error_routes: TestClient, mock_publisher
 ) -> None:
-    """Test that each error publishes exactly one failed status."""
+    """Test that each background error publishes exactly one failed status."""
     from unittest.mock import patch
 
     with patch("spec_compiler.app.routes.compile.create_llm_client") as mock_create:
@@ -378,15 +380,15 @@ def test_middleware_status_publishing_idempotent_across_errors(
             "github_repo": "repo",
         }
 
-        # First request
+        # First request (returns 202, error in background)
         response1 = test_client_with_error_routes.post("/compile-spec", json=payload)
-        assert response1.status_code == 500
+        assert response1.status_code == 202
 
         initial_count = len(mock_publisher.get_messages_by_status("failed"))
 
-        # Second request with same plan
+        # Second request with same plan (returns 202, error in background)
         response2 = test_client_with_error_routes.post("/compile-spec", json=payload)
-        assert response2.status_code == 500
+        assert response2.status_code == 202
 
         # Should have published one more failed status
         final_count = len(mock_publisher.get_messages_by_status("failed"))
