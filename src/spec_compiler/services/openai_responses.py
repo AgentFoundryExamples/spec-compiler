@@ -129,6 +129,9 @@ class OpenAiResponsesClient(LlmClient):
 
         Returns:
             LlmInputStructure with separated system_prompt and user_content
+
+        Raises:
+            LlmConfigurationError: If composed structure has empty fields
         """
         composer = LlmInputComposer()
 
@@ -141,13 +144,27 @@ class OpenAiResponsesClient(LlmClient):
         system_prompt = payload.system_prompt.template or settings.get_system_prompt()
 
         # Compose with separated structure (NEW approach)
-        return composer.compose_separated(
+        input_structure = composer.compose_separated(
             system_prompt=system_prompt,
             tree_json=tree_json,
             dependencies_json=dependencies_json,
             file_summaries_json=file_summaries_json,
             spec_data=payload.metadata.get("spec_data", {}),
         )
+
+        # Validate that composed structure has non-empty fields
+        if not input_structure.system_prompt or not input_structure.system_prompt.strip():
+            raise LlmConfigurationError(
+                "Composed input structure has empty system prompt. "
+                "Check system prompt configuration."
+            )
+        if not input_structure.user_content or not input_structure.user_content.strip():
+            raise LlmConfigurationError(
+                "Composed input structure has empty user content. "
+                "Check repository context and spec data."
+            )
+
+        return input_structure
 
     def _make_request_with_retry(
         self, instructions: str, input_content: str, max_tokens: int, request_id: str

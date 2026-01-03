@@ -97,20 +97,20 @@ class LlmInputComposer:
             raise ValueError("spec_data cannot be None")
 
     @staticmethod
-    def compose_user_content_only(
+    def _compose_user_content_only(
         tree_json: dict[str, Any] | list[Any],
         dependencies_json: dict[str, Any] | list[Any],
         file_summaries_json: dict[str, Any] | list[Any],
         spec_data: dict[str, Any] | list[Any],
     ) -> str:
         """
-        Compose user content WITHOUT system prompt (new approach).
+        Compose user content WITHOUT system prompt (internal method).
 
         Embeds repository JSON artifacts in labeled ```json fenced blocks
         and includes specification data. System prompt is handled separately.
 
-        This method produces content suitable for the user message in SDK calls
-        where the system prompt is passed via a dedicated parameter.
+        This is an internal method used by compose_separated(). External callers
+        should use compose_separated() instead.
 
         Args:
             tree_json: Repository file tree structure (entire JSON)
@@ -197,7 +197,7 @@ class LlmInputComposer:
         )
 
         # Get user content without system prompt
-        user_content = LlmInputComposer.compose_user_content_only(
+        user_content = LlmInputComposer._compose_user_content_only(
             tree_json, dependencies_json, file_summaries_json, spec_data
         )
 
@@ -356,13 +356,22 @@ def compose_llm_request_payload(
             spec_data,
         )
     elif format_type == "structured":
-        return composer.compose_structured_content(
+        structured_content = composer.compose_structured_content(
             system_prompt,
             tree_json,
             dependencies_json,
             file_summaries_json,
             spec_data,
         )
+        # Ensure we always return a dict (compose_structured_content always returns dict,
+        # but this provides extra safety in case of future changes)
+        return structured_content or {
+            "system_prompt": system_prompt.strip(),
+            "repository_tree": tree_json or {},
+            "dependencies": dependencies_json or {},
+            "file_summaries": file_summaries_json or {},
+            "specification_data": spec_data or {},
+        }
     else:
         raise ValueError(
             f"Unknown format_type: {format_type}. Use 'separated', 'string', or 'structured'"

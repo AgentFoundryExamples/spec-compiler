@@ -506,10 +506,10 @@ class TestNewSeparatedComposition:
         assert "pytest" in user_content  # Dependencies data is present
 
     def test_compose_user_content_only_no_system_prompt(self) -> None:
-        """Test compose_user_content_only method."""
+        """Test _compose_user_content_only internal method."""
         composer = LlmInputComposer()
 
-        result = composer.compose_user_content_only(
+        result = composer._compose_user_content_only(
             {"tree": []},
             {"deps": []},
             {"summaries": []},
@@ -521,20 +521,20 @@ class TestNewSeparatedComposition:
         assert "```json" in result
 
     def test_compose_user_content_only_validates_none(self) -> None:
-        """Test that compose_user_content_only validates None inputs."""
+        """Test that _compose_user_content_only validates None inputs."""
         composer = LlmInputComposer()
 
         with pytest.raises(ValueError, match="tree_json cannot be None"):
-            composer.compose_user_content_only(None, {}, {}, {})
+            composer._compose_user_content_only(None, {}, {}, {})
 
         with pytest.raises(ValueError, match="dependencies_json cannot be None"):
-            composer.compose_user_content_only({}, None, {}, {})
+            composer._compose_user_content_only({}, None, {}, {})
 
         with pytest.raises(ValueError, match="file_summaries_json cannot be None"):
-            composer.compose_user_content_only({}, {}, None, {})
+            composer._compose_user_content_only({}, {}, None, {})
 
         with pytest.raises(ValueError, match="spec_data cannot be None"):
-            composer.compose_user_content_only({}, {}, {}, None)
+            composer._compose_user_content_only({}, {}, {}, None)
 
     def test_json_fencing_with_complete_artifacts(self) -> None:
         """Test that complete JSON artifacts are embedded verbatim."""
@@ -615,3 +615,135 @@ class TestNewSeparatedComposition:
         spec_pos = content.find("=====SPECIFICATION=====")
 
         assert tree_pos < deps_pos < summaries_pos < spec_pos
+
+
+class TestJsonFencedBlockParsing:
+    """Tests to validate that JSON inside fenced blocks is parseable."""
+
+    def test_json_in_fences_is_valid_and_parseable(self) -> None:
+        """Test that JSON inside fenced blocks can be extracted and parsed."""
+        import json
+        import re
+
+        composer = LlmInputComposer()
+
+        tree_data = [{"path": "src/main.py", "type": "file", "size": 1234}]
+        deps_data = [{"name": "fastapi", "version": "0.115.5"}]
+        summaries_data = [{"path": "README.md", "summary": "Documentation"}]
+        spec_data = {"task": "refactor", "priority": "high"}
+
+        result = composer.compose_separated(
+            "Analyze code",
+            tree_data,
+            deps_data,
+            summaries_data,
+            spec_data,
+        )
+
+        # Extract JSON blocks using regex
+        json_pattern = r"```json\n(.*?)\n```"
+        json_blocks = re.findall(json_pattern, result.user_content, re.DOTALL)
+
+        # Should have 4 JSON blocks
+        assert len(json_blocks) == 4
+
+        # Parse each block to ensure it's valid JSON
+        parsed_blocks = []
+        for block in json_blocks:
+            try:
+                parsed_data = json.loads(block)
+                parsed_blocks.append(parsed_data)
+            except json.JSONDecodeError as e:
+                pytest.fail(f"Failed to parse JSON block: {e}\nBlock content: {block}")
+
+        # Verify parsed data matches original
+        assert parsed_blocks[0] == tree_data
+        assert parsed_blocks[1] == deps_data
+        assert parsed_blocks[2] == summaries_data
+        assert parsed_blocks[3] == spec_data
+
+    def test_empty_json_structures_are_valid(self) -> None:
+        """Test that empty JSON structures in fences are valid."""
+        import json
+        import re
+
+        composer = LlmInputComposer()
+
+        result = composer.compose_separated(
+            "Process empty data",
+            [],  # Empty list
+            {},  # Empty dict
+            [],  # Empty list
+            {},  # Empty dict
+        )
+
+        # Extract JSON blocks
+        json_pattern = r"```json\n(.*?)\n```"
+        json_blocks = re.findall(json_pattern, result.user_content, re.DOTALL)
+
+        assert len(json_blocks) == 4
+
+        # All should be valid JSON
+        for block in json_blocks:
+            parsed = json.loads(block)
+            assert parsed in [[], {}]
+
+    def test_complex_nested_json_is_parseable(self) -> None:
+        """Test that complex nested JSON structures remain valid in fences."""
+        import json
+        import re
+
+        composer = LlmInputComposer()
+
+        complex_data = {
+            "level1": {
+                "level2": {
+                    "level3": {"array": [1, 2, 3], "string": "value", "null": None, "bool": True}
+                }
+            }
+        }
+
+        result = composer.compose_separated(
+            "Process nested data",
+            complex_data,
+            complex_data,
+            complex_data,
+            complex_data,
+        )
+
+        # Extract JSON blocks
+        json_pattern = r"```json\n(.*?)\n```"
+        json_blocks = re.findall(json_pattern, result.user_content, re.DOTALL)
+
+        # Parse and verify all blocks
+        for block in json_blocks:
+            parsed = json.loads(block)
+            assert parsed == complex_data
+
+    def test_special_characters_in_json_are_preserved(self) -> None:
+        """Test that special characters in JSON are properly escaped and parseable."""
+        import json
+        import re
+
+        composer = LlmInputComposer()
+
+        special_data = {
+            "quotes": 'String with "quotes"',
+            "backslash": "Path\\with\\backslashes",
+            "newline": "Line1\nLine2",
+            "unicode": "Unicode: 🚀 ✨",
+        }
+
+        result = composer.compose_separated("Handle special chars", special_data, {}, {}, {})
+
+        # Extract first JSON block (tree)
+        json_pattern = r"```json\n(.*?)\n```"
+        json_blocks = re.findall(json_pattern, result.user_content, re.DOTALL)
+
+        # Parse and verify special characters are preserved
+        parsed = json.loads(json_blocks[0])
+        assert parsed == special_data
+        assert parsed["quotes"] == 'String with "quotes"'
+        assert parsed["backslash"] == "Path\\with\\backslashes"
+        assert parsed["newline"] == "Line1\nLine2"
+        assert parsed["unicode"] == "Unicode: 🚀 ✨"

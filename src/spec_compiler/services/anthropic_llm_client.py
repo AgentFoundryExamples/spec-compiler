@@ -103,6 +103,9 @@ class ClaudeLlmClient(LlmClient):
 
         Returns:
             Dictionary representing the API request parameters
+
+        Raises:
+            LlmConfigurationError: If composed structure has empty fields
         """
         # Use the new separated composition approach
         composer = LlmInputComposer()
@@ -123,6 +126,18 @@ class ClaudeLlmClient(LlmClient):
             file_summaries_json=file_summaries_json,
             spec_data=payload.metadata.get("spec_data", {}),
         )
+
+        # Validate that composed structure has non-empty fields
+        if not input_structure.system_prompt or not input_structure.system_prompt.strip():
+            raise LlmConfigurationError(
+                "Composed input structure has empty system prompt. "
+                "Check system prompt configuration."
+            )
+        if not input_structure.user_content or not input_structure.user_content.strip():
+            raise LlmConfigurationError(
+                "Composed input structure has empty user content. "
+                "Check repository context and spec data."
+            )
 
         # Build the request payload according to Anthropic Messages API structure
         # Messages API uses:
