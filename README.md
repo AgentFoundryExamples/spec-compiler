@@ -1275,6 +1275,34 @@ When implementing actual GitHub API integration:
 - **`GET /docs`**: Interactive API documentation (Swagger UI). Automatically generated from OpenAPI schema.
 - **`GET /openapi.json`**: OpenAPI specification in JSON format. Use this for code generation or API clients.
 
+### Regenerating the OpenAPI Schema
+
+The `spec-compiler.openapi.json` file is generated from the FastAPI application and Pydantic models. If you modify the `CompileRequest`, `CompileSpec`, or any other API models, you should regenerate the OpenAPI schema to keep documentation in sync.
+
+**To regenerate the schema:**
+
+```bash
+# Ensure you're in the project root and dependencies are installed
+pip install -r requirements.txt
+
+# Generate the schema
+PYTHONPATH=src python -c "
+from spec_compiler.app.main import app
+import json
+
+schema = app.openapi()
+with open('spec-compiler.openapi.json', 'w') as f:
+    json.dump(schema, f, indent=2)
+
+print('OpenAPI schema regenerated successfully')
+"
+```
+
+**Important Notes:**
+- The custom OpenAPI generation in `main.py` ensures `CompileSpec` is placed in the main `components/schemas` section rather than nested in `$defs`, improving SDK generation compatibility.
+- Always verify the generated schema includes all expected models and references after regeneration.
+- Commit the regenerated `spec-compiler.openapi.json` file to version control so it stays in sync with the code.
+
 ## API Models and Contracts
 
 The service defines typed Pydantic models for the compile API contract and internal LLM envelopes.
