@@ -234,7 +234,7 @@ def test_compile_builds_correct_llm_request_envelope(test_client: TestClient) ->
     payload = {
         "plan_id": "plan-envelope-test",
         "spec_index": 2,
-        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation")},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -269,7 +269,8 @@ def test_compile_builds_correct_llm_request_envelope(test_client: TestClient) ->
         assert captured_request.metadata["spec_index"] == 2
         assert captured_request.metadata["github_owner"] == "test-owner"
         assert captured_request.metadata["github_repo"] == "test-repo"
-        assert captured_request.metadata["spec_data"] == payload["spec_data"]
+        assert "spec_data" in captured_request.metadata
+        assert captured_request.metadata["spec_data"]["purpose"] == "Test feature"
         assert captured_request.repo_context is not None
 
 

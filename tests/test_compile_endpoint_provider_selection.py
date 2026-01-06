@@ -28,6 +28,25 @@ from fastapi.testclient import TestClient
 from spec_compiler.models import GitHubAuthToken, LlmResponseEnvelope
 
 
+def _create_valid_spec(
+    purpose: str = "Test purpose",
+    vision: str = "Test vision",
+    must: list[str] | None = None,
+    dont: list[str] | None = None,
+    nice: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> dict:
+    """Helper to create a valid spec dictionary for testing."""
+    return {
+        "purpose": purpose,
+        "vision": vision,
+        "must": must if must is not None else [],
+        "dont": dont if dont is not None else [],
+        "nice": nice if nice is not None else [],
+        "assumptions": assumptions if assumptions is not None else [],
+    }
+
+
 @pytest.fixture(params=["openai", "anthropic"])
 def test_client_provider(request) -> TestClient:
     """
@@ -414,27 +433,6 @@ class TestProviderEnvironmentIsolation:
     def test_stub_mode_respects_provider_setting(self) -> None:
         """Test that stub mode respects the configured provider."""
         from spec_compiler.services.llm_client import StubLlmClient, create_llm_client
-
-
-def _create_valid_spec(
-    purpose: str = "Test purpose",
-    vision: str = "Test vision",
-    must: list[str] | None = None,
-    dont: list[str] | None = None,
-    nice: list[str] | None = None,
-    assumptions: list[str] | None = None,
-) -> dict:
-    """Helper to create a valid spec dictionary for testing."""
-    return {
-        "purpose": purpose,
-        "vision": vision,
-        "must": must if must is not None else [],
-        "dont": dont if dont is not None else [],
-        "nice": nice if nice is not None else [],
-        "assumptions": assumptions if assumptions is not None else [],
-    }
-
-
 
         # Test with OpenAI provider in stub mode
         with patch("spec_compiler.services.llm_client.settings") as mock_settings:

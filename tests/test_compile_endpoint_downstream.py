@@ -30,6 +30,25 @@ from spec_compiler.services.downstream_sender import (
 )
 
 
+def _create_valid_spec(
+    purpose: str = "Test purpose",
+    vision: str = "Test vision",
+    must: list[str] | None = None,
+    dont: list[str] | None = None,
+    nice: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> dict:
+    """Helper to create a valid spec dictionary for testing."""
+    return {
+        "purpose": purpose,
+        "vision": vision,
+        "must": must if must is not None else [],
+        "dont": dont if dont is not None else [],
+        "nice": nice if nice is not None else [],
+        "assumptions": assumptions if assumptions is not None else [],
+    }
+
+
 @pytest.fixture(autouse=True)
 def cleanup_patches():
     """
@@ -414,27 +433,6 @@ class TestDownstreamIntegrationFlow:
     ) -> None:
         """Test that downstream is not called if earlier stage fails."""
         from spec_compiler.services.llm_client import LlmConfigurationError
-
-
-def _create_valid_spec(
-    purpose: str = "Test purpose",
-    vision: str = "Test vision",
-    must: list[str] | None = None,
-    dont: list[str] | None = None,
-    nice: list[str] | None = None,
-    assumptions: list[str] | None = None,
-) -> dict:
-    """Helper to create a valid spec dictionary for testing."""
-    return {
-        "purpose": purpose,
-        "vision": vision,
-        "must": must if must is not None else [],
-        "dont": dont if dont is not None else [],
-        "nice": nice if nice is not None else [],
-        "assumptions": assumptions if assumptions is not None else [],
-    }
-
-
 
         with patch("spec_compiler.app.routes.compile.get_downstream_sender") as mock_get_sender:
             mock_sender = Mock()
