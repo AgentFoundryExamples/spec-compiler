@@ -29,6 +29,25 @@ from spec_compiler.models import GitHubAuthToken, LlmResponseEnvelope
 from spec_compiler.services.llm_client import LlmApiError
 
 
+def _create_valid_spec(
+    purpose: str = "Test purpose",
+    vision: str = "Test vision",
+    must: list[str] | None = None,
+    dont: list[str] | None = None,
+    nice: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> dict:
+    """Helper to create a valid spec dictionary for testing."""
+    return {
+        "purpose": purpose,
+        "vision": vision,
+        "must": must if must is not None else [],
+        "dont": dont if dont is not None else [],
+        "nice": nice if nice is not None else [],
+        "assumptions": assumptions if assumptions is not None else [],
+    }
+
+
 @pytest.fixture
 def test_client_without_stub() -> TestClient:
     """
@@ -71,7 +90,7 @@ def test_compile_with_stub_llm_client_success(test_client: TestClient) -> None:
     payload = {
         "plan_id": "plan-stub-success",
         "spec_index": 0,
-        "spec_data": {"type": "feature", "description": "Test feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -92,7 +111,7 @@ def test_compile_logs_llm_metrics(test_client: TestClient, caplog) -> None:
     payload = {
         "plan_id": "plan-metrics",
         "spec_index": 1,
-        "spec_data": {"type": "bug", "description": "Fix issue"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -115,7 +134,7 @@ def test_compile_with_llm_configuration_error(test_client_without_stub: TestClie
     payload = {
         "plan_id": "plan-config-error",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -131,7 +150,7 @@ def test_compile_with_llm_api_error_returns_503(test_client: TestClient) -> None
     payload = {
         "plan_id": "plan-api-error",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -152,7 +171,7 @@ def test_compile_with_malformed_llm_json_returns_500(test_client: TestClient) ->
     payload = {
         "plan_id": "plan-malformed-json",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -183,7 +202,7 @@ def test_compile_logs_parsing_errors(test_client: TestClient, caplog) -> None:
     payload = {
         "plan_id": "plan-parse-error",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -215,7 +234,7 @@ def test_compile_builds_correct_llm_request_envelope(test_client: TestClient) ->
     payload = {
         "plan_id": "plan-envelope-test",
         "spec_index": 2,
-        "spec_data": {"type": "enhancement", "details": {"priority": "high"}},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation")},
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -259,7 +278,7 @@ def test_compile_with_missing_version_in_response(test_client: TestClient) -> No
     payload = {
         "plan_id": "plan-no-version",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -287,7 +306,7 @@ def test_compile_with_missing_issues_in_response(test_client: TestClient) -> Non
     payload = {
         "plan_id": "plan-no-issues",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -315,7 +334,7 @@ def test_compile_with_empty_issues_array(test_client: TestClient) -> None:
     payload = {
         "plan_id": "plan-empty-issues",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -345,7 +364,7 @@ def test_compile_with_empty_llm_response_content(test_client: TestClient) -> Non
     payload = {
         "plan_id": "plan-empty-content",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -375,7 +394,7 @@ def test_compile_logs_compiled_spec_sample(test_client: TestClient, caplog) -> N
     payload = {
         "plan_id": "plan-debug-log",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -394,7 +413,7 @@ def test_compile_with_unexpected_llm_exception(test_client: TestClient) -> None:
     payload = {
         "plan_id": "plan-unexpected-error",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -414,7 +433,7 @@ def test_compile_includes_repo_context_in_llm_request(test_client: TestClient) -
     payload = {
         "plan_id": "plan-repo-context",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -453,7 +472,7 @@ def test_compile_with_unsupported_provider(test_client: TestClient) -> None:
     payload = {
         "plan_id": "plan-unsupported-provider",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test implementation"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }

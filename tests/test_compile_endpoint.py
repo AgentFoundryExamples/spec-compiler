@@ -25,12 +25,36 @@ import uuid
 from fastapi.testclient import TestClient
 
 
+def _create_valid_spec(
+    purpose: str = "Test purpose",
+    vision: str = "Test vision",
+    must: list[str] | None = None,
+    dont: list[str] | None = None,
+    nice: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> dict:
+    """Helper to create a valid spec dictionary for testing."""
+    return {
+        "purpose": purpose,
+        "vision": vision,
+        "must": must if must is not None else [],
+        "dont": dont if dont is not None else [],
+        "nice": nice if nice is not None else [],
+        "assumptions": assumptions if assumptions is not None else [],
+    }
+
+
 def test_valid_compile_request_returns_202(test_client: TestClient) -> None:
     """Test that valid compile request returns 202 Accepted."""
     payload = {
         "plan_id": "plan-abc123",
         "spec_index": 0,
-        "spec_data": {"type": "feature", "description": "Add authentication"},
+        "spec": _create_valid_spec(
+            purpose="Add authentication",
+            vision="Users can securely log in",
+            must=["Support OAuth2"],
+            assumptions=["HTTPS enabled"],
+        ),
         "github_owner": "my-org",
         "github_repo": "my-project",
     }
@@ -48,12 +72,12 @@ def test_valid_compile_request_returns_202(test_client: TestClient) -> None:
     uuid.UUID(data["request_id"])
 
 
-def test_compile_request_with_list_spec_data(test_client: TestClient) -> None:
-    """Test compile request with list spec_data."""
+def test_compile_request_with_spec(test_client: TestClient) -> None:
+    """Test compile request with valid spec."""
     payload = {
         "plan_id": "plan-list",
         "spec_index": 1,
-        "spec_data": [1, 2, 3, {"nested": "value"}],
+        "spec": _create_valid_spec(purpose="Test list", vision="Test vision"),
         "github_owner": "test-org",
         "github_repo": "test-repo",
     }
@@ -66,12 +90,12 @@ def test_compile_request_with_list_spec_data(test_client: TestClient) -> None:
     assert data["spec_index"] == 1
 
 
-def test_compile_request_with_empty_dict_spec_data(test_client: TestClient) -> None:
-    """Test that empty dict spec_data succeeds."""
+def test_compile_request_with_minimal_spec(test_client: TestClient) -> None:
+    """Test that minimal spec with empty lists succeeds."""
     payload = {
         "plan_id": "plan-empty",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -87,7 +111,7 @@ def test_compile_request_with_spec_index_zero(test_client: TestClient) -> None:
     payload = {
         "plan_id": "plan-zero",
         "spec_index": 0,
-        "spec_data": {"test": "data"},
+        "spec": _create_valid_spec(purpose="Test", vision="Test vision"),
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -103,7 +127,7 @@ def test_compile_request_adds_request_id_to_response_header(test_client: TestCli
     payload = {
         "plan_id": "plan-header",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -123,7 +147,7 @@ def test_compile_request_propagates_request_id(test_client: TestClient) -> None:
     payload = {
         "plan_id": "plan-propagate",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -141,7 +165,7 @@ def test_compile_request_with_idempotency_key(test_client: TestClient) -> None:
     payload = {
         "plan_id": "plan-idempotent",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -158,7 +182,7 @@ def test_compile_request_missing_plan_id_returns_422(test_client: TestClient) ->
     payload = {
         # Missing plan_id
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -178,7 +202,7 @@ def test_compile_request_missing_github_owner_returns_422(test_client: TestClien
     payload = {
         "plan_id": "plan-123",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         # Missing github_owner
         "github_repo": "repo",
     }
@@ -196,7 +220,7 @@ def test_compile_request_missing_github_repo_returns_422(test_client: TestClient
     payload = {
         "plan_id": "plan-123",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "owner",
         # Missing github_repo
     }
@@ -214,7 +238,7 @@ def test_compile_request_empty_plan_id_returns_422(test_client: TestClient) -> N
     payload = {
         "plan_id": "",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -232,7 +256,7 @@ def test_compile_request_whitespace_plan_id_returns_422(test_client: TestClient)
     payload = {
         "plan_id": "   ",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -247,7 +271,7 @@ def test_compile_request_whitespace_github_owner_returns_422(test_client: TestCl
     payload = {
         "plan_id": "plan-123",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "  \t  ",
         "github_repo": "repo",
     }
@@ -262,7 +286,7 @@ def test_compile_request_whitespace_github_repo_returns_422(test_client: TestCli
     payload = {
         "plan_id": "plan-123",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "owner",
         "github_repo": "  \n  ",
     }
@@ -277,7 +301,7 @@ def test_compile_request_negative_spec_index_returns_422(test_client: TestClient
     payload = {
         "plan_id": "plan-123",
         "spec_index": -1,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -306,13 +330,16 @@ def test_compile_request_body_size_limit_enforcement(test_client: TestClient) ->
     # Import settings to get the configured limit
     from spec_compiler.config import settings
 
-    # Create a large spec_data that exceeds the limit
+    # Create a large spec that exceeds the limit
     # Add 1MB buffer to ensure we exceed the limit
-    large_data = {"large_field": "x" * (settings.max_request_body_size_bytes + 1_000_000)}
+    large_spec = _create_valid_spec(
+        purpose="Test large payload",
+        vision="x" * (settings.max_request_body_size_bytes + 1_000_000),
+    )
     payload = {
         "plan_id": "plan-large",
         "spec_index": 0,
-        "spec_data": large_data,
+        "spec": large_spec,
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -332,20 +359,19 @@ def test_compile_request_body_size_limit_enforcement(test_client: TestClient) ->
     assert "exceeds maximum size limit" in data["detail"]
 
 
-def test_compile_request_complex_nested_spec_data(test_client: TestClient) -> None:
-    """Test compile request with complex nested spec_data."""
+def test_compile_request_complex_nested_spec(test_client: TestClient) -> None:
+    """Test compile request with complex spec data."""
     payload = {
         "plan_id": "plan-complex",
         "spec_index": 5,
-        "spec_data": {
-            "level1": {
-                "level2": [
-                    {"item": 1, "data": [1, 2, 3]},
-                    {"item": 2, "data": {"nested": True}},
-                ],
-                "metadata": {"version": "1.0", "tags": ["a", "b", "c"]},
-            }
-        },
+        "spec": _create_valid_spec(
+            purpose="Complex feature implementation",
+            vision="Fully integrated feature with multiple components",
+            must=["requirement 1", "requirement 2", "requirement 3"],
+            dont=["avoid pattern 1", "avoid pattern 2"],
+            nice=["nice to have 1", "nice to have 2"],
+            assumptions=["assumption 1", "assumption 2", "assumption 3"],
+        ),
         "github_owner": "complex-owner",
         "github_repo": "complex-repo",
     }
@@ -363,7 +389,7 @@ def test_compile_request_response_has_all_required_fields(test_client: TestClien
     payload = {
         "plan_id": "plan-fields",
         "spec_index": 2,
-        "spec_data": {"test": "data"},
+        "spec": _create_valid_spec(purpose="Test", vision="Test vision"),
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -409,7 +435,7 @@ def test_multiple_requests_with_same_idempotency_key(test_client: TestClient) ->
     payload = {
         "plan_id": "plan-dup",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -431,7 +457,7 @@ def test_compile_request_without_content_length_header(test_client: TestClient) 
     payload = {
         "plan_id": "plan-no-length",
         "spec_index": 0,
-        "spec_data": {"test": "data"},
+        "spec": _create_valid_spec(purpose="Test", vision="Test vision"),
         "github_owner": "owner",
         "github_repo": "repo",
     }
@@ -450,7 +476,7 @@ def test_compile_request_logs_llm_response_envelope(test_client: TestClient, cap
     payload = {
         "plan_id": "plan-llm-log",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -512,7 +538,11 @@ def test_compile_request_logs_compile_receipt(test_client: TestClient, caplog) -
     payload = {
         "plan_id": "plan-receipt-log",
         "spec_index": 5,
-        "spec_data": {"type": "feature", "description": "Test feature"},
+        "spec": _create_valid_spec(
+            purpose="Test feature",
+            vision="Test description",
+            must=["req1"],
+        ),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }

@@ -179,6 +179,27 @@ class TestModelsPackageExports:
             generate_request_id,
         )
 
+
+def _create_valid_spec(
+    purpose: str = "Test purpose",
+    vision: str = "Test vision",
+    must: list[str] | None = None,
+    dont: list[str] | None = None,
+    nice: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> dict:
+    """Helper to create a valid spec dictionary for testing."""
+    return {
+        "purpose": purpose,
+        "vision": vision,
+        "must": must if must is not None else [],
+        "dont": dont if dont is not None else [],
+        "nice": nice if nice is not None else [],
+        "assumptions": assumptions if assumptions is not None else [],
+    }
+
+
+
         # Generate request ID
         request_id = generate_request_id()
 
@@ -186,7 +207,7 @@ class TestModelsPackageExports:
         compile_req = CompileRequest(
             plan_id="test-plan",
             spec_index=0,
-            spec_data={"test": "data"},
+            spec=_create_valid_spec(),
             github_owner="owner",
             github_repo="repo",
         )

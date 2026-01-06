@@ -51,7 +51,7 @@ class TestStatusPublishingSuccess:
         payload = {
             "plan_id": "plan-test",
             "spec_index": 0,
-            "spec_data": {"test": "data"},
+            "spec": _create_valid_spec(),
             "github_owner": "owner",
             "github_repo": "repo",
         }
@@ -84,7 +84,7 @@ class TestStatusPublishingSuccess:
         payload = {
             "plan_id": "plan-success",
             "spec_index": 1,
-            "spec_data": {"test": "data"},
+            "spec": _create_valid_spec(),
             "github_owner": "owner",
             "github_repo": "repo",
         }
@@ -119,7 +119,7 @@ class TestStatusPublishingSuccess:
         payload = {
             "plan_id": "plan-id-test",
             "spec_index": 0,
-            "spec_data": {},
+            "spec": _create_valid_spec(),
             "github_owner": "owner",
             "github_repo": "repo",
         }
@@ -162,7 +162,7 @@ class TestStatusPublishingFailure:
         payload = {
             "plan_id": "plan-minting-fail",
             "spec_index": 2,
-            "spec_data": {},
+            "spec": _create_valid_spec(),
             "github_owner": "owner",
             "github_repo": "repo",
         }
@@ -212,7 +212,7 @@ class TestStatusPublishingFailure:
         payload = {
             "plan_id": "plan-llm-config-fail",
             "spec_index": 3,
-            "spec_data": {},
+            "spec": _create_valid_spec(),
             "github_owner": "owner",
             "github_repo": "repo",
         }
@@ -248,7 +248,7 @@ class TestStatusPublishingFailure:
             payload = {
                 "plan_id": "plan-llm-api-fail",
                 "spec_index": 4,
-                "spec_data": {},
+                "spec": _create_valid_spec(),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -281,7 +281,7 @@ class TestPublisherFailureIsolation:
         payload = {
             "plan_id": "plan-no-publisher",
             "spec_index": 0,
-            "spec_data": {},
+            "spec": _create_valid_spec(),
             "github_owner": "owner",
             "github_repo": "repo",
         }
@@ -302,7 +302,7 @@ class TestPublisherFailureIsolation:
         payload = {
             "plan_id": "plan-publish-error",
             "spec_index": 0,
-            "spec_data": {},
+            "spec": _create_valid_spec(),
             "github_owner": "owner",
             "github_repo": "repo",
         }
@@ -328,7 +328,7 @@ class TestPublisherFailureIsolation:
             payload = {
                 "plan_id": "plan-double-fail",
                 "spec_index": 0,
-                "spec_data": {},
+                "spec": _create_valid_spec(),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -353,7 +353,7 @@ class TestStatusPublishingEdgeCases:
         payload = {
             "plan_id": "plan-fallback-id",
             "spec_index": 0,
-            "spec_data": {},
+            "spec": _create_valid_spec(),
             "github_owner": "owner",
             "github_repo": "repo",
         }
@@ -372,7 +372,7 @@ class TestStatusPublishingEdgeCases:
         payload = {
             "plan_id": "plan-zero-index",
             "spec_index": 0,
-            "spec_data": {},
+            "spec": _create_valid_spec(),
             "github_owner": "owner",
             "github_repo": "repo",
         }
@@ -393,6 +393,27 @@ class TestStatusPublishingEdgeCases:
         """Test that large error messages are truncated in status messages."""
         from spec_compiler.services.llm_client import LlmConfigurationError
 
+
+def _create_valid_spec(
+    purpose: str = "Test purpose",
+    vision: str = "Test vision",
+    must: list[str] | None = None,
+    dont: list[str] | None = None,
+    nice: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> dict:
+    """Helper to create a valid spec dictionary for testing."""
+    return {
+        "purpose": purpose,
+        "vision": vision,
+        "must": must if must is not None else [],
+        "dont": dont if dont is not None else [],
+        "nice": nice if nice is not None else [],
+        "assumptions": assumptions if assumptions is not None else [],
+    }
+
+
+
         # Create a very long error message
         long_error = "Error: " + "X" * 10000
 
@@ -402,7 +423,7 @@ class TestStatusPublishingEdgeCases:
             payload = {
                 "plan_id": "plan-long-error",
                 "spec_index": 0,
-                "spec_data": {},
+                "spec": _create_valid_spec(),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }

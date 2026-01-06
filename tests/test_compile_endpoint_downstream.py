@@ -59,7 +59,7 @@ class TestDownstreamSenderSuccess:
             payload = {
                 "plan_id": "plan-downstream-success",
                 "spec_index": 0,
-                "spec_data": {"type": "feature"},
+                "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
                 "github_owner": "test-owner",
                 "github_repo": "test-repo",
             }
@@ -100,7 +100,7 @@ class TestDownstreamSenderSuccess:
             payload = {
                 "plan_id": "plan-log-check",
                 "spec_index": 2,
-                "spec_data": {},
+                "spec": _create_valid_spec(),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -125,7 +125,7 @@ class TestDownstreamSenderSuccess:
             payload = {
                 "plan_id": "plan-spec-check",
                 "spec_index": 0,
-                "spec_data": {"type": "bug"},
+                "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -161,7 +161,7 @@ class TestDownstreamSenderFailures:
             payload = {
                 "plan_id": "plan-downstream-error",
                 "spec_index": 0,
-                "spec_data": {},
+                "spec": _create_valid_spec(),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -193,7 +193,7 @@ class TestDownstreamSenderFailures:
             payload = {
                 "plan_id": "plan-validation-error",
                 "spec_index": 1,
-                "spec_data": {},
+                "spec": _create_valid_spec(),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -223,7 +223,7 @@ class TestDownstreamSenderFailures:
             payload = {
                 "plan_id": "plan-unexpected-downstream",
                 "spec_index": 0,
-                "spec_data": {},
+                "spec": _create_valid_spec(),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -253,7 +253,7 @@ class TestDownstreamSenderFailures:
             payload = {
                 "plan_id": "plan-log-error",
                 "spec_index": 0,
-                "spec_data": {},
+                "spec": _create_valid_spec(),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -283,7 +283,7 @@ class TestSkipDownstreamSend:
             payload = {
                 "plan_id": "plan-no-sender",
                 "spec_index": 0,
-                "spec_data": {},
+                "spec": _create_valid_spec(),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -307,7 +307,7 @@ class TestSkipDownstreamSend:
             payload = {
                 "plan_id": "plan-skip-success",
                 "spec_index": 0,
-                "spec_data": {},
+                "spec": _create_valid_spec(),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -327,7 +327,7 @@ class TestSkipDownstreamSend:
             payload = {
                 "plan_id": "plan-skip-publish",
                 "spec_index": 0,
-                "spec_data": {},
+                "spec": _create_valid_spec(),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -352,7 +352,7 @@ class TestSkipDownstreamSend:
             payload = {
                 "plan_id": "plan-skip-reason",
                 "spec_index": 0,
-                "spec_data": {},
+                "spec": _create_valid_spec(),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -385,7 +385,7 @@ class TestDownstreamIntegrationFlow:
             payload = {
                 "plan_id": "plan-complete-flow",
                 "spec_index": 0,
-                "spec_data": {"type": "feature"},
+                "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
                 "github_owner": "owner",
                 "github_repo": "repo",
             }
@@ -415,6 +415,27 @@ class TestDownstreamIntegrationFlow:
         """Test that downstream is not called if earlier stage fails."""
         from spec_compiler.services.llm_client import LlmConfigurationError
 
+
+def _create_valid_spec(
+    purpose: str = "Test purpose",
+    vision: str = "Test vision",
+    must: list[str] | None = None,
+    dont: list[str] | None = None,
+    nice: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> dict:
+    """Helper to create a valid spec dictionary for testing."""
+    return {
+        "purpose": purpose,
+        "vision": vision,
+        "must": must if must is not None else [],
+        "dont": dont if dont is not None else [],
+        "nice": nice if nice is not None else [],
+        "assumptions": assumptions if assumptions is not None else [],
+    }
+
+
+
         with patch("spec_compiler.app.routes.compile.get_downstream_sender") as mock_get_sender:
             mock_sender = Mock()
             mock_get_sender.return_value = mock_sender
@@ -425,7 +446,7 @@ class TestDownstreamIntegrationFlow:
                 payload = {
                     "plan_id": "plan-early-failure",
                     "spec_index": 0,
-                    "spec_data": {},
+                    "spec": _create_valid_spec(),
                     "github_owner": "owner",
                     "github_repo": "repo",
                 }

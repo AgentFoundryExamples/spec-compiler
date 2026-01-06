@@ -266,7 +266,7 @@ def test_middleware_publishes_failed_status_on_exception(
         payload = {
             "plan_id": "plan-middleware-test",
             "spec_index": 3,
-            "spec_data": {"test": "data"},
+            "spec": _create_valid_spec(),
             "github_owner": "test-owner",
             "github_repo": "test-repo",
         }
@@ -305,7 +305,7 @@ def test_middleware_does_not_block_response_on_publish_failure(
         payload = {
             "plan_id": "plan-publish-error",
             "spec_index": 5,
-            "spec_data": {},
+            "spec": _create_valid_spec(),
             "github_owner": "owner",
             "github_repo": "repo",
         }
@@ -369,13 +369,34 @@ def test_middleware_status_publishing_idempotent_across_errors(
     """Test that each background error publishes exactly one failed status."""
     from unittest.mock import patch
 
+
+def _create_valid_spec(
+    purpose: str = "Test purpose",
+    vision: str = "Test vision",
+    must: list[str] | None = None,
+    dont: list[str] | None = None,
+    nice: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> dict:
+    """Helper to create a valid spec dictionary for testing."""
+    return {
+        "purpose": purpose,
+        "vision": vision,
+        "must": must if must is not None else [],
+        "dont": dont if dont is not None else [],
+        "nice": nice if nice is not None else [],
+        "assumptions": assumptions if assumptions is not None else [],
+    }
+
+
+
     with patch("spec_compiler.app.routes.compile.create_llm_client") as mock_create:
         mock_create.side_effect = RuntimeError("Error")
 
         payload = {
             "plan_id": "plan-single-publish",
             "spec_index": 0,
-            "spec_data": {},
+            "spec": _create_valid_spec(),
             "github_owner": "owner",
             "github_repo": "repo",
         }
