@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Spec Compiler Service",
-    "description": "FastAPI service for compiling specifications (LLM integration in development)",
+    "description": "FastAPI service for compiling specifications with LLM integrations",
     "version": "0.1.0"
   },
   "paths": {
@@ -32,13 +32,46 @@
         }
       }
     },
+    "/debug/status": {
+      "post": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Debug Publish Status",
+        "description": "Debug endpoint to test status message publishing.\n\nOnly available in development environments for safety.\nPublishes a sample status message to verify Pub/Sub configuration.\n\nReturns:\n    Dictionary with status and message\n\nRaises:\n    HTTPException: 403 if not in development environment\n    HTTPException: 500 if publisher configuration is invalid\n    HTTPException: 503 if publish fails",
+        "operationId": "debug_publish_status_debug_status_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "type": "object",
+                  "title": "Response Debug Publish Status Debug Status Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/compile-spec": {
       "post": {
         "tags": [
           "compile"
         ],
         "summary": "Compile Spec",
-        "description": "Compile a specification with LLM integration.\n\nAccepts a compile request, validates the payload, logs the operation,\nand returns a 202 Accepted response. Currently stubs out downstream\nLLM integration.\n\nArgs:\n    request: FastAPI request object (for accessing request_id and body)\n    idempotency_key: Optional idempotency key for client-side deduplication\n\nReturns:\n    CompileResponse with request tracking information\n\nRaises:\n    HTTPException: 413 if request body exceeds size limit\n    HTTPException: 422 if validation fails (handled by Pydantic)",
+        "description": "Compile a specification with LLM integration (async 202 workflow).\n\nExecutes a staged pipeline for processing specifications:\n1. Validate request and check size limits\n2. Publish in-progress status\n3. Enqueue background task for async processing\n4. Return HTTP 202 Accepted immediately\n\nBackground task executes:\n3. Mint GitHub access token\n4. Fetch repository context\n5. Create LLM client\n6. Call LLM with latency tracking\n7. Send compiled spec downstream\n8. Publish succeeded status\n\nArgs:\n    request: FastAPI request object (for accessing request_id and body)\n    background_tasks: FastAPI background tasks manager\n    idempotency_key: Optional idempotency key for client-side deduplication\n\nReturns:\n    CompileResponse with request tracking information\n\nRaises:\n    HTTPException: Various status codes based on validation failure",
         "operationId": "compile_spec_compile_spec_post",
         "parameters": [
           {
@@ -54,6 +87,7 @@
                   "type": "null"
                 }
               ],
+              "description": "Optional idempotency key for request deduplication. Alphanumeric, hyphens, and underscores only. Max length: 100 characters.",
               "title": "Idempotency-Key"
             },
             "description": "Optional idempotency key for request deduplication. Alphanumeric, hyphens, and underscores only. Max length: 100 characters."
@@ -96,30 +130,13 @@
                     {
                       "loc": [
                         "body",
-                        "plan_id"
+                        "spec",
+                        "purpose"
                       ],
                       "msg": "Field cannot be empty or whitespace-only",
                       "type": "value_error"
                     }
                   ]
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "example": {
-                  "error": "internal_error",
-                  "request_id": "550e8400-e29b-41d4-a716-446655440000",
-                  "message": "An unexpected error occurred"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -135,9 +152,26 @@
               "example": {
                 "plan_id": "plan-abc123",
                 "spec_index": 0,
-                "spec_data": {
-                  "type": "feature",
-                  "description": "Add user authentication"
+                "spec": {
+                  "purpose": "Add user authentication system",
+                  "vision": "Users can securely log in and manage their accounts",
+                  "must": [
+                    "Support OAuth2 authentication",
+                    "Implement session management",
+                    "Hash passwords with bcrypt"
+                  ],
+                  "dont": [
+                    "Store passwords in plain text",
+                    "Use deprecated authentication methods"
+                  ],
+                  "nice": [
+                    "Support two-factor authentication",
+                    "Provide password recovery flow"
+                  ],
+                  "assumptions": [
+                    "HTTPS is enabled",
+                    "Database supports user tables"
+                  ]
                 },
                 "github_owner": "my-org",
                 "github_repo": "my-project"
@@ -225,8 +259,67 @@
         "title": "CompileResponse",
         "description": "Response model for the compile API endpoint.\n\nThis represents the external API contract for the compile response.\n\nAttributes:\n    request_id: Unique identifier for this request (UUID format)\n    plan_id: Plan identifier echoed from the request\n    spec_index: Specification index echoed from the request\n    status: Processing status (accepted or failed)\n    message: Optional message providing additional context"
       },
+      "CompileSpec": {
+        "description": "Specification data model containing the structured spec contract.\n\nThis model defines the six required fields that make up a specification,\nproviding clear documentation and validation for the compile endpoint.\n\nAttributes:\n    purpose: A concise statement of what this spec aims to achieve\n    vision: The desired end state or outcome after implementation\n    must: List of mandatory requirements that must be satisfied\n    dont: List of constraints or things that must be avoided\n    nice: List of optional enhancements that would be beneficial but not required\n    assumptions: List of assumptions or preconditions for this spec",
+        "properties": {
+          "purpose": {
+            "description": "A concise statement of what this spec aims to achieve",
+            "minLength": 1,
+            "title": "Purpose",
+            "type": "string"
+          },
+          "vision": {
+            "description": "The desired end state or outcome after implementation",
+            "minLength": 1,
+            "title": "Vision",
+            "type": "string"
+          },
+          "must": {
+            "description": "List of mandatory requirements that must be satisfied",
+            "items": {
+              "type": "string"
+            },
+            "title": "Must",
+            "type": "array"
+          },
+          "dont": {
+            "description": "List of constraints or things that must be avoided",
+            "items": {
+              "type": "string"
+            },
+            "title": "Dont",
+            "type": "array"
+          },
+          "nice": {
+            "description": "List of optional enhancements that would be beneficial but not required",
+            "items": {
+              "type": "string"
+            },
+            "title": "Nice",
+            "type": "array"
+          },
+          "assumptions": {
+            "description": "List of assumptions or preconditions for this spec",
+            "items": {
+              "type": "string"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "purpose",
+          "vision",
+          "must",
+          "dont",
+          "nice",
+          "assumptions"
+        ],
+        "title": "CompileSpec",
+        "type": "object"
+      },
       "CompileRequest": {
-        "description": "Request model for the compile API endpoint.\n\nThis represents the external API contract for compiling a specification.\nAll fields are validated to ensure data integrity before processing.\n\nAttributes:\n    plan_id: Non-empty identifier for the plan\n    spec_index: Zero-based index of the specification (must be >= 0)\n    spec_data: Arbitrary JSON data (dict or list) representing the specification\n    github_owner: Non-empty GitHub repository owner (user or organization)\n    github_repo: Non-empty GitHub repository name",
+        "description": "Request model for the compile API endpoint.\n\nThis represents the external API contract for compiling a specification.\nAll fields are validated to ensure data integrity before processing.\n\nAttributes:\n    plan_id: Non-empty identifier for the plan\n    spec_index: Zero-based index of the specification (must be >= 0)\n    spec: Structured specification containing purpose, vision, requirements, and constraints\n    github_owner: Non-empty GitHub repository owner (user or organization)\n    github_repo: Non-empty GitHub repository name",
         "properties": {
           "plan_id": {
             "description": "Plan identifier",
@@ -240,18 +333,9 @@
             "title": "Spec Index",
             "type": "integer"
           },
-          "spec_data": {
-            "anyOf": [
-              {
-                "type": "object"
-              },
-              {
-                "items": {},
-                "type": "array"
-              }
-            ],
-            "description": "Specification data as arbitrary JSON (dict or list)",
-            "title": "Spec Data"
+          "spec": {
+            "$ref": "#/components/schemas/CompileSpec",
+            "description": "Structured specification containing purpose, vision, requirements, and constraints"
           },
           "github_owner": {
             "description": "GitHub repository owner",
@@ -269,94 +353,12 @@
         "required": [
           "plan_id",
           "spec_index",
-          "spec_data",
+          "spec",
           "github_owner",
           "github_repo"
         ],
         "title": "CompileRequest",
         "type": "object"
-      },
-      "ErrorEnvelope": {
-        "type": "object",
-        "required": [
-          "error",
-          "request_id",
-          "message"
-        ],
-        "properties": {
-          "error": {
-            "type": "string",
-            "title": "Error",
-            "description": "Error type identifier (e.g., 'internal_error')",
-            "example": "internal_error"
-          },
-          "request_id": {
-            "type": "string",
-            "title": "Request ID",
-            "description": "Unique request identifier for tracking",
-            "example": "550e8400-e29b-41d4-a716-446655440000"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message",
-            "description": "Human-readable error message",
-            "example": "An unexpected error occurred"
-          }
-        },
-        "title": "ErrorEnvelope",
-        "description": "Standard error envelope returned by error middleware for unhandled exceptions (HTTP 500)."
-      },
-      "ValidationError": {
-        "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "properties": {
-          "loc": {
-            "type": "array",
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "title": "Location",
-            "description": "Location of the error in the request (e.g., ['body', 'plan_id'])"
-          },
-          "msg": {
-            "type": "string",
-            "title": "Message",
-            "description": "Error message describing the validation failure"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type",
-            "description": "Type of validation error"
-          }
-        },
-        "title": "ValidationError",
-        "description": "Individual validation error detail."
-      },
-      "HTTPValidationError": {
-        "type": "object",
-        "properties": {
-          "detail": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "title": "Detail",
-            "description": "List of validation errors"
-          }
-        },
-        "title": "HTTPValidationError",
-        "description": "Validation error response (HTTP 422) containing a list of field-level errors."
       }
     }
   }

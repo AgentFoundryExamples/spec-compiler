@@ -24,12 +24,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 
 from spec_compiler.app.routes import compile, health
 from spec_compiler.config import settings
 from spec_compiler.logging import get_logger
 from spec_compiler.middleware.error_handler import ErrorHandlingMiddleware
 from spec_compiler.middleware.request_id import RequestIdMiddleware
+from spec_compiler.models.compile import CompileRequest, CompileSpec
 
 logger = get_logger(__name__)
 
@@ -96,6 +98,55 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(health.router, tags=["health"])
     app.include_router(compile.router, tags=["compile"])
+
+    # Customize OpenAPI schema to include CompileRequest and CompileSpec
+    # NOTE: This custom function ensures CompileSpec is properly referenced
+    # in the main components/schemas section rather than nested in $defs,
+    # which improves SDK generation compatibility.
+    # 
+    # To regenerate the OpenAPI schema after model changes:
+    # 1. Ensure dependencies are installed: pip install -r requirements.txt
+    # 2. Run: PYTHONPATH=src python -c "from spec_compiler.app.main import app; import json; print(json.dumps(app.openapi(), indent=2))" > spec-compiler.openapi.json
+    def custom_openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+
+        schemas = openapi_schema.setdefault("components", {}).setdefault("schemas", {})
+        
+        # Get Pydantic schema for CompileSpec and CompileRequest
+        compile_spec_schema = CompileSpec.model_json_schema()
+        compile_request_schema = CompileRequest.model_json_schema()
+        
+        # Pydantic v2 may nest schemas in $defs. Move CompileSpec to the top level for better client generation.
+        if "$defs" in compile_request_schema and "CompileSpec" in compile_request_schema["$defs"]:
+            # Move the definition
+            schemas["CompileSpec"] = compile_request_schema["$defs"]["CompileSpec"]
+            
+            # Update the reference
+            spec_property = compile_request_schema.get("properties", {}).get("spec")
+            if spec_property and "$ref" in spec_property:
+                spec_property["$ref"] = "#/components/schemas/CompileSpec"
+            
+            # Clean up the now-empty $defs
+            del compile_request_schema["$defs"]
+        else:
+            # Add CompileSpec directly if not in $defs
+            schemas["CompileSpec"] = compile_spec_schema
+        
+        # Add CompileRequest schema
+        schemas["CompileRequest"] = compile_request_schema
+
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+    
+    app.openapi = custom_openapi  # type: ignore[method-assign]
 
     # Version endpoint
     @app.get("/version", tags=["info"])

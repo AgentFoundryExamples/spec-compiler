@@ -766,7 +766,14 @@ curl -X POST http://localhost:8080/compile-spec \
   -d '{
     "plan_id": "test-plan-123",
     "spec_index": 0,
-    "spec_data": {"type": "feature", "description": "Test feature"},
+    "spec": {
+      "purpose": "Test the compile endpoint",
+      "vision": "Verify API accepts valid requests",
+      "must": [],
+      "dont": [],
+      "nice": [],
+      "assumptions": []
+    },
     "github_owner": "test-owner",
     "github_repo": "test-repo"
   }'
@@ -1009,7 +1016,14 @@ When real downstream transport is implemented:
      -d '{
        "plan_id": "dev-test",
        "spec_index": 0,
-       "spec_data": {"type": "test"},
+       "spec": {
+         "purpose": "Test stub mode",
+         "vision": "Verify compilation without API calls",
+         "must": [],
+         "dont": [],
+         "nice": [],
+         "assumptions": []
+       },
        "github_owner": "test",
        "github_repo": "test"
      }'
@@ -1261,6 +1275,34 @@ When implementing actual GitHub API integration:
 - **`GET /docs`**: Interactive API documentation (Swagger UI). Automatically generated from OpenAPI schema.
 - **`GET /openapi.json`**: OpenAPI specification in JSON format. Use this for code generation or API clients.
 
+### Regenerating the OpenAPI Schema
+
+The `spec-compiler.openapi.json` file is generated from the FastAPI application and Pydantic models. If you modify the `CompileRequest`, `CompileSpec`, or any other API models, you should regenerate the OpenAPI schema to keep documentation in sync.
+
+**To regenerate the schema:**
+
+```bash
+# Ensure you're in the project root and dependencies are installed
+pip install -r requirements.txt
+
+# Generate the schema
+PYTHONPATH=src python -c "
+from spec_compiler.app.main import app
+import json
+
+schema = app.openapi()
+with open('spec-compiler.openapi.json', 'w') as f:
+    json.dump(schema, f, indent=2)
+
+print('OpenAPI schema regenerated successfully')
+"
+```
+
+**Important Notes:**
+- The custom OpenAPI generation in `main.py` ensures `CompileSpec` is placed in the main `components/schemas` section rather than nested in `$defs`, improving SDK generation compatibility.
+- Always verify the generated schema includes all expected models and references after regeneration.
+- Commit the regenerated `spec-compiler.openapi.json` file to version control so it stays in sync with the code.
+
 ## API Models and Contracts
 
 The service defines typed Pydantic models for the compile API contract and internal LLM envelopes.
@@ -1269,35 +1311,82 @@ The service defines typed Pydantic models for the compile API contract and inter
 
 #### CompileRequest
 
-The request model for the compile endpoint with validation:
+The request model for the compile endpoint with validation. The request contains a nested `spec` object that defines the specification structure.
+
+**Request Structure:**
 
 ```python
 {
-    "plan_id": str,           # Non-empty plan identifier
-    "spec_index": int,        # Specification index (>= 0)
-    "spec_data": dict | list, # Arbitrary JSON specification data
-    "github_owner": str,      # Non-empty GitHub repository owner
-    "github_repo": str        # Non-empty GitHub repository name
+    "plan_id": str,         # Non-empty plan identifier
+    "spec_index": int,      # Specification index (>= 0)
+    "spec": {               # Nested specification object (CompileSpec)
+        "purpose": str,     # What this spec aims to achieve
+        "vision": str,      # Desired end state after implementation
+        "must": [str],      # Mandatory requirements
+        "dont": [str],      # Constraints to avoid
+        "nice": [str],      # Optional enhancements
+        "assumptions": [str] # Preconditions and assumptions
+    },
+    "github_owner": str,    # Non-empty GitHub repository owner
+    "github_repo": str      # Non-empty GitHub repository name
 }
 ```
 
 **Validation Rules:**
 - `plan_id`, `github_owner`, and `github_repo` must be non-empty and cannot be whitespace-only
 - `spec_index` must be >= 0 (zero-based indexing)
-- `spec_data` accepts both dict and list payloads without schema enforcement
+- `spec.purpose` and `spec.vision` must be non-empty strings
+- `spec.must`, `spec.dont`, `spec.nice`, and `spec.assumptions` must be arrays (can be empty)
 
 **Example:**
 ```python
-from spec_compiler import CompileRequest
+from spec_compiler import CompileRequest, CompileSpec
 
 request = CompileRequest(
     plan_id="plan-abc123",
     spec_index=0,
-    spec_data={"type": "feature", "description": "Add authentication"},
+    spec=CompileSpec(
+        purpose="Add user authentication system",
+        vision="Users can securely log in and manage their accounts",
+        must=["Support OAuth2 authentication", "Implement session management"],
+        dont=["Store passwords in plain text"],
+        nice=["Support two-factor authentication"],
+        assumptions=["HTTPS is enabled", "Database supports user tables"]
+    ),
     github_owner="my-org",
     github_repo="my-project"
 )
 ```
+
+**JSON Example:**
+```json
+{
+  "plan_id": "plan-abc123",
+  "spec_index": 0,
+  "spec": {
+    "purpose": "Add user authentication system",
+    "vision": "Users can securely log in and manage their accounts",
+    "must": [
+      "Support OAuth2 authentication",
+      "Implement session management"
+    ],
+    "dont": [
+      "Store passwords in plain text"
+    ],
+    "nice": [
+      "Support two-factor authentication"
+    ],
+    "assumptions": [
+      "HTTPS is enabled",
+      "Database supports user tables"
+    ]
+  },
+  "github_owner": "my-org",
+  "github_repo": "my-project"
+}
+```
+
+See [sample_request.v1_1.json](sample_request.v1_1.json) for a complete example request payload.
 
 #### CompileResponse
 
@@ -1332,7 +1421,7 @@ response = CompileResponse(
 
 ### Using the Compile Endpoint
 
-The compile endpoint accepts specification compilation requests and returns a 202 Accepted response while stubbing downstream LLM processing.
+The compile endpoint accepts specification compilation requests with a structured `spec` object containing six required fields: purpose, vision, must, dont, nice, and assumptions. The endpoint returns a 202 Accepted response while processing continues asynchronously.
 
 #### Making a Request
 
@@ -1345,9 +1434,26 @@ curl -X POST http://localhost:8080/compile-spec \
   -d '{
     "plan_id": "plan-abc123",
     "spec_index": 0,
-    "spec_data": {
-      "type": "feature",
-      "description": "Add user authentication"
+    "spec": {
+      "purpose": "Add user authentication system",
+      "vision": "Users can securely log in and manage their accounts",
+      "must": [
+        "Support OAuth2 authentication",
+        "Implement session management",
+        "Hash passwords with bcrypt"
+      ],
+      "dont": [
+        "Store passwords in plain text",
+        "Use deprecated authentication methods"
+      ],
+      "nice": [
+        "Support two-factor authentication",
+        "Provide password recovery flow"
+      ],
+      "assumptions": [
+        "HTTPS is enabled",
+        "Database supports user tables"
+      ]
     },
     "github_owner": "my-org",
     "github_repo": "my-project"
@@ -1364,6 +1470,38 @@ curl -X POST http://localhost:8080/compile-spec \
   "message": "Request accepted for processing"
 }
 ```
+
+**Understanding the Spec Structure:**
+
+The `spec` object is the core of the compile request and must contain six fields:
+
+- **`purpose`** (string, required): A concise statement of what this specification aims to achieve. This should be a clear, single-sentence goal.
+  
+- **`vision`** (string, required): The desired end state or outcome after implementation. Describe what success looks like.
+
+- **`must`** (array of strings, required): Mandatory requirements that must be satisfied. These are non-negotiable features or constraints. Can be empty if there are no hard requirements.
+
+- **`dont`** (array of strings, required): Constraints or things that must be avoided. List any anti-patterns, deprecated approaches, or forbidden actions. Can be empty.
+
+- **`nice`** (array of strings, required): Optional enhancements that would be beneficial but are not required. These are "nice-to-have" features. Can be empty.
+
+- **`assumptions`** (array of strings, required): Preconditions and assumptions for this specification. List environmental requirements, existing features, or dependencies. Can be empty.
+
+**Interactive API Documentation:**
+
+For hands-on exploration of the API schema, visit the interactive Swagger UI at `/docs` when the service is running:
+
+```
+http://localhost:8080/docs
+```
+
+The interactive docs provide:
+- Complete request/response schemas with all field descriptions
+- Try-it-out functionality to test requests directly from the browser
+- Validation rules and constraints for each field
+- Example payloads for each endpoint
+
+You can also access the raw OpenAPI schema at `/openapi.json` for SDK generation or integration with API clients.
 
 ### Repository Context Integration
 
@@ -1519,15 +1657,42 @@ Requests exceeding this limit will receive a 413 error:
 
 #### Validation Errors
 
-Validation errors return HTTP 422 with detailed error information:
+Validation errors return HTTP 422 with detailed error information. Common validation failures include:
 
+**Empty or whitespace-only required string fields:**
 ```json
 {
   "detail": [
     {
-      "loc": ["body", "plan_id"],
+      "loc": ["body", "spec", "purpose"],
       "msg": "Field cannot be empty or whitespace-only",
       "type": "value_error"
+    }
+  ]
+}
+```
+
+**Missing required nested fields:**
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "spec", "must"],
+      "msg": "Field required",
+      "type": "missing"
+    }
+  ]
+}
+```
+
+**Invalid array types:**
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "spec", "must"],
+      "msg": "Input should be a valid list",
+      "type": "list_type"
     }
   ]
 }
@@ -1536,11 +1701,12 @@ Validation errors return HTTP 422 with detailed error information:
 #### Edge Cases
 
 - **`spec_index=0`**: Valid, as spec_index is zero-based
-- **Empty `spec_data`**: Valid for both `{}` (dict) and `[]` (list)
-- **Whitespace-only strings**: Rejected with validation error
-- **Negative `spec_index`**: Rejected with validation error
+- **Empty arrays**: All spec arrays (`must`, `dont`, `nice`, `assumptions`) can be empty arrays
+- **Whitespace-only strings**: Rejected for `purpose` and `vision` fields with validation error
+- **Negative `spec_index`**: Rejected with validation error (must be >= 0)
 - **Malformed JSON**: Rejected with HTTP 422
 - **Missing required fields**: Rejected with HTTP 422 detailing all missing fields
+- **Extra fields in spec**: Allowed but ignored (Pydantic default behavior)
 
 #### Stubbed Behavior
 

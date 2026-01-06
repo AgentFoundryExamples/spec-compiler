@@ -1244,6 +1244,45 @@ def execute_compile_background(
     "/compile-spec",
     status_code=status.HTTP_202_ACCEPTED,
     response_model=CompileResponse,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "$ref": "#/components/schemas/CompileRequest"
+                    },
+                    "example": {
+                        "plan_id": "plan-abc123",
+                        "spec_index": 0,
+                        "spec": {
+                            "purpose": "Add user authentication system",
+                            "vision": "Users can securely log in and manage their accounts",
+                            "must": [
+                                "Support OAuth2 authentication",
+                                "Implement session management",
+                                "Hash passwords with bcrypt"
+                            ],
+                            "dont": [
+                                "Store passwords in plain text",
+                                "Use deprecated authentication methods"
+                            ],
+                            "nice": [
+                                "Support two-factor authentication",
+                                "Provide password recovery flow"
+                            ],
+                            "assumptions": [
+                                "HTTPS is enabled",
+                                "Database supports user tables"
+                            ]
+                        },
+                        "github_owner": "my-org",
+                        "github_repo": "my-project"
+                    }
+                }
+            }
+        }
+    },
     responses={
         202: {
             "description": "Request accepted for processing",
@@ -1276,7 +1315,7 @@ def execute_compile_background(
                     "example": {
                         "detail": [
                             {
-                                "loc": ["body", "plan_id"],
+                                "loc": ["body", "spec", "purpose"],
                                 "msg": "Field cannot be empty or whitespace-only",
                                 "type": "value_error",
                             }
@@ -1290,7 +1329,13 @@ def execute_compile_background(
 async def compile_spec(
     request: Request,
     background_tasks: BackgroundTasks,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    idempotency_key: Annotated[
+        str | None,
+        Header(
+            alias="Idempotency-Key",
+            description="Optional idempotency key for request deduplication. Alphanumeric, hyphens, and underscores only. Max length: 100 characters.",
+        ),
+    ] = None,
 ) -> CompileResponse:
     """
     Compile a specification with LLM integration (async 202 workflow).
