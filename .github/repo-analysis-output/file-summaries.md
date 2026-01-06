@@ -29,8 +29,8 @@ Total files: 50
 **Role:** entry-point  
 **Role Justification:** common entry point name 'main'  
 **Summary:** Python main entry point (role: entry-point)  
-**Size:** 3.78 KB  
-**LOC:** 86  
+**Size:** 6.08 KB  
+**LOC:** 112  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/app/routes/__init__.py
@@ -47,8 +47,8 @@ Total files: 50
 **Role:** implementation  
 **Role Justification:** general implementation file (default classification)  
 **Summary:** Python core implementation  
-**Size:** 43.28 KB  
-**LOC:** 1161  
+**Size:** 45.09 KB  
+**LOC:** 1206  
 **TODOs/FIXMEs:** 0  
 
 ## src/spec_compiler/app/routes/health.py

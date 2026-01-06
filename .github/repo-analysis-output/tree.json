@@ -384,6 +384,10 @@
     },
     {
       "type": "file",
+      "name": "sample_request.v1_1.json"
+    },
+    {
+      "type": "file",
       "name": "spec-compiler.openapi.json"
     }
   ]

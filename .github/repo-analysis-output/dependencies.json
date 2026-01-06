@@ -31,6 +31,7 @@
         "third-party": [
           "fastapi.FastAPI",
           "fastapi.middleware.cors.CORSMiddleware",
+          "fastapi.openapi.utils.get_openapi",
           "uvicorn"
         ]
       }
@@ -805,6 +806,10 @@
       "target": "src/spec_compiler/middleware/request_id.py"
     },
     {
+      "source": "src/spec_compiler/app/main.py",
+      "target": "src/spec_compiler/models/compile.py"
+    },
+    {
       "source": "src/spec_compiler/app/routes/compile.py",
       "target": "src/spec_compiler/config.py"
     },
@@ -1245,6 +1250,7 @@
       "fastapi.Request",
       "fastapi.Response",
       "fastapi.middleware.cors.CORSMiddleware",
+      "fastapi.openapi.utils.get_openapi",
       "fastapi.status",
       "fastapi.testclient.TestClient",
       "google.api_core.exceptions",
@@ -1274,6 +1280,6 @@
       "uvicorn"
     ],
     "stdlib_count": 29,
-    "third-party_count": 42
+    "third-party_count": 43
   }
 }

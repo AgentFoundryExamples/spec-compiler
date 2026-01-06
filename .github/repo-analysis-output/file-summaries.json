@@ -39,8 +39,8 @@
       "summary": "Python main entry point (role: entry-point)",
       "summary_text": "Python main entry point (role: entry-point)",
       "metrics": {
-        "size_bytes": 3868,
-        "loc": 86,
+        "size_bytes": 6225,
+        "loc": 112,
         "todo_count": 0
       }
     },
@@ -67,8 +67,8 @@
       "summary": "Python core implementation",
       "summary_text": "Python core implementation",
       "metrics": {
-        "size_bytes": 44318,
-        "loc": 1161,
+        "size_bytes": 46170,
+        "loc": 1206,
         "todo_count": 0
       }
     },

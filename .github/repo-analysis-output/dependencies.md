@@ -9,9 +9,9 @@ Includes classification of external dependencies as stdlib vs third-party.
 ## Statistics
 
 - **Total files**: 50
-- **Intra-repo dependencies**: 105
+- **Intra-repo dependencies**: 106
 - **External stdlib dependencies**: 29
-- **External third-party dependencies**: 42
+- **External third-party dependencies**: 43
 
 ## External Dependencies
 
@@ -43,7 +43,7 @@ Total: 29 unique modules
 
 ### Third-Party Packages
 
-Total: 42 unique packages
+Total: 43 unique packages
 
 - `anthropic.APIError`
 - `anthropic.APITimeoutError`
@@ -60,12 +60,12 @@ Total: 42 unique packages
 - `fastapi.Request`
 - `fastapi.Response`
 - `fastapi.middleware.cors.CORSMiddleware`
+- `fastapi.openapi.utils.get_openapi`
 - `fastapi.status`
 - `fastapi.testclient.TestClient`
 - `google.api_core.exceptions`
 - `google.cloud.pubsub_v1`
-- `google.oauth2.service_account`
-- ... and 22 more (see JSON for full list)
+- ... and 23 more (see JSON for full list)
 
 ## Most Depended Upon Files (Intra-Repo)
 
@@ -77,13 +77,13 @@ Total: 42 unique packages
 - `src/spec_compiler/logging.py` (6 dependents)
 - `src/spec_compiler/services/github_auth.py` (6 dependents)
 - `src/spec_compiler/services/plan_scheduler_publisher.py` (6 dependents)
+- `src/spec_compiler/models/compile.py` (5 dependents)
 - `src/spec_compiler/services/github_repo.py` (5 dependents)
-- `src/spec_compiler/models/compile.py` (4 dependents)
 
 ## Files with Most Dependencies (Intra-Repo)
 
 - `src/spec_compiler/app/routes/compile.py` (10 dependencies)
-- `src/spec_compiler/app/main.py` (6 dependencies)
+- `src/spec_compiler/app/main.py` (7 dependencies)
 - `src/spec_compiler/services/__init__.py` (6 dependencies)
 - `tests/test_services_llm.py` (5 dependencies)
 - `src/spec_compiler/app/routes/health.py` (4 dependencies)
