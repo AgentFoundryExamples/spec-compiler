@@ -269,8 +269,15 @@ def test_compile_builds_correct_llm_request_envelope(test_client: TestClient) ->
         assert captured_request.metadata["spec_index"] == 2
         assert captured_request.metadata["github_owner"] == "test-owner"
         assert captured_request.metadata["github_repo"] == "test-repo"
+        # Verify all six spec fields are properly serialized into metadata
         assert "spec_data" in captured_request.metadata
-        assert captured_request.metadata["spec_data"]["purpose"] == "Test feature"
+        spec_data = captured_request.metadata["spec_data"]
+        assert spec_data["purpose"] == "Test feature"
+        assert spec_data["vision"] == "Test implementation"
+        assert "must" in spec_data
+        assert "dont" in spec_data
+        assert "nice" in spec_data
+        assert "assumptions" in spec_data
         assert captured_request.repo_context is not None
 
 

@@ -65,6 +65,25 @@ class CompileSpec(BaseModel):
         description="List of assumptions or preconditions for this spec",
     )
 
+    @field_validator("purpose", "vision")
+    @classmethod
+    def validate_non_whitespace(cls, v: str) -> str:
+        """
+        Validate that string fields are not whitespace-only.
+
+        Args:
+            v: String value to validate
+
+        Returns:
+            The validated string value
+
+        Raises:
+            ValueError: If the string is whitespace-only
+        """
+        if not v or not v.strip():
+            raise ValueError("Field cannot be empty or whitespace-only")
+        return v
+
 
 class CompileRequest(BaseModel):
     """

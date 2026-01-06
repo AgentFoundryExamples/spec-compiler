@@ -165,6 +165,40 @@ class TestCompileSpec:
         errors = exc_info.value.errors()
         assert any(error["loc"] == ("vision",) for error in errors)
 
+    def test_whitespace_only_purpose_raises_validation_error(self) -> None:
+        """Test that whitespace-only purpose raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="   ",
+                vision="Some vision",
+                must=[],
+                dont=[],
+                nice=[],
+                assumptions=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(
+            error["loc"] == ("purpose",) and "whitespace" in str(error["msg"]).lower()
+            for error in errors
+        )
+
+    def test_whitespace_only_vision_raises_validation_error(self) -> None:
+        """Test that whitespace-only vision raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="Some purpose",
+                vision="  \t  ",
+                must=[],
+                dont=[],
+                nice=[],
+                assumptions=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(
+            error["loc"] == ("vision",) and "whitespace" in str(error["msg"]).lower()
+            for error in errors
+        )
+
     def test_must_as_string_raises_validation_error(self) -> None:
         """Test that providing must as string instead of list raises validation error."""
         with pytest.raises(ValidationError) as exc_info:

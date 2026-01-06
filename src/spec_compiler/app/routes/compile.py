@@ -1333,7 +1333,7 @@ async def compile_spec(
         github_repo=compile_request.github_repo,
         idempotency_key=safe_idempotency_key,
         spec_data_type=type(compile_request.spec).__name__,
-        spec_data_size=len(json.dumps(compile_request.spec.model_dump())),
+        spec_data_size=len(compile_request.spec.model_dump_json()),
     )
 
     # Stage 2: Publish in_progress status
