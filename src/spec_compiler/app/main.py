@@ -30,6 +30,7 @@ from spec_compiler.config import settings
 from spec_compiler.logging import get_logger
 from spec_compiler.middleware.error_handler import ErrorHandlingMiddleware
 from spec_compiler.middleware.request_id import RequestIdMiddleware
+from spec_compiler.models.compile import CompileRequest, CompileSpec
 
 logger = get_logger(__name__)
 
@@ -96,6 +97,50 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(health.router, tags=["health"])
     app.include_router(compile.router, tags=["compile"])
+
+    # Customize OpenAPI schema to include CompileRequest and CompileSpec
+    def custom_openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+        
+        from fastapi.openapi.utils import get_openapi
+        
+        openapi_schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+        
+        # Add CompileSpec schema
+        if "components" not in openapi_schema:
+            openapi_schema["components"] = {}
+        if "schemas" not in openapi_schema["components"]:
+            openapi_schema["components"]["schemas"] = {}
+        
+        # Get Pydantic schema for CompileSpec and CompileRequest
+        compile_spec_schema = CompileSpec.model_json_schema()
+        compile_request_schema = CompileRequest.model_json_schema()
+        
+        # Move CompileSpec from $defs to main schemas if present
+        if "$defs" in compile_request_schema and "CompileSpec" in compile_request_schema["$defs"]:
+            openapi_schema["components"]["schemas"]["CompileSpec"] = compile_request_schema["$defs"]["CompileSpec"]
+            # Update the reference in CompileRequest to point to components/schemas
+            if "spec" in compile_request_schema.get("properties", {}):
+                compile_request_schema["properties"]["spec"]["$ref"] = "#/components/schemas/CompileSpec"
+            # Remove $defs from CompileRequest
+            del compile_request_schema["$defs"]
+        else:
+            # Add CompileSpec directly if not in $defs
+            openapi_schema["components"]["schemas"]["CompileSpec"] = compile_spec_schema
+        
+        # Add CompileRequest schema
+        openapi_schema["components"]["schemas"]["CompileRequest"] = compile_request_schema
+        
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+    
+    app.openapi = custom_openapi  # type: ignore[method-assign]
 
     # Version endpoint
     @app.get("/version", tags=["info"])

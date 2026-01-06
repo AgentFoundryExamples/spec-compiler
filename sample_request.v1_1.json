@@ -1,0 +1,30 @@
+{
+  "plan_id": "plan-abc123",
+  "spec_index": 0,
+  "spec": {
+    "purpose": "Enhance celestial visuals and themes",
+    "vision": "Deliver realistic celestial rendering and admin theme controls with high-quality textures, consistent lighting, and customizable theme presets",
+    "must": [
+      "Add reusable texture, normal, and halo assets plus shading tweaks for planets, moons, and stars",
+      "Update rendering components to apply consistent lighting, rotation cues, and faint glow borders tied to theme colors",
+      "Extend admin editors to manage theme presets (planet type, lunar traits, star halo intensity) persisted through universe data services",
+      "Document art direction guidelines and workflow updates for configuring celestial themes"
+    ],
+    "dont": [
+      "Do not reposition celestial objects; limit changes to styling, shading, and metadata",
+      "Do not bloat bundle sizes or drop frame rates; enforce compression and asset reuse"
+    ],
+    "nice": [
+      "Support high-DPI/mobile devices with maintained performance",
+      "Provide texture import failure degradation with placeholder shading",
+      "Enable server-side rendering paths with lazily loaded materials"
+    ],
+    "assumptions": [
+      "Existing planets, moons, and stars look placeholder and lack customization",
+      "Large textures can bloat bundle sizes or drop frame rates if not compressed",
+      "Missing or legacy theme data will need fallback to default presets"
+    ]
+  },
+  "github_owner": "my-org",
+  "github_repo": "my-project"
+}
