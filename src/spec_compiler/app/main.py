@@ -24,6 +24,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 
 from spec_compiler.app.routes import compile, health
 from spec_compiler.config import settings
@@ -102,8 +103,6 @@ def create_app() -> FastAPI:
     def custom_openapi():
         if app.openapi_schema:
             return app.openapi_schema
-        
-        from fastapi.openapi.utils import get_openapi
         
         openapi_schema = get_openapi(
             title=app.title,
