@@ -217,7 +217,7 @@ class TestOpenAiResponsesClient:
         request = LlmRequestEnvelope(
             request_id="req-123",
             system_prompt=SystemPromptConfig(template="Test prompt", max_tokens=1000),
-            metadata={"spec_data": {"test": "data"}},
+            metadata={"spec": _create_valid_spec()},
         )
 
         structure = client._compose_input_structure(request)
@@ -432,7 +432,7 @@ class TestOpenAiResponsesClient:
         with patch.object(client.client.responses, "create", return_value=mock_response):
             request = LlmRequestEnvelope(
                 request_id="req-123",
-                metadata={"spec_data": {}},
+                metadata={"spec": _create_valid_spec()},
             )
 
             response = client.generate_response(request)
@@ -576,6 +576,27 @@ class TestLlmClientIntegration:
 
         # Verify content can be parsed as LlmCompiledSpecOutput
         from spec_compiler.models.llm import LlmCompiledSpecOutput
+
+
+def _create_valid_spec(
+    purpose: str = "Test purpose",
+    vision: str = "Test vision",
+    must: list[str] | None = None,
+    dont: list[str] | None = None,
+    nice: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> dict:
+    """Helper to create a valid spec dictionary for testing."""
+    return {
+        "purpose": purpose,
+        "vision": vision,
+        "must": must if must is not None else [],
+        "dont": dont if dont is not None else [],
+        "nice": nice if nice is not None else [],
+        "assumptions": assumptions if assumptions is not None else [],
+    }
+
+
 
         compiled = LlmCompiledSpecOutput.from_json_string(response.content)
         assert compiled.version is not None

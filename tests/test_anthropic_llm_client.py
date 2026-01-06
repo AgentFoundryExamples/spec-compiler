@@ -30,6 +30,27 @@ from spec_compiler.services.anthropic_llm_client import ClaudeLlmClient
 from spec_compiler.services.llm_client import LlmApiError, LlmConfigurationError
 
 
+def _create_valid_spec(
+    purpose: str = "Test purpose",
+    vision: str = "Test vision",
+    must: list[str] | None = None,
+    dont: list[str] | None = None,
+    nice: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> dict:
+    """Helper to create a valid spec dictionary for testing."""
+    return {
+        "purpose": purpose,
+        "vision": vision,
+        "must": must if must is not None else [],
+        "dont": dont if dont is not None else [],
+        "nice": nice if nice is not None else [],
+        "assumptions": assumptions if assumptions is not None else [],
+    }
+
+
+
+
 class TestClaudeLlmClient:
     """Tests for ClaudeLlmClient."""
 
@@ -106,7 +127,7 @@ class TestClaudeLlmClient:
                 request = LlmRequestEnvelope(
                     request_id="req-123",
                     system_prompt=SystemPromptConfig(template="Test prompt", max_tokens=1000),
-                    metadata={"spec_data": {"test": "data"}},
+                    metadata={"spec": _create_valid_spec()},
                 )
                 
                 client.generate_response(request)
@@ -125,7 +146,7 @@ class TestClaudeLlmClient:
         request = LlmRequestEnvelope(
             request_id="req-123",
             system_prompt=SystemPromptConfig(template="Test prompt", max_tokens=1000),
-            metadata={"spec_data": {"test": "data"}},
+            metadata={"spec": _create_valid_spec()},
         )
 
         payload = client._build_request_payload(request)
@@ -151,7 +172,7 @@ class TestClaudeLlmClient:
             request = LlmRequestEnvelope(
                 request_id="req-123",
                 system_prompt=SystemPromptConfig(template="", max_tokens=2048),
-                metadata={"spec_data": {}},
+                metadata={"spec": _create_valid_spec()},
             )
 
             payload = client._build_request_payload(request)
@@ -380,7 +401,7 @@ class TestClaudeLlmClient:
             request = LlmRequestEnvelope(
                 request_id="req-123",
                 system_prompt=SystemPromptConfig(template="Test", max_tokens=1000),
-                metadata={"spec_data": {}},
+                metadata={"spec": _create_valid_spec()},
             )
 
             response = client.generate_response(request)
@@ -416,7 +437,7 @@ class TestClaudeLlmClient:
                 request = LlmRequestEnvelope(
                     request_id="req-123",
                     system_prompt=SystemPromptConfig(template="Test", max_tokens=1000),
-                    metadata={"spec_data": {}},
+                    metadata={"spec": _create_valid_spec()},
                 )
 
                 client.generate_response(request)
@@ -446,7 +467,7 @@ class TestClaudeLlmClient:
             request = LlmRequestEnvelope(
                 request_id="req-123",
                 system_prompt=SystemPromptConfig(template="Test", max_tokens=1000),
-                metadata={"spec_data": {}},
+                metadata={"spec": _create_valid_spec()},
             )
 
             with pytest.raises(LlmApiError):

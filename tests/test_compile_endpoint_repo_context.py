@@ -75,7 +75,7 @@ def test_compile_with_successful_repo_context_fetch(
     payload = {
         "plan_id": "plan-repo-context",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -111,7 +111,7 @@ def test_compile_with_minting_error_returns_5xx(
     payload = {
         "plan_id": "plan-minting-error",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -135,7 +135,7 @@ def test_compile_with_minting_error_4xx_returns_502(
     payload = {
         "plan_id": "plan-minting-404",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -157,7 +157,7 @@ def test_compile_with_minting_not_configured_returns_500(
     payload = {
         "plan_id": "plan-not-configured",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -188,7 +188,7 @@ def test_compile_with_missing_tree_json_uses_fallback(
     payload = {
         "plan_id": "plan-missing-tree",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -215,7 +215,7 @@ def test_compile_with_all_files_missing_uses_all_fallbacks(
     payload = {
         "plan_id": "plan-all-missing",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -251,7 +251,7 @@ def test_compile_with_malformed_json_uses_fallback(
     payload = {
         "plan_id": "plan-malformed-json",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -285,7 +285,7 @@ def test_compile_with_partial_file_success(
     payload = {
         "plan_id": "plan-partial-success",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -309,7 +309,7 @@ def test_compile_repo_context_fetch_unexpected_error(
     payload = {
         "plan_id": "plan-unexpected-error",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -334,7 +334,7 @@ def test_compile_error_response_maintains_valid_json(
     payload = {
         "plan_id": "plan-json-check",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -365,7 +365,7 @@ def test_compile_logs_repo_context_metadata(
     payload = {
         "plan_id": "plan-logging-check",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -403,7 +403,7 @@ def test_compile_with_non_list_tree_data_uses_fallback(
     payload = {
         "plan_id": "plan-invalid-tree-type",
         "spec_index": 0,
-        "spec_data": {},
+        "spec": _create_valid_spec(),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -418,6 +418,27 @@ def test_compile_with_non_list_tree_data_uses_fallback(
 def test_fetch_repo_context_function_directly():
     """Test the fetch_repo_context helper function directly."""
     from spec_compiler.app.routes.compile import fetch_repo_context
+
+
+def _create_valid_spec(
+    purpose: str = "Test purpose",
+    vision: str = "Test vision",
+    must: list[str] | None = None,
+    dont: list[str] | None = None,
+    nice: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> dict:
+    """Helper to create a valid spec dictionary for testing."""
+    return {
+        "purpose": purpose,
+        "vision": vision,
+        "must": must if must is not None else [],
+        "dont": dont if dont is not None else [],
+        "nice": nice if nice is not None else [],
+        "assumptions": assumptions if assumptions is not None else [],
+    }
+
+
 
     with patch("spec_compiler.app.routes.compile.GitHubRepoClient") as mock_client_class:
         mock_instance = MagicMock()

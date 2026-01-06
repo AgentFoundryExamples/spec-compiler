@@ -25,6 +25,27 @@ import pytest
 from fastapi.testclient import TestClient
 
 
+def _create_valid_spec(
+    purpose: str = "Test purpose",
+    vision: str = "Test vision",
+    must: list[str] | None = None,
+    dont: list[str] | None = None,
+    nice: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> dict:
+    """Helper to create a valid spec dictionary for testing."""
+    return {
+        "purpose": purpose,
+        "vision": vision,
+        "must": must if must is not None else [],
+        "dont": dont if dont is not None else [],
+        "nice": nice if nice is not None else [],
+        "assumptions": assumptions if assumptions is not None else [],
+    }
+
+
+
+
 def test_compile_logs_all_stage_entries_and_exits(test_client: TestClient, caplog) -> None:
     """Test that all stages log their entry and exit."""
     caplog.set_level(logging.INFO)
@@ -32,7 +53,7 @@ def test_compile_logs_all_stage_entries_and_exits(test_client: TestClient, caplo
     payload = {
         "plan_id": "plan-stages",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -78,7 +99,7 @@ def test_compile_logs_llm_latency_metrics(test_client: TestClient, caplog) -> No
     payload = {
         "plan_id": "plan-latency",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -122,7 +143,7 @@ def test_compile_logs_provider_and_model_info(test_client: TestClient, caplog) -
     payload = {
         "plan_id": "plan-provider",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -167,7 +188,7 @@ def test_compile_invokes_downstream_sender(test_client: TestClient, caplog) -> N
     payload = {
         "plan_id": "plan-downstream",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -203,7 +224,7 @@ def test_compile_stage_order_is_enforced(test_client: TestClient, caplog) -> Non
     payload = {
         "plan_id": "plan-order",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -263,7 +284,7 @@ def test_compile_request_id_propagated_through_all_stages(
     payload = {
         "plan_id": "plan-request-id",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -293,7 +314,7 @@ def test_compile_downstream_send_skip_flag_works(test_client: TestClient, caplog
     payload = {
         "plan_id": "plan-skip-downstream",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }
@@ -317,7 +338,7 @@ def test_compile_latency_metrics_include_actual_duration(
     payload = {
         "plan_id": "plan-duration",
         "spec_index": 0,
-        "spec_data": {"type": "feature"},
+        "spec": _create_valid_spec(purpose="Test feature", vision="Test vision"),
         "github_owner": "test-owner",
         "github_repo": "test-repo",
     }

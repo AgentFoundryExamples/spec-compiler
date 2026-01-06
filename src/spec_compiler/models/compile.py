@@ -22,6 +22,69 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 
+class CompileSpec(BaseModel):
+    """
+    Specification data model containing the structured spec contract.
+
+    This model defines the six required fields that make up a specification,
+    providing clear documentation and validation for the compile endpoint.
+
+    Attributes:
+        purpose: A concise statement of what this spec aims to achieve
+        vision: The desired end state or outcome after implementation
+        must: List of mandatory requirements that must be satisfied
+        dont: List of constraints or things that must be avoided
+        nice: List of optional enhancements that would be beneficial but not required
+        assumptions: List of assumptions or preconditions for this spec
+    """
+
+    purpose: str = Field(
+        ...,
+        description="A concise statement of what this spec aims to achieve",
+        min_length=1,
+    )
+    vision: str = Field(
+        ...,
+        description="The desired end state or outcome after implementation",
+        min_length=1,
+    )
+    must: list[str] = Field(
+        ...,
+        description="List of mandatory requirements that must be satisfied",
+    )
+    dont: list[str] = Field(
+        ...,
+        description="List of constraints or things that must be avoided",
+    )
+    nice: list[str] = Field(
+        ...,
+        description="List of optional enhancements that would be beneficial but not required",
+    )
+    assumptions: list[str] = Field(
+        ...,
+        description="List of assumptions or preconditions for this spec",
+    )
+
+    @field_validator("purpose", "vision")
+    @classmethod
+    def validate_non_whitespace(cls, v: str) -> str:
+        """
+        Validate that string fields are not whitespace-only.
+
+        Args:
+            v: String value to validate
+
+        Returns:
+            The validated string value
+
+        Raises:
+            ValueError: If the string is whitespace-only
+        """
+        if not v or not v.strip():
+            raise ValueError("Field cannot be empty or whitespace-only")
+        return v
+
+
 class CompileRequest(BaseModel):
     """
     Request model for the compile API endpoint.
@@ -32,7 +95,7 @@ class CompileRequest(BaseModel):
     Attributes:
         plan_id: Non-empty identifier for the plan
         spec_index: Zero-based index of the specification (must be >= 0)
-        spec_data: Arbitrary JSON data (dict or list) representing the specification
+        spec: Structured specification containing purpose, vision, requirements, and constraints
         github_owner: Non-empty GitHub repository owner (user or organization)
         github_repo: Non-empty GitHub repository name
     """
@@ -47,9 +110,9 @@ class CompileRequest(BaseModel):
         description="Specification index (must be >= 0)",
         ge=0,
     )
-    spec_data: dict[str, Any] | list[Any] = Field(
+    spec: CompileSpec = Field(
         ...,
-        description="Specification data as arbitrary JSON (dict or list)",
+        description="Structured specification containing purpose, vision, requirements, and constraints",
     )
     github_owner: str = Field(
         ...,
