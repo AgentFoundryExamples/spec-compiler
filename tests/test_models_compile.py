@@ -21,45 +21,306 @@ rules and edge cases.
 import pytest
 from pydantic import ValidationError
 
-from spec_compiler.models.compile import CompileRequest, CompileResponse
+from spec_compiler.models.compile import CompileRequest, CompileResponse, CompileSpec
+
+
+class TestCompileSpec:
+    """Tests for CompileSpec model."""
+
+    def test_valid_spec_with_all_fields(self) -> None:
+        """Test valid CompileSpec with all required fields."""
+        spec = CompileSpec(
+            purpose="Add user authentication",
+            vision="Users can securely log in and manage their accounts",
+            must=["Support OAuth2", "Store passwords securely"],
+            dont=["Store passwords in plain text", "Use deprecated auth libraries"],
+            nice=["Support social login", "Add two-factor authentication"],
+            assumptions=["Users have email addresses", "HTTPS is enabled"],
+        )
+        assert spec.purpose == "Add user authentication"
+        assert spec.vision == "Users can securely log in and manage their accounts"
+        assert len(spec.must) == 2
+        assert len(spec.dont) == 2
+        assert len(spec.nice) == 2
+        assert len(spec.assumptions) == 2
+
+    def test_valid_spec_with_empty_lists(self) -> None:
+        """Test that empty lists are valid for list fields."""
+        spec = CompileSpec(
+            purpose="Simple change",
+            vision="Quick fix",
+            must=[],
+            dont=[],
+            nice=[],
+            assumptions=[],
+        )
+        assert spec.must == []
+        assert spec.dont == []
+        assert spec.nice == []
+        assert spec.assumptions == []
+
+    def test_missing_purpose_raises_validation_error(self) -> None:
+        """Test that missing purpose field raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                vision="Some vision",
+                must=[],
+                dont=[],
+                nice=[],
+                assumptions=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("purpose",) for error in errors)
+
+    def test_missing_vision_raises_validation_error(self) -> None:
+        """Test that missing vision field raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="Some purpose",
+                must=[],
+                dont=[],
+                nice=[],
+                assumptions=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("vision",) for error in errors)
+
+    def test_missing_must_raises_validation_error(self) -> None:
+        """Test that missing must field raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="Some purpose",
+                vision="Some vision",
+                dont=[],
+                nice=[],
+                assumptions=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("must",) for error in errors)
+
+    def test_missing_dont_raises_validation_error(self) -> None:
+        """Test that missing dont field raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="Some purpose",
+                vision="Some vision",
+                must=[],
+                nice=[],
+                assumptions=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("dont",) for error in errors)
+
+    def test_missing_nice_raises_validation_error(self) -> None:
+        """Test that missing nice field raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="Some purpose",
+                vision="Some vision",
+                must=[],
+                dont=[],
+                assumptions=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("nice",) for error in errors)
+
+    def test_missing_assumptions_raises_validation_error(self) -> None:
+        """Test that missing assumptions field raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="Some purpose",
+                vision="Some vision",
+                must=[],
+                dont=[],
+                nice=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("assumptions",) for error in errors)
+
+    def test_empty_purpose_raises_validation_error(self) -> None:
+        """Test that empty purpose string raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="",
+                vision="Some vision",
+                must=[],
+                dont=[],
+                nice=[],
+                assumptions=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("purpose",) for error in errors)
+
+    def test_empty_vision_raises_validation_error(self) -> None:
+        """Test that empty vision string raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="Some purpose",
+                vision="",
+                must=[],
+                dont=[],
+                nice=[],
+                assumptions=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("vision",) for error in errors)
+
+    def test_must_as_string_raises_validation_error(self) -> None:
+        """Test that providing must as string instead of list raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="Some purpose",
+                vision="Some vision",
+                must="should be a list",
+                dont=[],
+                nice=[],
+                assumptions=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("must",) for error in errors)
+
+    def test_dont_as_string_raises_validation_error(self) -> None:
+        """Test that providing dont as string instead of list raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="Some purpose",
+                vision="Some vision",
+                must=[],
+                dont="should be a list",
+                nice=[],
+                assumptions=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("dont",) for error in errors)
+
+    def test_nice_as_string_raises_validation_error(self) -> None:
+        """Test that providing nice as string instead of list raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="Some purpose",
+                vision="Some vision",
+                must=[],
+                dont=[],
+                nice="should be a list",
+                assumptions=[],
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("nice",) for error in errors)
+
+    def test_assumptions_as_string_raises_validation_error(self) -> None:
+        """Test that providing assumptions as string instead of list raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileSpec(
+                purpose="Some purpose",
+                vision="Some vision",
+                must=[],
+                dont=[],
+                nice=[],
+                assumptions="should be a list",
+            )
+        errors = exc_info.value.errors()
+        assert any(error["loc"] == ("assumptions",) for error in errors)
+
+    def test_model_serialization(self) -> None:
+        """Test that CompileSpec can be serialized to dict."""
+        spec = CompileSpec(
+            purpose="Test purpose",
+            vision="Test vision",
+            must=["req1", "req2"],
+            dont=["avoid1"],
+            nice=["nice1"],
+            assumptions=["assume1"],
+        )
+        data = spec.model_dump()
+        assert data == {
+            "purpose": "Test purpose",
+            "vision": "Test vision",
+            "must": ["req1", "req2"],
+            "dont": ["avoid1"],
+            "nice": ["nice1"],
+            "assumptions": ["assume1"],
+        }
+
+    def test_model_deserialization_from_json(self) -> None:
+        """Test that CompileSpec can be deserialized from JSON."""
+        json_str = """
+        {
+            "purpose": "Test purpose",
+            "vision": "Test vision",
+            "must": ["req1"],
+            "dont": ["avoid1"],
+            "nice": [],
+            "assumptions": ["assume1"]
+        }
+        """
+        spec = CompileSpec.model_validate_json(json_str)
+        assert spec.purpose == "Test purpose"
+        assert spec.vision == "Test vision"
+        assert spec.must == ["req1"]
+        assert spec.dont == ["avoid1"]
+        assert spec.nice == []
+        assert spec.assumptions == ["assume1"]
 
 
 class TestCompileRequest:
     """Tests for CompileRequest model."""
 
-    def test_valid_request_with_dict_spec_data(self) -> None:
-        """Test valid request with dict spec_data."""
+    def test_valid_request_with_spec(self) -> None:
+        """Test valid request with CompileSpec."""
+        spec = CompileSpec(
+            purpose="Add authentication",
+            vision="Secure user login",
+            must=["OAuth2 support"],
+            dont=["Plain text passwords"],
+            nice=["Social login"],
+            assumptions=["HTTPS enabled"],
+        )
         request = CompileRequest(
             plan_id="plan-123",
             spec_index=0,
-            spec_data={"key": "value", "nested": {"data": 123}},
+            spec=spec,
             github_owner="example-owner",
             github_repo="example-repo",
         )
         assert request.plan_id == "plan-123"
         assert request.spec_index == 0
-        assert request.spec_data == {"key": "value", "nested": {"data": 123}}
+        assert request.spec.purpose == "Add authentication"
         assert request.github_owner == "example-owner"
         assert request.github_repo == "example-repo"
 
-    def test_valid_request_with_list_spec_data(self) -> None:
-        """Test valid request with list spec_data."""
+    def test_valid_request_with_inline_spec(self) -> None:
+        """Test valid request with inline spec dict."""
         request = CompileRequest(
             plan_id="plan-456",
             spec_index=5,
-            spec_data=[1, 2, {"nested": "value"}],
+            spec={
+                "purpose": "Fix bug",
+                "vision": "Bug is resolved",
+                "must": ["Fix crash"],
+                "dont": ["Break existing features"],
+                "nice": ["Add tests"],
+                "assumptions": ["Bug is reproducible"],
+            },
             github_owner="test-org",
             github_repo="test-repo",
         )
         assert request.spec_index == 5
-        assert request.spec_data == [1, 2, {"nested": "value"}]
+        assert request.spec.purpose == "Fix bug"
+        assert request.spec.must == ["Fix crash"]
 
     def test_spec_index_zero_is_valid(self) -> None:
         """Test that spec_index can be zero."""
         request = CompileRequest(
             plan_id="plan-0",
             spec_index=0,
-            spec_data={},
+            spec={
+                "purpose": "Test",
+                "vision": "Test",
+                "must": [],
+                "dont": [],
+                "nice": [],
+                "assumptions": [],
+            },
             github_owner="owner",
             github_repo="repo",
         )
@@ -71,7 +332,14 @@ class TestCompileRequest:
             CompileRequest(
                 plan_id="plan-123",
                 spec_index=-1,
-                spec_data={},
+                spec={
+                    "purpose": "Test",
+                    "vision": "Test",
+                    "must": [],
+                    "dont": [],
+                    "nice": [],
+                    "assumptions": [],
+                },
                 github_owner="owner",
                 github_repo="repo",
             )
@@ -87,7 +355,14 @@ class TestCompileRequest:
             CompileRequest(
                 plan_id="",
                 spec_index=0,
-                spec_data={},
+                spec={
+                    "purpose": "Test",
+                    "vision": "Test",
+                    "must": [],
+                    "dont": [],
+                    "nice": [],
+                    "assumptions": [],
+                },
                 github_owner="owner",
                 github_repo="repo",
             )
@@ -100,7 +375,14 @@ class TestCompileRequest:
             CompileRequest(
                 plan_id="   ",
                 spec_index=0,
-                spec_data={},
+                spec={
+                    "purpose": "Test",
+                    "vision": "Test",
+                    "must": [],
+                    "dont": [],
+                    "nice": [],
+                    "assumptions": [],
+                },
                 github_owner="owner",
                 github_repo="repo",
             )
@@ -116,7 +398,14 @@ class TestCompileRequest:
             CompileRequest(
                 plan_id="plan-123",
                 spec_index=0,
-                spec_data={},
+                spec={
+                    "purpose": "Test",
+                    "vision": "Test",
+                    "must": [],
+                    "dont": [],
+                    "nice": [],
+                    "assumptions": [],
+                },
                 github_owner="  \t  ",
                 github_repo="repo",
             )
@@ -132,7 +421,14 @@ class TestCompileRequest:
             CompileRequest(
                 plan_id="plan-123",
                 spec_index=0,
-                spec_data={},
+                spec={
+                    "purpose": "Test",
+                    "vision": "Test",
+                    "must": [],
+                    "dont": [],
+                    "nice": [],
+                    "assumptions": [],
+                },
                 github_owner="owner",
                 github_repo="  \n  ",
             )
@@ -148,7 +444,14 @@ class TestCompileRequest:
             CompileRequest(
                 plan_id="plan-123",
                 spec_index=0,
-                spec_data={},
+                spec={
+                    "purpose": "Test",
+                    "vision": "Test",
+                    "must": [],
+                    "dont": [],
+                    "nice": [],
+                    "assumptions": [],
+                },
                 github_owner="",
                 github_repo="repo",
             )
@@ -161,7 +464,14 @@ class TestCompileRequest:
             CompileRequest(
                 plan_id="plan-123",
                 spec_index=0,
-                spec_data={},
+                spec={
+                    "purpose": "Test",
+                    "vision": "Test",
+                    "must": [],
+                    "dont": [],
+                    "nice": [],
+                    "assumptions": [],
+                },
                 github_owner="owner",
                 github_repo="",
             )
@@ -174,35 +484,52 @@ class TestCompileRequest:
             CompileRequest(
                 plan_id="plan-123",
                 spec_index=0,
-                # Missing spec_data, github_owner, github_repo
+                # Missing spec, github_owner, github_repo
             )
         errors = exc_info.value.errors()
         assert len(errors) >= 3
 
-    def test_spec_data_empty_dict_is_valid(self) -> None:
-        """Test that empty dict spec_data is valid."""
+    def test_spec_with_empty_lists_is_valid(self) -> None:
+        """Test that spec with empty lists is valid."""
         request = CompileRequest(
             plan_id="plan-123",
             spec_index=0,
-            spec_data={},
+            spec={
+                "purpose": "Test",
+                "vision": "Test",
+                "must": [],
+                "dont": [],
+                "nice": [],
+                "assumptions": [],
+            },
             github_owner="owner",
             github_repo="repo",
         )
-        assert request.spec_data == {}
+        assert request.spec.must == []
+        assert request.spec.dont == []
+        assert request.spec.nice == []
+        assert request.spec.assumptions == []
 
-    def test_spec_data_empty_list_is_valid(self) -> None:
-        """Test that empty list spec_data is valid."""
-        request = CompileRequest(
-            plan_id="plan-123",
-            spec_index=0,
-            spec_data=[],
-            github_owner="owner",
-            github_repo="repo",
-        )
-        assert request.spec_data == []
+    def test_spec_missing_field_raises_validation_error(self) -> None:
+        """Test that missing spec field raises validation error."""
+        with pytest.raises(ValidationError) as exc_info:
+            CompileRequest(
+                plan_id="plan-123",
+                spec_index=0,
+                spec={
+                    "purpose": "Test",
+                    "vision": "Test",
+                    # Missing must, dont, nice, assumptions
+                },
+                github_owner="owner",
+                github_repo="repo",
+            )
+        errors = exc_info.value.errors()
+        # Should have errors for the missing fields in spec
+        assert any("spec" in str(error["loc"]) for error in errors)
 
-    def test_spec_data_complex_nested_structure(self) -> None:
-        """Test spec_data with complex nested structure."""
+    def test_spec_with_populated_lists(self) -> None:
+        """Test spec with populated list fields."""
         complex_data = {
             "level1": {
                 "level2": [
@@ -215,29 +542,44 @@ class TestCompileRequest:
         request = CompileRequest(
             plan_id="plan-complex",
             spec_index=10,
-            spec_data=complex_data,
+            spec={
+                "purpose": "Complex spec",
+                "vision": "Handle complex scenarios",
+                "must": ["requirement 1", "requirement 2", "requirement 3"],
+                "dont": ["avoid pattern 1", "avoid pattern 2"],
+                "nice": ["nice to have 1"],
+                "assumptions": ["assumption 1", "assumption 2"],
+            },
             github_owner="complex-owner",
             github_repo="complex-repo",
         )
-        assert request.spec_data == complex_data
+        assert len(request.spec.must) == 3
+        assert len(request.spec.dont) == 2
+        assert len(request.spec.nice) == 1
+        assert len(request.spec.assumptions) == 2
 
     def test_model_serialization(self) -> None:
         """Test that model can be serialized to dict."""
         request = CompileRequest(
             plan_id="plan-123",
             spec_index=2,
-            spec_data={"test": "data"},
+            spec={
+                "purpose": "Test",
+                "vision": "Test vision",
+                "must": ["req1"],
+                "dont": [],
+                "nice": [],
+                "assumptions": [],
+            },
             github_owner="owner",
             github_repo="repo",
         )
         data = request.model_dump()
-        assert data == {
-            "plan_id": "plan-123",
-            "spec_index": 2,
-            "spec_data": {"test": "data"},
-            "github_owner": "owner",
-            "github_repo": "repo",
-        }
+        assert data["plan_id"] == "plan-123"
+        assert data["spec_index"] == 2
+        assert data["spec"]["purpose"] == "Test"
+        assert data["github_owner"] == "owner"
+        assert data["github_repo"] == "repo"
 
     def test_model_deserialization_from_json(self) -> None:
         """Test that model can be deserialized from JSON."""
@@ -245,7 +587,14 @@ class TestCompileRequest:
         {
             "plan_id": "plan-json",
             "spec_index": 3,
-            "spec_data": {"from": "json"},
+            "spec": {
+                "purpose": "Test purpose",
+                "vision": "Test vision",
+                "must": ["req1"],
+                "dont": [],
+                "nice": [],
+                "assumptions": []
+            },
             "github_owner": "json-owner",
             "github_repo": "json-repo"
         }
@@ -253,7 +602,7 @@ class TestCompileRequest:
         request = CompileRequest.model_validate_json(json_str)
         assert request.plan_id == "plan-json"
         assert request.spec_index == 3
-        assert request.spec_data == {"from": "json"}
+        assert request.spec.purpose == "Test purpose"
 
 
 class TestCompileResponse:

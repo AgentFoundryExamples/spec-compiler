@@ -20,7 +20,7 @@ Exports compile API contract models and LLM envelope models.
 import uuid
 from typing import Any, Literal
 
-from spec_compiler.models.compile import CompileRequest, CompileResponse
+from spec_compiler.models.compile import CompileRequest, CompileResponse, CompileSpec
 from spec_compiler.models.llm import (
     GitHubAuthToken,
     LlmCompiledSpecOutput,
@@ -34,6 +34,7 @@ from spec_compiler.models.plan_status import PlanStatusMessage
 __all__ = [
     "CompileRequest",
     "CompileResponse",
+    "CompileSpec",
     "SystemPromptConfig",
     "RepoContextPayload",
     "LlmRequestEnvelope",

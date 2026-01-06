@@ -768,7 +768,7 @@ def stage_call_llm(
                 "spec_index": compile_request.spec_index,
                 "github_owner": compile_request.github_owner,
                 "github_repo": compile_request.github_repo,
-                "spec_data": compile_request.spec_data,
+                "spec_data": compile_request.spec.model_dump(),
             },
         )
 
@@ -1332,8 +1332,8 @@ async def compile_spec(
         github_owner=compile_request.github_owner,
         github_repo=compile_request.github_repo,
         idempotency_key=safe_idempotency_key,
-        spec_data_type=type(compile_request.spec_data).__name__,
-        spec_data_size=len(json.dumps(compile_request.spec_data)),
+        spec_data_type=type(compile_request.spec).__name__,
+        spec_data_size=len(json.dumps(compile_request.spec.model_dump())),
     )
 
     # Stage 2: Publish in_progress status
