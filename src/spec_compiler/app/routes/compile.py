@@ -1329,7 +1329,13 @@ def execute_compile_background(
 async def compile_spec(
     request: Request,
     background_tasks: BackgroundTasks,
-    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+    idempotency_key: Annotated[
+        str | None,
+        Header(
+            alias="Idempotency-Key",
+            description="Optional idempotency key for request deduplication. Alphanumeric, hyphens, and underscores only. Max length: 100 characters.",
+        ),
+    ] = None,
 ) -> CompileResponse:
     """
     Compile a specification with LLM integration (async 202 workflow).

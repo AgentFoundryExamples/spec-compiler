@@ -87,8 +87,10 @@
                   "type": "null"
                 }
               ],
+              "description": "Optional idempotency key for request deduplication. Alphanumeric, hyphens, and underscores only. Max length: 100 characters.",
               "title": "Idempotency-Key"
-            }
+            },
+            "description": "Optional idempotency key for request deduplication. Alphanumeric, hyphens, and underscores only. Max length: 100 characters."
           }
         ],
         "responses": {
